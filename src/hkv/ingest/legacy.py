@@ -118,9 +118,6 @@ class LegacyLoader:
                 found = variant[0][0], "spelling_variant"
         if found:
             self.conn.execute(
-                """UPDATE data_issue SET status = 'resolved', resolved_at = now()
-                   WHERE issue_type = 'legacy_person_unresolved' AND external_ref = %s AND status = 'open'""", (f"vip:{vip_id}",))
-            self.conn.execute(
                 "INSERT INTO legacy_person_map (vip_id, person_id, name_he, method) VALUES (%s, %s, %s, %s) ON CONFLICT DO NOTHING",
                 (vip_id, found[0], name, found[1]))
         return found
@@ -152,6 +149,7 @@ class LegacyLoader:
         if legacy_only:
             self.base.resolve_affiliations(legacy_only)
         with self.base.run("legacy_totals_check", window, source=SOURCE):
+            self._close_resolved_person_issues()
             result = self._check_totals(sorted(headers))
         log.info("legacy %s..%s done: %s", date_from, date_to, result)
         return {"headers": len(headers), "legacy_only": len(legacy_only), **result}
@@ -293,6 +291,13 @@ class LegacyLoader:
                    WHERE b.vote_id = v.id AND v.knesset_vote_id = ANY(%s) AND b.legacy_reason IS NULL
                      AND b.counted_in_official_total IS DISTINCT FROM true""", (list(headers),))
         self.base.counts["flagged"] = flagged
+
+    def _close_resolved_person_issues(self) -> None:
+        """The same vip can appear under several spellings; once any of them resolved, the issue is closed."""
+        self.conn.execute(
+            """UPDATE data_issue SET status = 'resolved', resolved_at = now()
+               WHERE issue_type = 'legacy_person_unresolved' AND status = 'open'
+                 AND substr(external_ref, 5)::int IN (SELECT vip_id FROM legacy_person_map)""")
 
     def _check_totals(self, vote_ids: list[int]) -> dict:
         rows = self.conn.execute(
