@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.DS_Store
+node_modules/
+# raw source dumps are never committed; only small fixtures under tests/fixtures
+data/
+audit/raw/
+audit/*.log
