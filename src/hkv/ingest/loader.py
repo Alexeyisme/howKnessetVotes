@@ -38,14 +38,15 @@ class Loader:
     # -- bookkeeping ------------------------------------------------------------------------------
 
     @contextmanager
-    def run(self, resource: str, watermark: dict | None = None, atomic: bool = True) -> Iterator[None]:
+    def run(self, resource: str, watermark: dict | None = None, atomic: bool = True,
+            source: str = "knesset_odata_v4") -> Iterator[None]:
         """One ingestion_run. atomic=True: everything in one transaction. atomic=False: the body commits
         its own batches (long steps, resumable), and the run row records the outcome."""
         self.counts = Counter()
         with self.conn.transaction():
             self.run_id = self.conn.execute(
-                "INSERT INTO ingestion_run (source, resource, watermark_before) VALUES ('knesset_odata_v4', %s, %s) RETURNING id",
-                (resource, json.dumps(watermark) if watermark else None),
+                "INSERT INTO ingestion_run (source, resource, watermark_before) VALUES (%s, %s, %s) RETURNING id",
+                (source, resource, json.dumps(watermark) if watermark else None),
             ).fetchone()[0]
         try:
             if atomic:

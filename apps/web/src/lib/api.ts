@@ -46,6 +46,7 @@ export interface FactionBreakdown {
 export interface VoteDetail extends VoteSummary {
   official_totals: { for: number; against: number; abstain: number; is_accepted: boolean | null; source: string } | null;
   totals_match: boolean | null;
+  excluded_from_official_total: number;
   by_faction: FactionBreakdown[];
   unresolved_faction_records: number;
 }
@@ -59,6 +60,7 @@ export interface Ballot {
   choice: Choice | null;
   participation: string;
   source_result_code: number;
+  source: "knesset_odata_v4" | "knesset_votes_legacy";
   counted_in_official_total: boolean | null;
 }
 

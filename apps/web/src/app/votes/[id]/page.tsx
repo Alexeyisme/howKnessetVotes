@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Counts } from "@/lib/api";
-import { ballotLabel, formatDate, formatTime, METHOD, missingRollCallText, MOTION, MOTION_HINT, STAGE } from "@/lib/labels";
+import { ballotLabel, formatDate, formatTime, METHOD, missingRollCallText, MOTION, MOTION_HINT, plural, STAGE } from "@/lib/labels";
 import styles from "./vote.module.css";
 
 const BILL_URL = (id: number) => `https://main.knesset.gov.il/APPS/legislation/main/bills/${id}`;
@@ -91,7 +91,10 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
           <p className="small" style={{ marginTop: 12 }}>
             Официальный итог: {vote.official_totals.for} за, {vote.official_totals.against} против, {vote.official_totals.abstain} воздержались
             {vote.official_totals.is_accepted != null && (vote.official_totals.is_accepted ? " — принято." : " — отклонено.")}
-            {vote.totals_match === false && " Расходится с поимённым списком: часть записей не вошла в официальный итог."}
+            {vote.excluded_from_official_total > 0 &&
+              ` По данным источника ${vote.excluded_from_official_total} ${plural(vote.excluded_from_official_total, "запись", "записи", "записей")} поимённого списка не ${vote.excluded_from_official_total === 1 ? "вошла" : "вошли"} в официальный итог (голос заявлен или исправлен после голосования).`}
+            {vote.totals_match === true && " С учётом этого поимённый список совпадает с официальным итогом."}
+            {vote.totals_match === false && " Поимённый список расходится с официальным итогом — расхождение зарегистрировано для проверки."}
           </p>
         )}
         <p className="small muted" style={{ marginTop: 12 }}>
@@ -123,8 +126,11 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
                     <tr key={b.person_id}>
                       <td className="he" lang="he" dir="rtl">{b.name_he}</td>
                       <td className="he" lang="he" dir="rtl">{b.faction_name_he ?? "—"}{b.faction_ambiguous ? " *" : ""}</td>
-                      <td>{ballotLabel(b.choice, b.participation)}</td>
-                      <td className="num muted">{b.source_result_code}</td>
+                      <td>
+                        {ballotLabel(b.choice, b.participation)}
+                        {b.counted_in_official_total === false && <span className="muted small"> · не вошёл в офиц. итог</span>}
+                      </td>
+                      <td className="num muted">{b.source === "knesset_votes_legacy" ? `Votes.svc ${b.source_result_code}` : b.source_result_code}</td>
                     </tr>
                   ))}
                 </tbody>

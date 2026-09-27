@@ -82,7 +82,8 @@ class FactionBreakdown(BaseModel):
 
 class VoteDetail(VoteSummary):
     official_totals: OfficialTotals | None
-    totals_match: bool | None
+    totals_match: bool | None  # official totals vs roll-call records counted by the source
+    excluded_from_official_total: int  # records the legacy source marks as not in the official totals
     by_faction: list[FactionBreakdown]
     unresolved_faction_records: int
 
@@ -96,6 +97,7 @@ class Ballot(BaseModel):
     choice: Literal["for", "against", "abstain"] | None
     participation: str
     source_result_code: int
+    source: Literal["knesset_odata_v4", "knesset_votes_legacy"]
     counted_in_official_total: bool | None
 
 
@@ -165,9 +167,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
         if date_to:
             where.append("v.occurred_on <= %(date_to)s"); params["date_to"] = date_to
         if stage:
-            where.append("k.stage = ANY(%(stage)s)"); params["stage"] = stage
+            where.append("coalesce(k.stage, v.stage) = ANY(%(stage)s)"); params["stage"] = stage
         if motion_type:
-            where.append("k.motion_type = ANY(%(motion)s)"); params["motion"] = motion_type
+            where.append("coalesce(k.motion_type, v.motion_type) = ANY(%(motion)s)"); params["motion"] = motion_type
         if bill:
             where.append("EXISTS (SELECT 1 FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id AND b.knesset_bill_id = ANY(%(bill)s))")
             params["bill"] = bill
@@ -210,12 +212,20 @@ def create_app(database_url: str | None = None) -> FastAPI:
         unresolved = conn.execute(
             "SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = %s AND b.faction_id IS NULL",
             (vote_id,)).fetchone()["n"]
-        rc = detail.roll_call
+        # compare with the official totals only the records the legacy source says were counted
+        counted = conn.execute(
+            """SELECT count(*) FILTER (WHERE b.choice = 'for') AS f, count(*) FILTER (WHERE b.choice = 'against') AS a,
+                      count(*) FILTER (WHERE b.choice = 'abstain') AS ab
+               FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = %s AND b.counted_in_official_total IS NOT FALSE""",
+            (vote_id,)).fetchone()
         return {
             "data": VoteDetail(
                 **detail.model_dump(),
                 official_totals=official,
-                totals_match=None if official is None else (rc.for_, rc.against, rc.abstain) == (official.for_, official.against, official.abstain),
+                totals_match=None if official is None else (counted["f"], counted["a"], counted["ab"]) == (official.for_, official.against, official.abstain),
+                excluded_from_official_total=conn.execute(
+                    """SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id
+                       WHERE v.knesset_vote_id = %s AND b.counted_in_official_total IS FALSE""", (vote_id,)).fetchone()["n"],
                 by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), counts=counts(f),
                                              majority=majority(counts(f)), ambiguous_records=f["ambiguous"]) for f in factions],
                 unresolved_faction_records=unresolved,
@@ -229,7 +239,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             raise HTTPException(404, "vote not found")
         rows = conn.execute(
             """SELECT p.knesset_person_id, p.first_name_he, p.last_name_he, f.knesset_faction_id, f.name_he AS faction_name,
-                      b.faction_ambiguous, b.choice, b.participation, b.source_result_code, b.counted_in_official_total
+                      b.faction_ambiguous, b.choice, b.participation, b.source_result_code, b.source, b.counted_in_official_total
                FROM ballot b JOIN vote v ON v.id = b.vote_id JOIN person p ON p.id = b.person_id
                LEFT JOIN faction f ON f.id = b.faction_id
                WHERE v.knesset_vote_id = %s ORDER BY f.name_he NULLS LAST, p.last_name_he, p.first_name_he""", (vote_id,)).fetchall()
@@ -237,7 +247,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             "data": [Ballot(person_id=r["knesset_person_id"], name_he=f"{r['first_name_he']} {r['last_name_he']}",
                             faction_id=r["knesset_faction_id"], faction_name_he=r["faction_name"].strip() if r["faction_name"] else None,
                             faction_ambiguous=r["faction_ambiguous"], choice=r["choice"], participation=r["participation"],
-                            source_result_code=r["source_result_code"], counted_in_official_total=r["counted_in_official_total"]) for r in rows],
+                            source_result_code=r["source_result_code"], source=r["source"], counted_in_official_total=r["counted_in_official_total"]) for r in rows],
             "meta": Meta(filters={"id": vote_id}, note="MKs without a record are not listed: no record does not mean absent."),
         }
 
@@ -255,8 +265,9 @@ COUNT_COLUMNS = """count(*) FILTER (WHERE b.choice = 'for') AS n_for,
                    count(*) AS n_total"""
 
 VOTE_SELECT = f"""
-    SELECT v.knesset_vote_id AS id, v.occurred_on, v.occurred_at, v.term_number, v.title_he, v.subject_he, v.for_option_he,
-           k.motion_type, k.stage, v.method, v.status,
+    SELECT v.knesset_vote_id AS id, v.occurred_on, v.occurred_at, v.term_number, v.title_he, v.subject_he,
+           coalesce(v.for_option_he, v.legacy_item_he) AS for_option_he,
+           coalesce(k.motion_type, v.motion_type) AS motion_type, coalesce(k.stage, v.stage) AS stage, v.method, v.status,
            coalesce((SELECT json_agg(json_build_object('id', b.knesset_bill_id, 'title_he', b.title_he) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
            c.*

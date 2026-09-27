@@ -36,6 +36,11 @@ def main(argv: list[str] | None = None) -> int:
     bf.add_argument("--skip", action="append", default=[], help="FROM..TO already loaded, e.g. 2025-01-01..2025-06-30")
     bf.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     bf.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    lg = sub.add_parser("legacy", help="official totals, v4-missing votes and reason flags from legacy Votes.svc (<= 2021-07)")
+    lg.add_argument("--from", dest="date_from", type=dt.date.fromisoformat, required=True)
+    lg.add_argument("--to", dest="date_to", type=dt.date.fromisoformat, required=True)
+    lg.add_argument("--log", type=Path, default=Path("logs/legacy.log"))
+    lg.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -43,6 +48,18 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "status":
         return status(args.db, args.log)
+    if args.cmd == "legacy":
+        import logging
+
+        from hkv.ingest.legacy import LegacyLoader
+        from hkv.sources.odata import LEGACY_URL
+        args.log.parent.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(filename=args.log, level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s")
+        legacy = ODataClient(LEGACY_URL, source="knesset_votes_legacy", raw_dir=RAW_DIR)
+        with psycopg.connect(args.db) as conn:
+            result = LegacyLoader(conn, legacy, ODataClient(raw_dir=RAW_DIR)).load(args.date_from, args.date_to)
+        print(result)
+        return 0
 
     if args.cmd == "backfill":
         from hkv.ingest.backfill import backfill
