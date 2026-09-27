@@ -21,3 +21,13 @@ python3 audit/compare.py > docs/audit/compare-output.md
 ```
 
 `audit/raw/` не коммитится.
+
+## База данных
+
+PostgreSQL 17 в Docker, схема MVP — [db/migrations/0001_core.sql](db/migrations/0001_core.sql).
+
+```sh
+docker compose -f infra/compose.yaml up -d --wait   # localhost:5433
+uv run db/migrate.py                                 # применить миграции
+uv run pytest                                        # тесты инвариантов схемы
+```

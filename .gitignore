@@ -8,3 +8,4 @@ node_modules/
 data/
 audit/raw/
 audit/*.log
+.pytest_cache/

@@ -1,0 +1,17 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: knesset
+      POSTGRES_PASSWORD: knesset
+      POSTGRES_DB: knesset
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knesset"]
+      interval: 2s
+      retries: 30
+volumes:
+  pgdata:
