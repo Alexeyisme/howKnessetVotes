@@ -9,3 +9,5 @@ data/
 audit/raw/
 *.log
 .pytest_cache/
+logs/
+*.out

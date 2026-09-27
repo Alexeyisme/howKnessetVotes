@@ -1,0 +1,52 @@
+.list { display: flex; flex-direction: column; }
+
+.row { border-bottom: 1px solid var(--hairline); }
+.row:last-child { border-bottom: 0; }
+
+.summary {
+  list-style: none;
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  grid-template-areas: "name bar" "name counts";
+  column-gap: 16px;
+  row-gap: 2px;
+  padding: 10px 4px;
+  align-items: center;
+}
+.summary::-webkit-details-marker { display: none; }
+.summary:hover { background: var(--note-bg); }
+
+.name { grid-area: name; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.name::before { content: "▸"; color: var(--muted); font-size: 0.75rem; float: left; margin-top: 4px; }
+.row[open] .name::before { content: "▾"; }
+
+/* Thin bar; 2px surface gap between segments; rounded outer ends only. */
+.bar { grid-area: bar; display: flex; gap: 2px; height: 12px; min-width: 0; }
+.seg { display: block; height: 100%; min-width: 3px; }
+.seg:first-child { border-start-start-radius: 4px; border-end-start-radius: 4px; }
+.seg:last-child { border-start-end-radius: 4px; border-end-end-radius: 4px; }
+.for { background: var(--vote-for); }
+.against { background: var(--vote-against); }
+.abstain { background: var(--vote-abstain); }
+
+.counts { grid-area: counts; font-size: 0.875rem; color: var(--ink-2); }
+.majority { color: var(--muted); }
+
+.legend { display: flex; gap: 16px; list-style: none; font-size: 0.875rem; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; }
+
+.members { list-style: none; columns: 2 260px; column-gap: 24px; padding: 4px 4px 14px; }
+.members li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; break-inside: avoid; font-size: 0.9375rem; }
+.choice { color: var(--ink-2); white-space: nowrap; }
+.c_for::before, .c_against::before, .c_abstain::before {
+  content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 6px;
+}
+.c_for::before { background: var(--vote-for); }
+.c_against::before { background: var(--vote-against); }
+.c_abstain::before { background: var(--vote-abstain); }
+
+@media (max-width: 560px) {
+  .summary { grid-template-columns: 1fr; grid-template-areas: "name" "bar" "counts"; }
+  .name { text-align: start; }
+}

@@ -1,0 +1,20 @@
+.head { margin-bottom: 20px; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.title { font-size: 1.6rem; line-height: 1.35; font-weight: 700; text-align: right; }
+.subject { color: var(--ink-2); margin-top: 6px; text-align: right; }
+.question { font-size: 1.15rem; text-align: right; }
+
+.tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+.big { font-size: 1.9rem; font-weight: 650; line-height: 1.2; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-inline-end: 6px; border: 1px solid var(--border); }
+.for { background: var(--vote-for); border: 0; }
+.against { background: var(--vote-against); border: 0; }
+.abstain { background: var(--vote-abstain); border: 0; }
+
+.tableToggle { cursor: pointer; font-weight: 600; }
+
+@media (max-width: 560px) {
+  .tally { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .title { font-size: 1.3rem; }
+}

@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
+import time
 from collections import Counter
 from contextlib import contextmanager
 from typing import Iterator
@@ -19,9 +21,15 @@ import psycopg
 from hkv.ingest import mapping as m
 from hkv.sources.odata import Page, PageSource, chunks, or_filter
 
+log = logging.getLogger("hkv.ingest")
+
 
 class Loader:
     def __init__(self, conn: psycopg.Connection, v4: PageSource) -> None:
+        # Autocommit, so every `with conn.transaction()` below is a real transaction that commits on exit.
+        # Without it the first bare SELECT opens an implicit transaction and every block becomes a mere
+        # savepoint: nothing is durable until the connection closes, and a killed worker loses everything.
+        conn.autocommit = True
         self.conn = conn
         self.v4 = v4
         self.run_id: UUID | None = None
@@ -30,7 +38,9 @@ class Loader:
     # -- bookkeeping ------------------------------------------------------------------------------
 
     @contextmanager
-    def run(self, resource: str, watermark: dict | None = None) -> Iterator[None]:
+    def run(self, resource: str, watermark: dict | None = None, atomic: bool = True) -> Iterator[None]:
+        """One ingestion_run. atomic=True: everything in one transaction. atomic=False: the body commits
+        its own batches (long steps, resumable), and the run row records the outcome."""
         self.counts = Counter()
         with self.conn.transaction():
             self.run_id = self.conn.execute(
@@ -38,8 +48,12 @@ class Loader:
                 (resource, json.dumps(watermark) if watermark else None),
             ).fetchone()[0]
         try:
-            with self.conn.transaction():
+            if atomic:
+                with self.conn.transaction():
+                    yield
+            else:
                 yield
+            with self.conn.transaction():
                 self.conn.execute(
                     "UPDATE ingestion_run SET status = 'succeeded', finished_at = now(), counts = %s, watermark_after = %s WHERE id = %s",
                     (json.dumps(self.counts), json.dumps(watermark) if watermark else None, self.run_id),
@@ -205,8 +219,9 @@ class Loader:
 
     # -- votes ------------------------------------------------------------------------------------
 
-    def load_votes(self, date_from: dt.date, date_to: dt.date) -> list[int]:
-        """Votes with date_from <= local vote date <= date_to, their sessions, bills and ballots."""
+    def load_votes(self, date_from: dt.date, date_to: dt.date, *, resume: bool = False, label: str | None = None) -> list[int]:
+        """Votes with date_from <= local vote date <= date_to, their sessions, bills and ballots.
+        resume=True skips votes that already have ballots (ballots are committed per batch of votes)."""
         window = {"from": date_from.isoformat(), "to": date_to.isoformat()}
         flt = (f"VoteDateTime ge {date_from.isoformat()}T00:00:00+03:00 and "
                f"VoteDateTime lt {(date_to + dt.timedelta(days=1)).isoformat()}T00:00:00+02:00")
@@ -215,6 +230,9 @@ class Loader:
             for page in self.v4.pages("KNS_PlenumVote", {"$filter": flt, "$orderby": "Id"}):
                 snap = self.snapshot(page)
                 rows += [(r, snap) for r in page.rows if date_from.isoformat() <= m.day(r["VoteDateTime"]) <= date_to.isoformat()]
+            options = {r["ForOptionID"]: (r["ForOptionDesc"], snap) for r, snap in rows if r["ForOptionID"] is not None}
+            for option_id in sorted(options):
+                self._option(option_id, *options[option_id])
             self._load_sessions(sorted({r["SessionID"] for r, _ in rows}))
             sessions = {k: (i, t) for k, i, t in self.conn.execute("SELECT knesset_session_id, id, term_number FROM plenum_session")}
             for r, snap in rows:
@@ -229,8 +247,8 @@ class Loader:
                    WHERE v.knesset_vote_id = ANY(%s) ON CONFLICT DO NOTHING""",
                 (vote_ids,),
             )
-        with self.run("KNS_PlenumVoteResult", window):
-            self._load_ballots(vote_ids)
+        with self.run("KNS_PlenumVoteResult", window, atomic=False):
+            self._load_ballots(vote_ids, resume=resume, label=label or f"{date_from}..{date_to}")
         return vote_ids
 
     def _load_sessions(self, session_ids: list[int]) -> None:
@@ -247,22 +265,23 @@ class Loader:
                     )
                     self.counts["sessions"] += 1
 
+    def _option(self, option_id: int, label: str | None, snap: UUID) -> None:
+        kind = m.option_kind(option_id)
+        self.conn.execute(
+            """INSERT INTO vote_option_kind (knesset_option_id, label_he, motion_type, stage) VALUES (%s, %s, %s, %s)
+               ON CONFLICT (knesset_option_id) DO UPDATE SET label_he = EXCLUDED.label_he
+               WHERE vote_option_kind.label_he IS DISTINCT FROM EXCLUDED.label_he""",
+            (option_id, m.strip(label) or "", kind.motion_type, kind.stage),
+        )
+        if kind.motion_type == "unknown":
+            self.issue("unclassified_vote_option", "info", {"option": option_id, "label": label}, external_ref=f"ForOptionID:{option_id}", snapshot=snap)
+
     def _vote(self, r: dict, snap: UUID, sessions: dict) -> None:
         session = sessions.get(r["SessionID"])
         if session is None:
             self.issue("vote_without_session", "error", {"vote": r["Id"], "session": r["SessionID"]}, external_ref=f"KNS_PlenumVote:{r['Id']}", snapshot=snap)
             return
         session_id, term = session
-        if r["ForOptionID"] is not None:
-            kind = m.option_kind(r["ForOptionID"])
-            self.conn.execute(
-                """INSERT INTO vote_option_kind (knesset_option_id, label_he, motion_type, stage) VALUES (%s, %s, %s, %s)
-                   ON CONFLICT (knesset_option_id) DO UPDATE SET label_he = EXCLUDED.label_he""",
-                (r["ForOptionID"], m.strip(r["ForOptionDesc"]) or "", kind.motion_type, kind.stage),
-            )
-            if kind.motion_type == "unknown":
-                self.issue("unclassified_vote_option", "info", {"option": r["ForOptionID"], "label": r["ForOptionDesc"]},
-                           external_ref=f"ForOptionID:{r['ForOptionID']}", snapshot=snap)
         method = m.VOTE_METHODS.get(r["VoteMethodID"], "unknown")
         at, on = m.vote_time(r["VoteDateTime"])
         status = "valid" if r["VoteStatusCode"] == 7 else "pending_verification"
@@ -313,36 +332,53 @@ class Loader:
                     )
                     self.counts["bills"] += 1
 
-    def _load_ballots(self, vote_ids: list[int]) -> None:
+    def _load_ballots(self, vote_ids: list[int], *, resume: bool = False, label: str = "") -> None:
         votes = dict(self.conn.execute("SELECT knesset_vote_id, id FROM vote WHERE knesset_vote_id = ANY(%s)", (vote_ids,)).fetchall())
         people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())
-        for chunk in chunks(vote_ids, 10):
-            for page in self.v4.pages("KNS_PlenumVoteResult", {"$filter": or_filter("VoteID", chunk), "$orderby": "Id"}):
-                snap = self.snapshot(page)
-                for r in page.rows:
-                    vote = votes.get(r["VoteID"])
-                    if vote is None or r["VoteID"] not in chunk:
-                        continue
-                    person = people.get(r["MkId"])
-                    ref = f"KNS_PlenumVoteResult:{r['Id']}"
-                    if person is None:
-                        self.issue("ballot_unknown_person", "error", {"row": r}, external_ref=ref, snapshot=snap)
-                        continue
-                    choice, participation = m.ballot_values(r["ResultCode"])
-                    if participation == "unknown":
-                        self.issue("unknown_result_code", "warning", {"code": r["ResultCode"], "desc": r["ResultDesc"]},
-                                   external_ref=f"ResultCode:{r['ResultCode']}", snapshot=snap)
-                    self.conn.execute(
-                        """INSERT INTO ballot (vote_id, person_id, choice, participation, source_result_code, knesset_ballot_id, voted_at,
-                                               source_updated_at, source_snapshot_id)
-                           VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                           ON CONFLICT (vote_id, person_id) DO UPDATE SET choice = EXCLUDED.choice, participation = EXCLUDED.participation,
-                             source_result_code = EXCLUDED.source_result_code, knesset_ballot_id = EXCLUDED.knesset_ballot_id,
-                             voted_at = EXCLUDED.voted_at, source_updated_at = EXCLUDED.source_updated_at,
-                             source_snapshot_id = EXCLUDED.source_snapshot_id""",
-                        (vote, person, choice, participation, r["ResultCode"], r["Id"], r["VoteDate"], r["LastUpdatedDate"], snap),
-                    )
-                    self.counts["ballots"] += 1
+        todo = sorted(vote_ids)
+        if resume:
+            done = {r[0] for r in self.conn.execute(
+                "SELECT DISTINCT v.knesset_vote_id FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = ANY(%s)", (vote_ids,))}
+            todo = [v for v in todo if v not in done]
+            if done:
+                log.info("%s ballots: resume, %d of %d votes already loaded", label, len(done), len(vote_ids))
+        batches = list(chunks(todo, 10))
+        started = time.monotonic()
+        for i, chunk in enumerate(batches, 1):
+            with self.conn.transaction():  # a batch is all-or-nothing, so resume can trust "has ballots"
+                self._ballot_batch(chunk, votes, people)
+            elapsed = time.monotonic() - started
+            log.info("%s ballots: batch %d/%d, votes %d/%d, ballots %d, pages %d, %.1f s/page",
+                     label, i, len(batches), min(i * 10, len(todo)), len(todo), self.counts["ballots"], self.counts["pages"],
+                     elapsed / max(self.counts["pages"], 1))
+
+    def _ballot_batch(self, chunk: list[int], votes: dict, people: dict) -> None:
+        for page in self.v4.pages("KNS_PlenumVoteResult", {"$filter": or_filter("VoteID", chunk), "$orderby": "Id"}):
+            snap = self.snapshot(page)
+            for r in page.rows:
+                vote = votes.get(r["VoteID"])
+                if vote is None or r["VoteID"] not in chunk:
+                    continue
+                person = people.get(r["MkId"])
+                ref = f"KNS_PlenumVoteResult:{r['Id']}"
+                if person is None:
+                    self.issue("ballot_unknown_person", "error", {"row": r}, external_ref=ref, snapshot=snap)
+                    continue
+                choice, participation = m.ballot_values(r["ResultCode"])
+                if participation == "unknown":
+                    self.issue("unknown_result_code", "warning", {"code": r["ResultCode"], "desc": r["ResultDesc"]},
+                               external_ref=f"ResultCode:{r['ResultCode']}", snapshot=snap)
+                self.conn.execute(
+                    """INSERT INTO ballot (vote_id, person_id, choice, participation, source_result_code, knesset_ballot_id, voted_at,
+                                           source_updated_at, source_snapshot_id)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                       ON CONFLICT (vote_id, person_id) DO UPDATE SET choice = EXCLUDED.choice, participation = EXCLUDED.participation,
+                         source_result_code = EXCLUDED.source_result_code, knesset_ballot_id = EXCLUDED.knesset_ballot_id,
+                         voted_at = EXCLUDED.voted_at, source_updated_at = EXCLUDED.source_updated_at,
+                         source_snapshot_id = EXCLUDED.source_snapshot_id""",
+                    (vote, person, choice, participation, r["ResultCode"], r["Id"], r["VoteDate"], r["LastUpdatedDate"], snap),
+                )
+                self.counts["ballots"] += 1
 
     # -- derived: faction and mandate at vote time -----------------------------------------------
 

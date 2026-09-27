@@ -152,3 +152,36 @@ def test_positions_with_placeholder_data_become_issues(new_database):
         "SELECT external_ref, issue_type FROM data_issue WHERE external_ref LIKE 'KNS_PersonToPosition:9000%' ORDER BY 1").fetchall()
     assert issues == [("KNS_PersonToPosition:900001", "position_unresolvable"), ("KNS_PersonToPosition:900002", "position_rejected")]
     assert table_counts(url)["ballot"] == 124
+
+
+def test_resume_skips_votes_with_ballots(loaded):
+    """A resumed load must not refetch ballots of votes already loaded (batches are atomic)."""
+    fetched: list[str] = []
+
+    class Spy(FixtureSource):
+        def pages(self, resource, params):
+            fetched.append(resource)
+            yield from super().pages(resource, params)
+
+    with psycopg.connect(loaded) as conn:
+        Loader(conn, Spy(SLICE)).load_votes(*PERIOD, resume=True)
+    assert "KNS_PlenumVoteResult" not in fetched
+    assert table_counts(loaded)["ballot"] == 124
+
+
+def test_periods_cover_range_without_gaps():
+    from hkv.ingest.backfill import periods
+    ps = periods(dt.date(2016, 9, 27), dt.date(2017, 3, 5), 3)
+    assert ps == [(dt.date(2016, 9, 27), dt.date(2016, 11, 30)), (dt.date(2016, 12, 1), dt.date(2017, 2, 28)), (dt.date(2017, 3, 1), dt.date(2017, 3, 5))]
+    assert all(b + dt.timedelta(days=1) == c for (_, b), (c, _) in zip(ps, ps[1:])) and ps[-1][1] == dt.date(2017, 3, 5)
+
+
+def test_batches_are_committed_before_connection_closes(new_database):
+    """Regression: batches must be durable as they finish (a killed backfill worker keeps its work)."""
+    url = new_database()
+    with psycopg.connect(url) as conn:
+        loader = Loader(conn, FixtureSource(SLICE))
+        loader.load_reference()
+        loader.load_votes(*PERIOD)
+        # still inside the first connection: another session must already see the rows
+        assert table_counts(url)["ballot"] == 124

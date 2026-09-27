@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import random
 import time
 import urllib.error
@@ -22,6 +23,7 @@ from typing import Iterator, Protocol
 
 V4_URL = "https://knesset.gov.il/OdataV4/ParliamentInfo"
 LEGACY_URL = "https://knesset.gov.il/Odata/Votes.svc"
+log = logging.getLogger("hkv.odata")
 USER_AGENT = "howKnessetVotes/0.1 (+https://github.com/Alexeyisme/howKnessetVotes)"
 
 
@@ -85,12 +87,15 @@ class ODataClient:
                 if 400 <= e.code < 500 and e.code != 429:
                     raise SourceError(f"rejected ({e.code}): {url}") from e  # e.g. filter too complex; retrying won't help
                 last = e
+                log.warning("retry %d after HTTP %d: %s", attempt + 1, e.code, url[:200])
                 continue
             except (urllib.error.URLError, TimeoutError) as e:
                 last = e
+                log.warning("retry %d after %r: %s", attempt + 1, e, url[:200])
                 continue
             if not body.strip():
                 last = SourceError("empty 200 response (server-side timeout)")
+                log.warning("retry %d after empty 200: %s", attempt + 1, url[:200])
                 continue
             return body
         raise SourceError(f"failed after {self.retries} attempts: {url}: {last}")
