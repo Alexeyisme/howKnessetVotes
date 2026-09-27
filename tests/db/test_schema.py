@@ -2,38 +2,9 @@
 
 from __future__ import annotations
 
-import os
-import sys
-import uuid
-from pathlib import Path
-
 import psycopg
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "db"))
-from migrate import DEFAULT_URL, migrate  # noqa: E402
-
-ADMIN_URL = os.environ.get("DATABASE_URL", DEFAULT_URL)
-
-
-@pytest.fixture(scope="session")
-def db_url():
-    name = f"test_{uuid.uuid4().hex[:12]}"
-    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
-        admin.execute(f"CREATE DATABASE {name}")
-    url = psycopg.conninfo.make_conninfo(ADMIN_URL, dbname=name)
-    try:
-        yield url
-    finally:
-        with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
-            admin.execute(f"DROP DATABASE {name} WITH (FORCE)")
-
-
-@pytest.fixture(scope="session")
-def migrated(db_url):
-    assert migrate(db_url) == ["0001_core.sql"]
-    return db_url
-
+from migrate import migrate
 
 @pytest.fixture
 def cur(migrated):
