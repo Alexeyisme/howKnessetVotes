@@ -90,3 +90,102 @@ export function listVotes(params: Record<string, string | string[] | undefined>)
   }
   return get<{ data: VoteSummary[]; meta: Meta; next_cursor: string | null }>(`/api/v1/votes?${qs}`);
 }
+
+// -- members, factions, bills -------------------------------------------------------------------
+
+export interface Rate { numerator: number; denominator: number; value: number | null }
+export interface FactionRef { id: number; name_he: string; term: number }
+export interface Interval { valid_from: string; valid_to: string | null }
+
+export interface MemberSummary {
+  id: number;
+  name_he: string;
+  gender: string | null;
+  terms: number[];
+  last_faction: FactionRef | null;
+  roll_call_records: number;
+}
+
+export interface MemberDetail extends MemberSummary {
+  mandates: (Interval & { term: number })[];
+  factions: (Interval & { faction: FactionRef })[];
+  stats: {
+    participation: Rate;
+    choices: Record<string, number>;
+    deviation_from_faction: Rate;
+    bills_initiated: number;
+    bills_joined: number;
+  };
+}
+
+export interface MemberVote {
+  vote: VoteSummary;
+  choice: Choice | null;
+  participation: string;
+  faction: FactionRef | null;
+  faction_majority: Majority;
+  deviates: boolean | null;
+}
+
+export interface FactionSummary {
+  id: number;
+  name_he: string;
+  term: number;
+  valid: Interval;
+  members_ever: number;
+  roll_call_records: number;
+}
+
+export interface FactionDetail extends FactionSummary {
+  members: (Interval & { person_id: number; name_he: string; faction: FactionRef })[];
+  stats: { votes_with_members: number; cohesion: Rate; unanimous_votes: Rate };
+}
+
+export interface FactionVote {
+  vote: VoteSummary;
+  faction_counts: { for: number; against: number; abstain: number; present_not_voting: number; total_records: number };
+  majority: Majority;
+}
+
+export interface BillSummary {
+  id: number;
+  title_he: string;
+  term: number;
+  origin: string | null;
+  status_he: string | null;
+  votes: number;
+  last_vote_on: string | null;
+  passed_third_reading: boolean;
+  source_url: string;
+}
+
+export interface BillDetail extends BillSummary {
+  summary_he: string | null;
+  published_on: string | null;
+  initiators: { person_id: number; name_he: string; role: "initiator" | "joined" | "withdrew" }[];
+  related: { id: number; title_he: string }[];
+  timeline: VoteSummary[];
+}
+
+export interface Term { number: number; name_he: string | null; started_on: string; ended_on: string | null }
+
+type Params = Record<string, string | string[] | undefined>;
+type PageOf<T> = { data: T[]; meta: Meta; next_cursor: string | null };
+
+function qs(params: Params): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) for (const item of Array.isArray(v) ? v : v ? [v] : []) q.append(k, item);
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+export const getTerms = () => get<PageOf<Term>>(`/api/v1/terms`);
+export const listMembers = (p: Params) => get<PageOf<MemberSummary>>(`/api/v1/members${qs(p)}`);
+export const getMember = (id: number) => get<{ data: MemberDetail; meta: Meta }>(`/api/v1/members/${id}`);
+export const getMemberVotes = (id: number, p: Params) => get<PageOf<MemberVote>>(`/api/v1/members/${id}/votes${qs(p)}`);
+export const listFactions = (p: Params) => get<PageOf<FactionSummary>>(`/api/v1/factions${qs(p)}`);
+export const getFaction = (id: number) => get<{ data: FactionDetail; meta: Meta }>(`/api/v1/factions/${id}`);
+export const getFactionVotes = (id: number, p: Params) => get<PageOf<FactionVote>>(`/api/v1/factions/${id}/votes${qs(p)}`);
+export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills${qs(p)}`);
+export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
+export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);

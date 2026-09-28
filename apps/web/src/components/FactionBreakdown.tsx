@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Ballot, Choice, FactionBreakdown as Row } from "@/lib/api";
 import { ballotLabel, MAJORITY } from "@/lib/labels";
 import styles from "./FactionBreakdown.module.css";
@@ -61,10 +62,11 @@ export function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots: Ball
                 {r.ambiguous_records > 0 && <span title="Голос в день смены фракции: принадлежность неоднозначна"> · {r.ambiguous_records} неоднозн.</span>}
               </span>
             </summary>
+            <p className="small" style={{ padding: "0 4px" }}><Link href={`/factions/${r.faction_id}`}>Страница фракции →</Link></p>
             <ul className={styles.members}>
               {members.map((b) => (
                 <li key={b.person_id}>
-                  <span className="he" lang="he" dir="rtl">{b.name_he}</span>
+                  <Link href={`/members/${b.person_id}`} className="he" lang="he" dir="rtl">{b.name_he}</Link>
                   <span className={`${styles.choice} ${b.choice ? styles[`c_${b.choice}`] : ""}`}>{ballotLabel(b.choice, b.participation)}</span>
                 </li>
               ))}

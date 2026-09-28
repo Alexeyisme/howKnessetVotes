@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Counts } from "@/lib/api";
-import { ballotLabel, formatDate, formatTime, METHOD, missingRollCallText, MOTION, MOTION_HINT, plural, STAGE } from "@/lib/labels";
+import { ballotLabel, formatDate, formatTime, METHOD, bidiSafe, missingRollCallText, MOTION, MOTION_HINT, plural, STAGE } from "@/lib/labels";
 import styles from "./vote.module.css";
-
-const BILL_URL = (id: number) => `https://main.knesset.gov.il/APPS/legislation/main/bills/${id}`;
 
 async function load(idParam: string) {
   const id = Number(idParam);
@@ -63,7 +62,7 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
           {vote.status !== "valid" && <span className="badge">статус: {vote.status}</span>}
         </div>
         <h1 className={`${styles.title} he`} lang="he" dir="rtl">{vote.title_he}</h1>
-        {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{vote.subject_he}</p>}
+        {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
       </header>
 
       <section className="card" aria-labelledby="q">
@@ -76,7 +75,7 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
           <p className="small" style={{ marginTop: 10 }}>
             Законопроект:{" "}
             {vote.bills.map((b) => (
-              <a key={b.id} href={BILL_URL(b.id)} className="he" lang="he" dir="rtl" rel="noopener" target="_blank">{b.title_he}</a>
+              <Link key={b.id} href={`/bills/${b.id}`} className="he" lang="he" dir="rtl">{b.title_he}</Link>
             ))}
           </p>
         )}
@@ -124,8 +123,11 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
                 <tbody>
                   {ballots.map((b) => (
                     <tr key={b.person_id}>
-                      <td className="he" lang="he" dir="rtl">{b.name_he}</td>
-                      <td className="he" lang="he" dir="rtl">{b.faction_name_he ?? "—"}{b.faction_ambiguous ? " *" : ""}</td>
+                      <td><Link href={`/members/${b.person_id}`} className="he" lang="he" dir="rtl">{b.name_he}</Link></td>
+                      <td>
+                        {b.faction_id ? <Link href={`/factions/${b.faction_id}`} className="he" lang="he" dir="rtl">{b.faction_name_he}</Link> : "—"}
+                        {b.faction_ambiguous ? " *" : ""}
+                      </td>
                       <td>
                         {ballotLabel(b.choice, b.participation)}
                         {b.counted_in_official_total === false && <span className="muted small"> · не вошёл в офиц. итог</span>}

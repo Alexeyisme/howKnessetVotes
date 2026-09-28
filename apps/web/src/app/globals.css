@@ -81,3 +81,15 @@ table { width: 100%; border-collapse: collapse; font-size: 0.9375rem; }
 th, td { text-align: start; padding: 6px 8px; border-bottom: 1px solid var(--hairline); vertical-align: top; }
 th { font-weight: 600; color: var(--ink-2); font-size: 0.8125rem; }
 .table-scroll { overflow-x: auto; }
+
+.page-head { margin-bottom: 16px; }
+.page-head h1 { font-size: 1.6rem; line-height: 1.3; }
+.stack > * + * { margin-top: 16px; }
+.search { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.search input, .search select {
+  font: inherit; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); min-width: 0;
+}
+.search input { flex: 1 1 220px; }
+.search button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.9375rem; }
+.nav a { color: var(--ink-2); }

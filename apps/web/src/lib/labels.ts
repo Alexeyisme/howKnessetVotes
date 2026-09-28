@@ -88,3 +88,21 @@ export function plural(n: number, one: string, few: string, many: string): strin
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
   return many;
 }
+
+export function percent(r: { numerator: number; denominator: number; value: number | null }): string {
+  return r.value == null ? "—" : `${(r.value * 100).toLocaleString("ru-RU", { maximumFractionDigits: 1 })}%`;
+}
+
+export function period(from: string, to: string | null): string {
+  return `${formatDate(from)} — ${to ? formatDate(to) : "по настоящее время"}`;
+}
+
+export const ORIGIN: Record<string, string> = { private: "частный", government: "правительственный", committee: "комиссии" };
+
+export const INITIATOR_ROLE: Record<string, string> = { initiator: "инициатор", joined: "присоединился", withdrew: "отозвал подпись" };
+
+/** In RTL text an en dash / maqaf between digits is bidi-neutral and flips the range ("15–16" shows as "16–15");
+ *  a hyphen-minus between digits is a European separator and keeps the order. */
+export function bidiSafe(s: string): string {
+  return s.replace(/(\d)\s*[–—־]\s*(\d)/g, "$1-$2");
+}
