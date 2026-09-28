@@ -185,3 +185,18 @@ def test_batches_are_committed_before_connection_closes(new_database):
         loader.load_votes(*PERIOD)
         # still inside the first connection: another session must already see the rows
         assert table_counts(url)["ballot"] == 124
+
+
+def test_update_rereads_window_and_records_release(new_database):
+    from hkv.ingest.update import update
+    url = new_database()
+    ingest(url, SLICE)
+    data = copy.deepcopy(SLICE)
+    row = next(r for r in data["KNS_PlenumVoteResult"] if r["VoteID"] == 46699)
+    row.update(ResultCode=8, ResultDesc="נגד")  # a correction published by the source after the first load
+    with psycopg.connect(url) as conn:
+        result = update(conn, FixtureSource(data), days=5, today=dt.date(2026, 7, 30))
+    assert result["votes"] == 2  # 37689 (2022) is outside the window
+    assert one(url, "SELECT choice FROM ballot WHERE knesset_ballot_id = %s", row["Id"]) == ("against",)
+    assert one(url, "SELECT count(*) FROM row_revision") == (1,)
+    assert one(url, "SELECT coverage->>'votes', coverage->>'last_vote_on' FROM data_release") == ("3", "2026-07-28")

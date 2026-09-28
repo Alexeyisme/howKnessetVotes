@@ -242,6 +242,7 @@ class Loader:
         items = sorted({r["ItemID"] for r, _ in rows if r["ItemID"]})
         with self.run("KNS_Bill", {"items": len(items)}):
             self._load_bills(items)
+            self._load_initiators(items)
             self.conn.execute(
                 """INSERT INTO vote_subject (vote_id, bill_id, link_method)
                    SELECT v.id, b.id, 'item_id' FROM vote v JOIN bill b ON b.knesset_bill_id = v.knesset_item_id
@@ -332,6 +333,36 @@ class Loader:
                          r["LastUpdatedDate"], snap),
                     )
                     self.counts["bills"] += 1
+
+    def load_initiators(self, bill_ids: list[int]) -> None:
+        with self.run("KNS_BillInitiator", {"bills": len(bill_ids)}, atomic=False):
+            batches = list(chunks(sorted(bill_ids)))
+            for i, chunk in enumerate(batches, 1):
+                with self.conn.transaction():
+                    self._load_initiators(chunk)
+                if i % 20 == 0 or i == len(batches):
+                    log.info("initiators: batch %d/%d, %d rows", i, len(batches), self.counts["initiators"])
+
+    def _load_initiators(self, bill_ids: list[int]) -> None:
+        """KNS_BillInitiator: IsInitiator=True -> initiator, False -> joined later."""
+        wanted = set(bill_ids)
+        bills = dict(self.conn.execute("SELECT knesset_bill_id, id FROM bill WHERE knesset_bill_id = ANY(%s)", (list(wanted),)).fetchall())
+        people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())
+        for chunk in chunks(sorted(wanted)):
+            for page in self.v4.pages("KNS_BillInitiator", {"$filter": or_filter("BillID", chunk)}):
+                snap = self.snapshot(page)
+                for r in page.rows:
+                    bill, person = bills.get(r["BillID"]), people.get(r["PersonID"])
+                    if bill is None or r["BillID"] not in wanted:
+                        continue
+                    if person is None:
+                        self.issue("initiator_unknown_person", "warning", {"row": r}, external_ref=f"KNS_BillInitiator:{r['Id']}", snapshot=snap)
+                        continue
+                    self.conn.execute(
+                        """INSERT INTO bill_initiator (bill_id, person_id, role, ordinal) VALUES (%s, %s, %s, %s)
+                           ON CONFLICT (bill_id, person_id, role) DO UPDATE SET ordinal = EXCLUDED.ordinal""",
+                        (bill, person, "initiator" if r["IsInitiator"] else "joined", r["Ordinal"]))
+                    self.counts["initiators"] += 1
 
     def _load_ballots(self, vote_ids: list[int], *, resume: bool = False, label: str = "") -> None:
         votes = dict(self.conn.execute("SELECT knesset_vote_id, id FROM vote WHERE knesset_vote_id = ANY(%s)", (vote_ids,)).fetchall())

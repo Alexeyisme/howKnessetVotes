@@ -52,6 +52,19 @@ uv run hkv legacy --from 2016-09-27 --to 2021-07-31   # лог: logs/legacy.log;
 
 Сырые страницы источника сохраняются в `data/raw/` (не коммитится); каждая строка БД ссылается на свой `source_snapshot`. Проблемы данных не отбрасываются, а записываются в `data_issue`.
 
+## Регулярное обновление
+
+`uv run hkv update` — справочники (депутаты, фракции, должности) и перечитывание голосований за последние 30 дней (`--days`): новые голосования и исправления источника (прежние версии сохраняются в `row_revision`). В конце пишет `data_release` — его показывает `GET /api/v1/status`. Лог: `logs/update.log`, ~5 минут.
+
+Ежедневно в 04:30 через launchd (macOS):
+
+```sh
+sed "s|REPO_DIR|$PWD|g" infra/launchd/il.hkv.update.plist > ~/Library/LaunchAgents/il.hkv.update.plist
+launchctl load ~/Library/LaunchAgents/il.hkv.update.plist
+```
+
+Или cron: `30 4 * * * /path/to/repo/scripts/update.sh`.
+
 ## API
 
 ```sh
@@ -63,6 +76,11 @@ uv run uvicorn hkv.api.app:app --reload   # http://127.0.0.1:8000/docs — OpenA
 | `GET /api/v1/votes` | Голосования, новые сверху. Фильтры: `date_from`, `date_to` (дата голосования, Asia/Jerusalem, границы включены), `stage`, `motion_type`, `bill`, `faction`, `person`, `q`; повтор параметра = OR; `limit` ≤ 100, `cursor` |
 | `GET /api/v1/votes/{id}` | Вопрос, поимённые счётчики, официальные итоги (до 2021-07), раскладка по фракциям на дату голосования |
 | `GET /api/v1/votes/{id}/ballots` | Поимённый список: депутат, фракция тогда, выбор, статус участия |
+| `GET /api/v1/members`, `/members/{id}` | Депутаты: мандаты, история фракций, участие в голосованиях и расхождения с большинством фракции (числитель, знаменатель) |
+| `GET /api/v1/members/{id}/votes` | Голоса депутата; `deviated=true` — только против большинства своей фракции |
+| `GET /api/v1/factions`, `/factions/{id}`, `/factions/{id}/votes` | Фракции созыва, состав во времени, единство; `split_only=true` — голосования с разделением |
+| `GET /api/v1/bills`, `/bills/{id}` | Законопроекты, по которым голосовали: поиск, статус, инициаторы, все голосования |
+| `GET /api/v1/terms`, `/status` | Созывы; дата и покрытие последнего обновления |
 
 ID — официальные ID Кнессета; `source_url` ведёт на карточку голосования на сайте Кнессета.
 

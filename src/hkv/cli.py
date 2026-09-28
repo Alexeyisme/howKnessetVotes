@@ -41,6 +41,13 @@ def main(argv: list[str] | None = None) -> int:
     lg.add_argument("--to", dest="date_to", type=dt.date.fromisoformat, required=True)
     lg.add_argument("--log", type=Path, default=Path("logs/legacy.log"))
     lg.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    up = sub.add_parser("update", help="daily incremental update: reference data + trailing window of votes")
+    up.add_argument("--days", type=int, default=30, help="re-read votes of the last N days (catches corrections)")
+    up.add_argument("--skip-reference", action="store_true")
+    up.add_argument("--log", type=Path, default=Path("logs/update.log"))
+    up.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    ini = sub.add_parser("initiators", help="load KNS_BillInitiator for all bills in the database")
+    ini.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -48,6 +55,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "status":
         return status(args.db, args.log)
+    if args.cmd == "initiators":
+        import logging
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s")
+        with psycopg.connect(args.db) as conn:
+            loader = Loader(conn, ODataClient(raw_dir=RAW_DIR))
+            loader.load_initiators([r[0] for r in conn.execute("SELECT knesset_bill_id FROM bill")])
+            print(dict(loader.counts))
+        return 0
+    if args.cmd == "update":
+        import logging
+
+        from hkv.ingest.update import update
+        args.log.parent.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(filename=args.log, level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        with psycopg.connect(args.db) as conn:
+            print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference))
+        return 0
     if args.cmd == "legacy":
         import logging
 
