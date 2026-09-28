@@ -17,7 +17,8 @@
 .summary::-webkit-details-marker { display: none; }
 .summary:hover { background: var(--note-bg); }
 
-.name { grid-area: name; font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.name { grid-area: name; font-weight: 600; text-align: right; overflow-wrap: anywhere; display: grid; }
+.nameRu { font-size: 0.8125rem; font-weight: 500; color: var(--ink-2); }
 .name::before { content: "▸"; color: var(--muted); font-size: 0.75rem; float: left; margin-top: 4px; }
 .row[open] .name::before { content: "▾"; }
 

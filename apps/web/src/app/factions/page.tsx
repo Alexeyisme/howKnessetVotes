@@ -29,7 +29,7 @@ export default async function FactionsPage({ searchParams }: PageProps<"/faction
           <tbody>
             {data.map((f) => (
               <tr key={f.id}>
-                <td><Link href={`/factions/${f.id}`}><He>{f.name_he}</He></Link></td>
+                <td><Link href={`/factions/${f.id}`}>{f.name_ru && <>{f.name_ru} · </>}<He>{f.name_he}</He></Link></td>
                 <td className="small">{period(f.valid.valid_from, f.valid.valid_to)}</td>
                 <td className="num">{f.members_ever}</td>
                 <td className="num">{f.roll_call_records.toLocaleString("ru-RU")}</td>

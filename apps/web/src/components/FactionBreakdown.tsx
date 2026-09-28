@@ -45,7 +45,10 @@ export function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots: Ball
         return (
           <details key={r.faction_id} className={styles.row}>
             <summary className={styles.summary}>
-              <span className={`${styles.name} he`} lang="he" dir="rtl">{r.name_he}</span>
+              <span className={styles.name}>
+                {r.name_ru && <span className={styles.nameRu}>{r.name_ru}</span>}
+                <span className="he" lang="he" dir="rtl">{r.name_he}</span>
+              </span>
               <span className={styles.bar} role="img" aria-label={`${r.name_he}: ${countsText(r)}`}>
                 {SEGMENTS.map((s) => {
                   const n = r.counts[s.key];

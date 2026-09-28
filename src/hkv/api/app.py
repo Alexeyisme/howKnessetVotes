@@ -20,6 +20,7 @@ from psycopg_pool import ConnectionPool
 from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, Meta,
                             MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, counts, majority, vote_summary)
 from hkv.api.entities import router
+from hkv.api.topics import router as topics_router
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -44,11 +45,12 @@ def create_app(database_url: str | None = None) -> FastAPI:
         faction: Annotated[list[int] | None, Query(description="Knesset faction ID: votes with at least one roll-call record of the faction")] = None,
         person: Annotated[list[int] | None, Query(description="Knesset person ID: votes with a roll-call record of the person")] = None,
         q: Annotated[str | None, Query(min_length=2, description="Substring of the Hebrew title")] = None,
+        topic: Annotated[list[str] | None, Query(description="Topic slug (rule-based, inherited from the bill)")] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
     ):
         filters = {k: v for k, v in dict(date_from=date_from, date_to=date_to, stage=stage, motion_type=motion_type, bill=bill,
-                                         faction=faction, person=person, q=q).items() if v is not None}
+                                         faction=faction, person=person, q=q, topic=topic).items() if v is not None}
         where, params = ["true"], {}
         if date_from:
             where.append("v.occurred_on >= %(date_from)s"); params["date_from"] = date_from
@@ -69,6 +71,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
             params["person"] = person
         if q:
             where.append("v.title_he ILIKE %(q)s"); params["q"] = f"%{q}%"
+        if topic:
+            where.append("""EXISTS (SELECT 1 FROM vote_subject s JOIN bill_topic bt ON bt.bill_id = s.bill_id JOIN topic t ON t.id = bt.topic_id
+                                    WHERE s.vote_id = v.id AND t.slug = ANY(%(topic)s) AND bt.review_state <> 'rejected')""")
+            params["topic"] = topic
         if cursor:
             try:
                 c_on, c_id = json.loads(base64.urlsafe_b64decode(cursor))
@@ -94,9 +100,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
         official = OfficialTotals(for_=off["for_count"], against=off["against_count"], abstain=off["abstain_count"],
                                   is_accepted=off["is_accepted"], source=off["source"]) if off else None
         factions = conn.execute(
-            f"""SELECT f.knesset_faction_id, f.name_he, {COUNT_COLUMNS}, count(*) FILTER (WHERE b.faction_ambiguous) AS ambiguous
+            f"""SELECT f.knesset_faction_id, f.name_he, fl.name AS name_ru, {COUNT_COLUMNS}, count(*) FILTER (WHERE b.faction_ambiguous) AS ambiguous
                 FROM ballot b JOIN vote v ON v.id = b.vote_id JOIN faction f ON f.id = b.faction_id
-                WHERE v.knesset_vote_id = %s GROUP BY 1, 2 ORDER BY count(*) DESC, 2""", (vote_id,)).fetchall()
+                LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
+                WHERE v.knesset_vote_id = %s GROUP BY 1, 2, 3 ORDER BY count(*) DESC, 2""", (vote_id,)).fetchall()
         unresolved = conn.execute(
             "SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = %s AND b.faction_id IS NULL",
             (vote_id,)).fetchone()["n"]
@@ -114,7 +121,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 excluded_from_official_total=conn.execute(
                     """SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id
                        WHERE v.knesset_vote_id = %s AND b.counted_in_official_total IS FALSE""", (vote_id,)).fetchone()["n"],
-                by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), counts=counts(f),
+                by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), name_ru=f["name_ru"], counts=counts(f),
                                              majority=majority(counts(f)), ambiguous_records=f["ambiguous"]) for f in factions],
                 unresolved_faction_records=unresolved,
             ),
@@ -140,6 +147,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         }
 
     app.include_router(router)
+    app.include_router(topics_router)
 
     @app.get("/api/v1/status")
     def status(conn: Conn):

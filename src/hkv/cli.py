@@ -48,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     ini = sub.add_parser("initiators", help="load KNS_BillInitiator for all bills in the database")
     ini.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    tp = sub.add_parser("topics", help="sync topic taxonomy, rule-based bill topics and Russian faction names")
+    tp.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -62,6 +64,11 @@ def main(argv: list[str] | None = None) -> int:
             loader = Loader(conn, ODataClient(raw_dir=RAW_DIR))
             loader.load_initiators([r[0] for r in conn.execute("SELECT knesset_bill_id FROM bill")])
             print(dict(loader.counts))
+        return 0
+    if args.cmd == "topics":
+        from hkv.topics import sync
+        with psycopg.connect(args.db, autocommit=True) as conn:
+            print(sync(conn))
         return 0
     if args.cmd == "update":
         import logging

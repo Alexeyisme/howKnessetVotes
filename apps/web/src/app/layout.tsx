@@ -28,10 +28,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="brand">Как голосует Кнессет</Link>
             <nav className="nav" aria-label="Разделы">
               <Link href="/">Голосования</Link>
+              <Link href="/topics">Темы</Link>
               <Link href="/bills">Законопроекты</Link>
               <Link href="/members">Депутаты</Link>
               <Link href="/factions">Фракции</Link>
             </nav>
+            <form action="/search" className="header-search" role="search">
+              <input name="q" placeholder="Поиск: тема, закон, депутат" aria-label="Поиск" dir="auto" />
+            </form>
           </div>
         </header>
         <main className="wrap">{children}</main>

@@ -34,6 +34,15 @@ export default async function BillPage({ params }: PageProps<"/bills/[id]">) {
         </p>
         <He as="h1">{bill.title_he}</He>
         {bill.status_he && <p style={{ marginTop: 8 }}><span className="badge">Статус: <He>{bill.status_he}</He></span></p>}
+        {bill.topics.length > 0 && (
+          <p className="small" style={{ marginTop: 8 }}>
+            Темы:{" "}
+            {bill.topics.map((t, n) => (
+              <span key={t.slug}>{n > 0 && ", "}<Link href={`/topics/${t.slug}`} title={t.evidence ? `по слову «${t.evidence}»` : undefined}>{t.label_ru}</Link></span>
+            ))}
+            {bill.topics.some((t) => t.review_state === "unreviewed") && <span className="muted"> (назначены автоматически)</span>}
+          </p>
+        )}
       </header>
 
       {bill.summary_he && <section className="card"><He as="p">{bill.summary_he}</He></section>}

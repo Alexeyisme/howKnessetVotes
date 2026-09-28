@@ -38,6 +38,7 @@ export interface VoteSummary {
 export interface FactionBreakdown {
   faction_id: number;
   name_he: string;
+  name_ru: string | null;
   counts: Counts;
   majority: Majority;
   ambiguous_records: number;
@@ -130,6 +131,7 @@ export interface MemberVote {
 export interface FactionSummary {
   id: number;
   name_he: string;
+  name_ru: string | null;
   term: number;
   valid: Interval;
   members_ever: number;
@@ -160,6 +162,7 @@ export interface BillSummary {
 }
 
 export interface BillDetail extends BillSummary {
+  topics: { slug: string; label_ru: string; origin: string; review_state: string; evidence: string | null }[];
   summary_he: string | null;
   published_on: string | null;
   initiators: { person_id: number; name_he: string; role: "initiator" | "joined" | "withdrew" }[];
@@ -189,3 +192,23 @@ export const getFactionVotes = (id: number, p: Params) => get<PageOf<FactionVote
 export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills${qs(p)}`);
 export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
 export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);
+
+export interface TopicSummary { slug: string; label_ru: string; label_he: string; bills: number }
+export interface TopicDetail extends TopicSummary {
+  aliases_ru: string[];
+  term: number;
+  stage: string[];
+  factions: { faction: FactionRef; faction_ru: string | null; votes: number; majority_for: number; majority_against: number; other: number }[];
+  recent_bills: BillSummary[];
+}
+export interface SearchResult {
+  topics: TopicSummary[];
+  bills: BillSummary[];
+  members: { id: number; name_he: string }[];
+  factions: { id: number; name_he: string; name_ru: string | null; term: number }[];
+  script: string;
+}
+
+export const listTopics = () => get<{ data: TopicSummary[]; meta: Meta }>(`/api/v1/topics`);
+export const getTopic = (slug: string, p: Params) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}${qs(p)}`);
+export const search = (q: string) => get<{ data: SearchResult; meta: Meta }>(`/api/v1/search${qs({ q })}`);

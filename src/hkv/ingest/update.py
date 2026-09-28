@@ -16,6 +16,7 @@ import psycopg
 
 from hkv.ingest.loader import Loader
 from hkv.sources.odata import PageSource
+from hkv.topics import sync as sync_topics
 
 log = logging.getLogger("hkv.update")
 METRIC_VERSION = "1"
@@ -37,6 +38,7 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
         "SELECT DISTINCT v.knesset_vote_id FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE b.faction_id IS NULL")]
     if stale:
         loader.resolve_affiliations(stale)
+    log.info("topics: %s", sync_topics(conn))  # new bills get rule-based topics
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")
     log.info("done: %d votes in window, release %s", len(ids), summary["id"])
     return {"votes": len(ids), "release": str(summary["id"])}

@@ -23,7 +23,6 @@ from uuid import UUID
 
 import psycopg
 
-from hkv.ingest import mapping as m
 from hkv.ingest.loader import Loader
 from hkv.sources.odata import PageSource, chunks, or_filter
 

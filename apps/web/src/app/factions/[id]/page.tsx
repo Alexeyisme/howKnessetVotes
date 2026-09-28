@@ -35,7 +35,8 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
     <div className="stack">
       <header className="page-head">
         <p className="small muted">Фракция Кнессета {faction.term}-го созыва · {period(faction.valid.valid_from, faction.valid.valid_to)}</p>
-        <He as="h1">{faction.name_he}</He>
+        {faction.name_ru && <h1>{faction.name_ru}</h1>}
+        {faction.name_ru ? <He as="p">{faction.name_he}</He> : <He as="h1">{faction.name_he}</He>}
       </header>
 
       <Stats>

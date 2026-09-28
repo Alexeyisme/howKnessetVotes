@@ -86,6 +86,7 @@ class MemberVote(BaseModel):
 class FactionSummary(BaseModel):
     id: int
     name_he: str
+    name_ru: str | None  # machine-written Russian name (faction_label, origin='machine')
     term: int
     valid: Interval
     members_ever: int
@@ -132,7 +133,16 @@ class BillSummary(BaseModel):
     source_url: str
 
 
+class BillTopic(BaseModel):
+    slug: str
+    label_ru: str
+    origin: str
+    review_state: str
+    evidence: str | None
+
+
 class BillDetail(BillSummary):
+    topics: list[BillTopic]
     summary_he: str | None
     published_on: dt.date | None
     initiators: list[Initiator]
@@ -337,13 +347,14 @@ def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, d
 
 FACTION_SELECT = """
     SELECT f.id AS pk, f.knesset_faction_id AS id, f.name_he, f.term_number AS term, lower(f.valid) AS valid_from, upper(f.valid) AS valid_to,
+           (SELECT fl.name FROM faction_label fl WHERE fl.faction_id = f.id AND fl.language = 'ru') AS name_ru,
            (SELECT count(DISTINCT fm.person_id) FROM faction_membership fm WHERE fm.faction_id = f.id) AS members_ever,
            (SELECT count(*) FROM ballot b WHERE b.faction_id = f.id) AS records
     FROM faction f"""
 
 
 def faction_summary(r: dict) -> FactionSummary:
-    return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
+    return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), name_ru=r["name_ru"], term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
                           members_ever=r["members_ever"], roll_call_records=r["records"])
 
 
@@ -444,7 +455,8 @@ def bill_summary(r: dict) -> BillSummary:
 
 @router.get("/bills", response_model=Page[BillSummary])
 def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None, term: int | None = None,
-               third_reading: bool | None = None, limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
+               third_reading: bool | None = None, topic: str | None = None,
+               limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     """Bills that were voted on in the plenum; newest vote first."""
     where, params = ["EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"], {"limit": limit + 1}
     if q:
@@ -452,6 +464,9 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
         params.update(q=f"%{q}%", qraw=q.strip().lstrip("פP/-"))
     if term:
         where.append("b.term_number = %(term)s"); params["term"] = term
+    if topic:
+        where.append("""EXISTS (SELECT 1 FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
+                                WHERE bt.bill_id = b.id AND t.slug = %(topic)s AND bt.review_state <> 'rejected')"""); params["topic"] = topic
     inner = f"{BILL_SELECT} WHERE {' AND '.join(where)}"
     outer = ["true"]
     if third_reading is not None:
@@ -461,7 +476,7 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
         outer.append("(last_vote_on, id) < (%(c_on)s::date, %(c_id)s)"); params.update(c_on=c_on, c_id=c_id)
     rows = conn.execute(f"SELECT * FROM ({inner}) x WHERE {' AND '.join(outer)} ORDER BY last_vote_on DESC, id DESC LIMIT %(limit)s", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
-    return {"data": [bill_summary(r) for r in rows], "meta": Meta(filters={"q": q, "term": term, "third_reading": third_reading}),
+    return {"data": [bill_summary(r) for r in rows], "meta": Meta(filters={"q": q, "term": term, "third_reading": third_reading, "topic": topic}),
             "next_cursor": encode_cursor(rows[-1]["last_vote_on"], rows[-1]["id"]) if more else None}
 
 
@@ -480,6 +495,10 @@ def get_bill(bill_id: int, conn: Conn):
     timeline = conn.execute(
         f"{VOTE_SELECT} WHERE EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.vote_id = v.id AND vs.bill_id = %s) ORDER BY v.occurred_on, v.ordinal NULLS LAST, v.knesset_vote_id",
         (r["pk"],)).fetchall()
-    return {"data": BillDetail(**bill_summary(r).model_dump(), summary_he=r["summary_he"], published_on=r["published_on"],
+    topics = conn.execute(
+        """SELECT t.slug, l.label AS label_ru, bt.origin, bt.review_state, bt.evidence FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
+           JOIN topic_label l ON l.topic_id = t.id AND l.language = 'ru' WHERE bt.bill_id = %s AND bt.review_state <> 'rejected' ORDER BY t.sort""",
+        (r["pk"],)).fetchall()
+    return {"data": BillDetail(**bill_summary(r).model_dump(), topics=topics, summary_he=r["summary_he"], published_on=r["published_on"],
                                initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline]),
             "meta": Meta(filters={"id": bill_id})}

@@ -65,6 +65,7 @@ class VoteSummary(BaseModel):
 class FactionBreakdown(BaseModel):
     faction_id: int
     name_he: str
+    name_ru: str | None = None
     counts: Counts
     majority: Literal["for", "against", "abstain", "mixed", "none"]
     ambiguous_records: int

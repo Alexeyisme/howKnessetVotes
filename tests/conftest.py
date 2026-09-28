@@ -42,5 +42,5 @@ def db_url(new_database):
 
 @pytest.fixture(scope="session")
 def migrated(db_url):
-    assert migrate(db_url) == ["0001_core.sql", "0002_source_realities.sql", "0003_legacy_votes.sql", "0004_legacy_fuzzy_names.sql"]
+    assert migrate(db_url) == ["0001_core.sql", "0002_source_realities.sql", "0003_legacy_votes.sql", "0004_legacy_fuzzy_names.sql", "0005_topics_search.sql"]
     return db_url

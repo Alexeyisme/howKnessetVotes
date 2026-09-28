@@ -93,3 +93,7 @@ th { font-weight: 600; color: var(--ink-2); font-size: 0.8125rem; }
 .search button { font: inherit; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
 .nav { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.9375rem; }
 .nav a { color: var(--ink-2); }
+
+.header-search input { font: inherit; font-size: 0.875rem; padding: 4px 10px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--page); color: var(--ink); width: 220px; max-width: 100%; }
+@media (max-width: 720px) { .header-search { flex-basis: 100%; } .header-search input { width: 100%; } }
