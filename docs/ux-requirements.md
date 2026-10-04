@@ -109,11 +109,46 @@ Vote page: keep the verdict box as the hero, then the **bloc bar** (coalition vs
 
 Acceptance: on a 390 px screen, verdict + bar + bloc line are visible without scrolling.
 
-### R4 — Readable without Hebrew (S now, L6 as the real fix)
+### R4 — Law titles translated under the Hebrew title (M, before elections = L6)
 
-- Interim: everywhere a vote or bill is listed, show *topic · stage · verdict* in the UI language first; Hebrew title second (already done on home for verdict, not on `/votes`, member, faction, bill, topic, search).
-- Real fix: **L6 bill titles in ru/en** is now the single most important UX item for the ru/en audience; move it ahead of L10/L7 in the roadmap. L7 descriptions (2–3 sentences) complete it.
-- Until L6: a "what this bill is about" line for the key votes only (R5), written by hand in three languages.
+Every bill and vote title is Hebrew in all three UIs. Decision (owner, 2026-10-04): show an **automatic translation
+in the UI language directly under the Hebrew title**, visibly marked, everywhere a title appears:
+
+```
+הצעת חוק לעידוד פעילות בשוק ההון (תיקוני חקיקה), התשפ"ד-2024
+Law for the Encouragement of Activity in the Capital Market (Legislative Amendments)   · automatic translation
+```
+
+- **Scope**: distinct Hebrew title strings of bills (3,647) and votes (17,319, mostly the bill title plus a stage, so
+  far fewer distinct strings), plus `subject_he` on vote pages. Languages: en, ru, ar (Arabic rides on the same
+  table when L10 lands). Hebrew UI shows nothing extra.
+- **Storage**: one table `text_translation(source_sha256, lang, text, origin, model, reviewed_at, created_at)` keyed
+  by the hash of the Hebrew source, so the same title translated once serves every vote that carries it and a
+  source correction (new hash) automatically re-queues the translation — this is the roadmap's "machine text is
+  marked until reviewed; a change in the Hebrew puts it back in the queue" rule. `origin` ∈ `machine | editor`.
+  Append-only migration `db/migrations/00NN_text_translation.sql`.
+- **Translation job**: `hkv translate --lang en,ru [--missing]`, run inside `hkv update` for new titles. LLM with a
+  fixed glossary and style sheet so 3,600 titles read consistently: הצעת חוק → *Bill*, חוק → *Law*, תיקון מס' N →
+  *Amendment No. N*, חוק יסוד → *Basic Law*, הוראת שעה → *temporary provision*, the Hebrew year suffix
+  (התשפ"ד-2024) → keep only the Gregorian year; ministries and law names from a glossary table; Russian keeps the
+  established forms («Основной закон», «поправка №»). Automatic checks before a translation is stored: numbers and
+  glossary terms preserved, no added facts, length within 2× of the source; failures go to `data_issue`. Cost is a
+  few dollars for the whole backlog; store the model name per row.
+- **API**: `title_en` / `title_ru` (null when missing) and `title_origin` on every bill and vote response; `?lang=`
+  fills `title` through the mixins in `api/names.py`. Search indexes the translations too, so "capital market"
+  finds the bill.
+- **Web**: a `Title` component replaces the ad-hoc `<He>{title_he}</He>` in `VoteLine`, home, `/votes`, bill, topic
+  and search lists and on the vote/bill page headers. Hebrew line as today; translation on the next line in the UI
+  font; a muted "automatic translation" marker (`t.d.common.machine`) with a tooltip/link to the methodology
+  paragraph on translations; when `origin = editor` the marker disappears. In compact lists the marker collapses to
+  an icon-sized "auto" tag so it never takes a line of its own. Metadata `title` of the page uses the translation
+  (the browser tab and share preview stop being Hebrew for en/ru readers).
+- **Review**: L9's small review screen marks a translation `editor` and removes the tag; not needed to ship this.
+- **Order**: this moves ahead of L10 Arabic UI strings and L7 descriptions; the interim idea of hand-written lines for
+  key votes only (R5) stays for the summaries, which are not titles.
+
+Acceptance: every list and page in `/en` and `/ru` shows a translated title under each Hebrew title within a day of
+the vote appearing; a Hebrew source correction shows the Hebrew immediately and the old translation never.
 
 ### R5 — Key votes: "the votes that mattered" (S curation + S UI, before elections)
 
