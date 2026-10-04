@@ -36,16 +36,29 @@ async function DataAsOf() {
   return <>{t.d.footer.asOf(t.date(data.published_at), t.date(data.coverage.last_vote_on), t.num(data.coverage.votes), t.num(data.coverage.ballots))}</>;
 }
 
+/** Four languages as a small menu (one row of four names took a line of its own on phones). */
 async function LanguageSwitcher() {
   const t = await getT();
   const path = await currentPath();
   return (
-    <nav className="lang-switch" aria-label={t.d.nav.language}>
-      {LOCALES.map((l) => (
-        // plain <a>: a full page load, so the whole tree (direction, names) re-renders in the new language
-        <a key={l} href={localize(l, path)} hrefLang={l} lang={l} aria-current={l === t.locale ? "true" : undefined}>{LANG_NAME[l]}</a>
-      ))}
-    </nav>
+    <details className="lang-menu">
+      <summary aria-label={t.d.nav.language}>{LANG_NAME[t.locale]}</summary>
+      <nav aria-label={t.d.nav.language}>
+        {LOCALES.map((l) => (
+          // plain <a>: a full page load, so the whole tree (direction, names) re-renders in the new language
+          <a key={l} href={localize(l, path)} hrefLang={l} lang={l} aria-current={l === t.locale ? "true" : undefined}>{LANG_NAME[l]}</a>
+        ))}
+      </nav>
+    </details>
+  );
+}
+
+/** Magnifier for the phone header, where the search field has no room. */
+function SearchIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+      <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+    </svg>
   );
 }
 
@@ -53,23 +66,36 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
   if (!isLocale((await params).lang)) notFound();
   const t = await getT();
   const d = t.d;
+  // the home page has its own large search box; a second one in the header only adds noise there
+  const path = (await currentPath()).split("?")[0];
+  const home = path === "/";
+  // which nav item the page belongs to; faction pages count as "parties"
+  const section = path.split("/")[1] === "factions" ? "parties" : path.split("/")[1];
+  const navItems: [string, string][] = [["parties", d.nav.factions], ["topics", d.nav.topics], ["votes", d.nav.votes], ["members", d.nav.members], ["bills", d.nav.bills]];
   return (
     <html lang={t.locale} dir={DIR[t.locale]}>
       <body>
         <header className="site-header">
           <div className="wrap">
-            <Link href="/" className="brand">{d.site.name}</Link>
+            <div className="header-row">
+              <Link href="/" className="brand">{d.site.name}</Link>
+              <div className="header-tools">
+                {!home && (
+                  <>
+                    <form action={t.href("/search")} className="header-search" role="search">
+                      <input name="q" placeholder={d.nav.searchPh} aria-label={d.nav.searchLabel} dir="auto" />
+                    </form>
+                    <Link href="/search" className="header-search-icon" aria-label={d.nav.searchLabel}><SearchIcon /></Link>
+                  </>
+                )}
+                <LanguageSwitcher />
+              </div>
+            </div>
             <nav className="nav" aria-label={d.nav.label}>
-              <Link href="/votes">{d.nav.votes}</Link>
-              <Link href="/topics">{d.nav.topics}</Link>
-              <Link href="/bills">{d.nav.bills}</Link>
-              <Link href="/members">{d.nav.members}</Link>
-              <Link href="/parties">{d.nav.factions}</Link>
+              {navItems.map(([key, label]) => (
+                <Link key={key} href={`/${key}`} aria-current={section === key ? "page" : undefined}>{label}</Link>
+              ))}
             </nav>
-            <form action={t.href("/search")} className="header-search" role="search">
-              <input name="q" placeholder={d.nav.searchPh} aria-label={d.nav.searchLabel} dir="auto" />
-            </form>
-            <LanguageSwitcher />
           </div>
         </header>
         <main className="wrap">

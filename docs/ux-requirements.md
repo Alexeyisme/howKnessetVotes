@@ -241,3 +241,14 @@ load is running on the server. Everything above applies to four locales; the hea
 four entries, which strengthens the case for a compact language menu.
 
 Measure with method 1 before and after each row.
+
+## 7. Implementation log
+
+- **2026-10-05, branch `claude/ecstatic-dirac-6ftoia`** — R10 header (one row + scrollable section nav, language menu,
+  search icon on phones, current section underlined); R3 `VoteCard` (verdict first, Hebrew title second, one bar on a
+  120-seat track, coalition/opposition line when contested) on home and `/votes`; home opens with contested votes,
+  topic chips without counts, latest-vote/recess note; vote page: plenum bar under the verdict, bloc bars, roll call
+  and "Numbers and sources" collapsed; `/members` as a photo-chip grid (API: `photo_url` on member summaries);
+  bill page: readings first, reservations behind a count; search groups faction hits by party; party page as the hub
+  (current list, coalition badge, final-reading majorities, members with photos, history collapsed).
+  Not deployed yet (history load running on the server).

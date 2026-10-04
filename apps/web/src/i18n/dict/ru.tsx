@@ -97,6 +97,7 @@ export const ru = {
     noList: (method: string) => `поимённого списка не бывает: голосование ${method}`,
     notLoaded: "поимённые данные ещё не загружены или отсутствуют в источнике",
     noRollCall: "без поимённого списка",
+    cast120: (n: number) => `проголосовали ${n} из 120`,
   },
   home: {
     title: "Как голосует Кнессет",
@@ -108,6 +109,9 @@ export const ru = {
     topicsAll: "Все темы →",
     finalTitle: "Последние окончательные голосования",
     finalAll: "Все голосования →",
+    contestedTitle: "Законы, за которые боролись коалиция и оппозиция",
+    recess: (d: string) => `Кнессет на каникулах: Кнессет 26-го созыва соберётся ${d}.`,
+    latestVote: (d: string) => `Последнее голосование ${d}`,
     browse: "Разделы",
     tiles: [
       { href: "/members", title: "Депутаты", text: "Как голосовал каждый депутат и когда шёл против своей фракции" },
@@ -149,6 +153,7 @@ export const ru = {
     unresolved: (n: number) => `У ${n} записей фракция на эту дату не установлена.`,
     table: (n: number) => `Поимённый список (${n})`,
     sourceLink: "карточка голосования на сайте Кнессета ↗",
+    numbers: "Цифры и источники",
   
     notFound: "Голосование не найдено", notFoundText: "Возможно, оно ещё не загружено.", backToList: "К списку голосований",
   },
@@ -228,6 +233,8 @@ export const ru = {
     timeline: (n: number) => `Все голосования в пленуме (${n})`,
     timelineHint: "По порядку. Голосования по оговоркам и отдельным статьям показаны отдельно от голосования за законопроект в целом.",
     related: "Связанные законопроекты",
+    milestones: "Чтения",
+    otherVotes: (n: number) => `Оговорки, статьи и прочие голосования (${n})`,
     sourceLink: "карточка законопроекта в базе законодательства Кнессета ↗",
   },
   topics: {
@@ -267,6 +274,7 @@ export const ru = {
       `Коалиция: ${c.for} за, ${c.against} против · Оппозиция: ${o.for} за, ${o.against} против`,
     contested: "Коалиция и оппозиция голосовали по-разному",
     note: "Фракция в коалиции, если её член занимает пост в правительстве на дату голосования (по официальным данным Кнессета).",
+    short: (c: { for: number; against: number }, o: { for: number; against: number }) => `Коалиция ${c.for}:${c.against} · Оппозиция ${o.for}:${o.against}`,
   },
   parties: {
     title: "Партии",
@@ -275,6 +283,10 @@ export const ru = {
     byTerm: "Фракции по созывам →",
     faction: "Фракция", term: "Созыв", period: "Период", members: "Депутатов", role: "Коалиция / оппозиция",
     kicker: "Партия за все созывы",
+    current: (term: number) => `В Кнессете ${term}-го созыва`,
+    finalVotes: "Окончательные голосования: как голосовало большинство списка",
+    history: "По созывам",
+    allVotes: "Все голосования списка →",
   },
   /** banner on every page of a version whose translation has not been reviewed by a native speaker */
   translation: { beta: null as string | null, more: "Как переведён сайт" },

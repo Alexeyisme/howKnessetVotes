@@ -6,19 +6,13 @@
 .search input { flex: 1; min-width: 0; font: inherit; font-size: 1.0625rem; padding: 10px 14px; border: 1px solid var(--border);
   border-radius: 10px; background: var(--surface); color: var(--ink); }
 .search button { font: inherit; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.fresh { color: var(--ink-2); background: var(--note-bg); border-radius: 8px; padding: 8px 12px; max-width: 640px; }
 
 .topics { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
-
-.finals { list-style: none; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; }
-.finals li + li { border-top: 1px solid var(--hairline); }
-.final { display: grid; gap: 2px; padding: 12px 16px; color: var(--ink); }
-.final:hover { text-decoration: none; background: var(--note-bg); }
-.finalTitle { font-weight: 600; text-align: right; }
-.outcome::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 6px; }
-.outcome[data-accepted="yes"]::before { background: var(--vote-for); }
-.outcome[data-accepted="no"]::before { background: var(--vote-against); }
 
 .tiles { list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
 .tile { display: grid; gap: 4px; height: 100%; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
   background: var(--surface); color: var(--ink); }
 .tile:hover { text-decoration: none; border-color: var(--accent); }
+
+@media (max-width: 560px) { .hero h1 { font-size: 1.6rem; } }

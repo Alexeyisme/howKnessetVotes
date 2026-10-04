@@ -59,6 +59,7 @@ class MemberSummary(PersonNames):
     terms: list[int]
     last_faction: FactionRef | None
     roll_call_records: int
+    photo_url: str | None = None   # official portrait on the Knesset website (fs.knesset.gov.il)
 
 
 class MemberStats(BaseModel):
@@ -70,7 +71,6 @@ class MemberStats(BaseModel):
 
 
 class MemberDetail(MemberSummary):
-    photo_url: str | None        # official portrait on the Knesset website (fs.knesset.gov.il)
     mandates: list[MandateOut]
     factions: list[MembershipOut]
     stats: MemberStats
@@ -257,7 +257,8 @@ MEMBER_SELECT = """
     SELECT p.id AS pk, p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, p.gender,
            (SELECT array_agg(DISTINCT m.term_number ORDER BY m.term_number) FROM mandate m WHERE m.person_id = p.id) AS terms,
            lf.knesset_faction_id AS lf_id, lf.name_he AS lf_name, lf.term_number AS lf_term,
-           (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records
+           (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records,
+           (SELECT ph.url FROM person_photo ph WHERE ph.person_id = p.id) AS photo_url
     FROM person p
     LEFT JOIN LATERAL (SELECT f.knesset_faction_id, f.name_he, f.term_number FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                        WHERE fm.person_id = p.id ORDER BY lower(fm.valid) DESC LIMIT 1) lf ON true"""
@@ -265,7 +266,8 @@ MEMBER_SELECT = """
 
 def member_summary(r: dict) -> MemberSummary:
     return MemberSummary(id=r["id"], name_he=r["name_he"], gender=r["gender"], terms=r["terms"] or [],
-                         last_faction=faction_ref(r["lf_id"], r["lf_name"], r["lf_term"]), roll_call_records=r["records"])
+                         last_faction=faction_ref(r["lf_id"], r["lf_name"], r["lf_term"]), roll_call_records=r["records"],
+                         photo_url=r["photo_url"])
 
 
 @router.get("/members", response_model=Page[MemberSummary])
@@ -338,7 +340,6 @@ def get_member(member_id: int, conn: Conn):
     return {
         "data": MemberDetail(
             **base.model_dump(),
-            photo_url=(ph := conn.execute("SELECT url FROM person_photo WHERE person_id = %s", (pid,)).fetchone()) and ph["url"],
             mandates=mandates,
             factions=[MembershipOut(faction=faction_ref(f["knesset_faction_id"], f["name_he"], f["term_number"]),
                                     valid_from=f["valid_from"], valid_to=f["valid_to"]) for f in factions],

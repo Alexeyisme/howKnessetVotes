@@ -88,6 +88,7 @@ export const he: Dict = {
     noList: (method) => `אין רישום שמי: הצבעה ${method}`,
     notLoaded: "הנתונים השמיים עדיין לא נטענו או חסרים במקור",
     noRollCall: "ללא רישום שמי",
+    cast120: (n) => `הצביעו ${n} מתוך 120`,
   },
   home: {
     title: "איך הכנסת מצביעה",
@@ -99,6 +100,9 @@ export const he: Dict = {
     topicsAll: "כל הנושאים ←",
     finalTitle: "ההצבעות הסופיות האחרונות",
     finalAll: "כל ההצבעות ←",
+    contestedTitle: "חוקים שהקואליציה והאופוזיציה נאבקו עליהם",
+    recess: (d) => `הכנסת בפגרה: הכנסת ה-26 תתכנס ב-${d}.`,
+    latestVote: (d) => `הצבעה אחרונה ${d}`,
     browse: "מדורים",
     tiles: [
       { href: "/members", title: "חברי כנסת", text: "איך הצביע כל חבר כנסת ומתי הצביע נגד סיעתו" },
@@ -140,6 +144,7 @@ export const he: Dict = {
     unresolved: (n) => `ל-${n} רישומים לא ידועה הסיעה בתאריך זה.`,
     table: (n) => `הרשימה השמית (${n})`,
     sourceLink: "דף ההצבעה באתר הכנסת ↗",
+    numbers: "מספרים ומקורות",
   
     notFound: "ההצבעה לא נמצאה", notFoundText: "ייתכן שהיא עדיין לא נטענה.", backToList: "לרשימת ההצבעות",
   },
@@ -218,6 +223,8 @@ export const he: Dict = {
     timeline: (n) => `כל ההצבעות במליאה (${n})`,
     timelineHint: "לפי הסדר. הצבעות על הסתייגויות ועל סעיפים בודדים מוצגות בנפרד מההצבעה על הצעת החוק בשלמותה.",
     related: "הצעות חוק קשורות",
+    milestones: "קריאות",
+    otherVotes: (n) => `הסתייגויות, סעיפים והצבעות אחרות (${n})`,
     sourceLink: "דף הצעת החוק במאגר החקיקה של הכנסת ↗",
   },
   topics: {
@@ -256,6 +263,7 @@ export const he: Dict = {
     line: (c, o) => `קואליציה: ${c.for} בעד, ${c.against} נגד · אופוזיציה: ${o.for} בעד, ${o.against} נגד`,
     contested: "הקואליציה והאופוזיציה הצביעו אחרת",
     note: "סיעה נחשבת לחלק מהקואליציה כשאחד מחבריה מכהן בתפקיד בממשלה ביום ההצבעה (לפי נתוני הכנסת הרשמיים).",
+    short: (c, o) => `קואליציה ${c.for}:${c.against} · אופוזיציה ${o.for}:${o.against}`,
   },
   parties: {
     title: "מפלגות",
@@ -264,6 +272,10 @@ export const he: Dict = {
     byTerm: "סיעות לפי כנסת ←",
     faction: "סיעה", term: "כנסת", period: "תקופה", members: "חברי כנסת", role: "קואליציה / אופוזיציה",
     kicker: "מפלגה לאורך הכנסות",
+    current: (term) => `ב${kn(term)}`,
+    finalVotes: "הצבעות סופיות: איך הצביע רוב הסיעה",
+    history: "לאורך הכנסות",
+    allVotes: "כל ההצבעות של הסיעה ←",
   },
   translation: { beta: null, more: "איך האתר תורגם" },
   notFound: { title: "הדף לא נמצא", text: "אין דף כזה.", home: "לדף הבית" },

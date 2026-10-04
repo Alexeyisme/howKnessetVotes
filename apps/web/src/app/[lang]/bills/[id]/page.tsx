@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { He, PersonName, VoteLine, VoteList } from "@/components/ui";
-import { getBill, NotFound } from "@/lib/api";
+import { getBill, type MotionType, NotFound } from "@/lib/api";
+import { MAIN_MOTIONS, verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 
 async function load(idParam: string) {
@@ -26,6 +27,8 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
   const d = t.d.bill;
   const initiators = bill.initiators.filter((i) => i.role === "initiator");
   const joined = bill.initiators.filter((i) => i.role !== "initiator");
+  const milestones = bill.timeline.filter((v) => MAIN_MOTIONS.includes(v.motion_type as MotionType) || v.motion_type === "reject_bill");
+  const others = bill.timeline.filter((v) => !milestones.includes(v));
 
   return (
     <div className="stack">
@@ -71,20 +74,40 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
         </section>
       )}
 
+      {/* U4: the bill as a story — the votes on the bill as a whole per reading first; reservations and sections (most
+          of the rows) behind a count */}
       <section>
-        <h2 className="section-title">{d.timeline(bill.timeline.length)}</h2>
-        <p className="small muted" style={{ marginBottom: 8 }}>{d.timelineHint}</p>
+        <h2 className="section-title">{d.milestones}</h2>
         <VoteList>
-          {bill.timeline.map((v) => (
-            <VoteLine key={v.id} vote={v}>
-              <span className="num">
-                {v.roll_call.total_records ? t.d.rc.line(v.roll_call.for, v.roll_call.against, 0) : t.d.rc.noRollCall}
-              </span>
-              {v.motion_type && <span className="small muted">{t.d.motion[v.motion_type]}</span>}
-            </VoteLine>
-          ))}
+          {milestones.map((v) => {
+            const out = verdict(v, t);
+            return (
+              <VoteLine key={v.id} vote={v}>
+                {out ? <strong>{out.text}</strong> : <span className="small muted">{t.d.rc.noRollCall}</span>}
+                <span className="small num muted">{v.roll_call.total_records ? t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain) : ""}</span>
+              </VoteLine>
+            );
+          })}
         </VoteList>
+        {milestones.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
       </section>
+
+      {others.length > 0 && (
+        <details className="card">
+          <summary className="section-title" style={{ cursor: "pointer", marginBottom: 0 }}>{d.otherVotes(others.length)}</summary>
+          <p className="small muted" style={{ margin: "10px 0 8px" }}>{d.timelineHint}</p>
+          <VoteList>
+            {others.map((v) => (
+              <VoteLine key={v.id} vote={v}>
+                <span className="num">
+                  {v.roll_call.total_records ? t.d.rc.line(v.roll_call.for, v.roll_call.against, 0) : t.d.rc.noRollCall}
+                </span>
+                {v.motion_type && <span className="small muted">{t.d.motion[v.motion_type]}</span>}
+              </VoteLine>
+            ))}
+          </VoteList>
+        </details>
+      )}
 
       {bill.related.length > 0 && (
         <section className="card">

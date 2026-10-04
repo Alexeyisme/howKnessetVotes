@@ -92,6 +92,7 @@ export const en: Dict = {
     noList: (method) => `no roll call exists: ${method} vote`,
     notLoaded: "roll-call data not loaded yet or missing from the source",
     noRollCall: "no roll call",
+    cast120: (n) => `${n} of 120 voted`,
   },
   home: {
     title: "How the Knesset Votes",
@@ -103,6 +104,9 @@ export const en: Dict = {
     topicsAll: "All topics →",
     finalTitle: "Latest final votes",
     finalAll: "All votes →",
+    contestedTitle: "Laws the coalition and opposition fought over",
+    recess: (d) => `The Knesset is in recess: the 26th Knesset convenes on ${d}.`,
+    latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [
       { href: "/members", title: "Members", text: "How each member voted, and when they broke with their party" },
@@ -144,6 +148,7 @@ export const en: Dict = {
     unresolved: (n) => `${n} ${s(n, "record has", "records have")} no known party on this date.`,
     table: (n) => `Roll call (${n})`,
     sourceLink: "vote page on the Knesset website ↗",
+    numbers: "Numbers and sources",
   
     notFound: "Vote not found", notFoundText: "It may not be loaded yet.", backToList: "Back to votes",
   },
@@ -222,6 +227,8 @@ export const en: Dict = {
     timeline: (n) => `All plenum votes (${n})`,
     timelineHint: "In order. Votes on reservations and individual sections are shown separately from the vote on the bill as a whole.",
     related: "Related bills",
+    milestones: "Readings",
+    otherVotes: (n) => `Reservations, sections and other votes (${n})`,
     sourceLink: "bill page in the Knesset legislation database ↗",
   },
   topics: {
@@ -260,6 +267,7 @@ export const en: Dict = {
     line: (c, o) => `Coalition: ${c.for} for, ${c.against} against · Opposition: ${o.for} for, ${o.against} against`,
     contested: "Coalition and opposition voted differently",
     note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
+    short: (c, o) => `Coalition ${c.for}:${c.against} · Opposition ${o.for}:${o.against}`,
   },
   parties: {
     title: "Parties",
@@ -268,6 +276,10 @@ export const en: Dict = {
     byTerm: "Factions by Knesset →",
     faction: "Faction", term: "Knesset", period: "Period", members: "Members", role: "Coalition / opposition",
     kicker: "Party across Knessets",
+    current: (term) => `In the ${ord(term)} Knesset`,
+    finalVotes: "Final votes: how the list's majority voted",
+    history: "Across Knessets",
+    allVotes: "All votes of the list →",
   },
   translation: { beta: null, more: "How the site is translated" },
   notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },

@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "@/components/Link";
+import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { listVotes } from "@/lib/api";
-import { MAIN_MOTIONS, missingRollCallText } from "@/lib/labels";
+import { MAIN_MOTIONS } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 import styles from "./list.module.css";
 
@@ -38,20 +39,9 @@ export default async function VotesPage({ searchParams }: PageProps<"/[lang]/vot
                 aria-current={f.key === view.key ? "page" : undefined}>{d.filters[f.key]}</Link>
         ))}
       </nav>
-      <ol className={styles.list}>
-        {data.map((v) => (
-          <li key={v.id} className={styles.item}>
-            <Link href={`/votes/${v.id}`} className={styles.link}>
-              <span className="small muted">{t.date(v.occurred_on)} · {v.stage ? t.d.stage[v.stage] : "—"}{v.motion_type && view.key === "all" ? ` · ${t.d.motion[v.motion_type]}` : ""}</span>
-              <span className={`${styles.title} he`} lang="he" dir="rtl">{v.title_he}</span>
-              <span className="small num">
-                {v.roll_call.total_records > 0 ? t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain) : missingRollCallText(v.method, t)}
-              </span>
-              {view.key === "contested" && v.blocs && <span className="small muted num">{t.d.blocs.line(v.blocs.coalition, v.blocs.opposition)}</span>}
-            </Link>
-          </li>
-        ))}
-      </ol>
+      <VoteCards>
+        {data.map((v) => <VoteCard key={v.id} vote={v} showMotion={view.key === "all"} />)}
+      </VoteCards>
       {data.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
       {next_cursor && (
         <p style={{ marginTop: 16 }}>

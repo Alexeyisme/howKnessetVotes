@@ -28,6 +28,31 @@ export async function FactionName({ f, full = false, he = "title" }: { f: Factio
   return <>{name} <He className="muted small">{f.name_he}</He></>;
 }
 
+/** A member as a chip: portrait, name, party. Grids of these replace member tables on phones. */
+export async function MemberChip({ m, faction }: { m: PersonNames & { id: number; photo_url?: string | null }; faction?: FactionNames | null }) {
+  const t = await getT();
+  const name = t.person(m);
+  return (
+    <li className={styles.chip}>
+      <Link href={`/members/${m.id}`} className={styles.chipLink}>
+        {m.photo_url ? (
+          // official portrait, linked from the Knesset website rather than copied
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={m.photo_url} alt="" width={40} height={50} loading="lazy" referrerPolicy="no-referrer" className={styles.chipPhoto} />
+        ) : <span className={styles.chipPhoto} aria-hidden />}
+        <span className={styles.chipText}>
+          <span className={styles.chipName} title={name !== m.name_he ? m.name_he : undefined}>{name}</span>
+          {faction && <span className="small muted">{t.faction(faction)}</span>}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+export function MemberGrid({ children }: { children: ReactNode }) {
+  return <ul className={styles.chips}>{children}</ul>;
+}
+
 export function Stat({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
   return (
     <div className={styles.stat}>

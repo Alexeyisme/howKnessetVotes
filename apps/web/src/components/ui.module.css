@@ -27,6 +27,16 @@
   .voteSide { justify-items: start; text-align: start; }
 }
 
+/* member chips */
+.chips { list-style: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; }
+.chip { min-width: 0; }
+.chipLink { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; color: var(--ink); }
+.chipLink:hover { background: var(--note-bg); text-decoration: none; }
+.chipPhoto { flex: none; width: 40px; height: 50px; object-fit: cover; border-radius: 6px; background: var(--note-bg); border: 1px solid var(--border); display: block; }
+.chipText { display: grid; gap: 1px; min-width: 0; }
+.chipName { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 560px) { .chips { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); } }
+
 .align { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 0.75rem; color: var(--ink-2); white-space: nowrap; vertical-align: 1px; }
 .align_coalition { border-color: var(--ink-2); color: var(--ink); font-weight: 600; }
 .align_unknown { border-style: dashed; }

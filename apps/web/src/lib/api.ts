@@ -127,10 +127,10 @@ export interface MemberSummary extends PersonNames {
   terms: number[];
   last_faction: FactionRef | null;
   roll_call_records: number;
+  photo_url: string | null;
 }
 
 export interface MemberDetail extends MemberSummary {
-  photo_url: string | null;
   mandates: (Interval & { term: number })[];
   factions: (Interval & { faction: FactionRef })[];
   stats: {

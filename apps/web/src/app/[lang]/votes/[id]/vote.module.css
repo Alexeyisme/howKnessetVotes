@@ -20,4 +20,18 @@
 }
 
 /* outcome in words; neutral styling so "accepted" is not confused with the for/against colours */
-.verdict { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--border); border-inline-start: 4px solid var(--ink); border-radius: 8px; font-size: 1.05rem; }
+.verdict { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--border); border-inline-start: 4px solid var(--ink); border-radius: 8px;
+  font-size: 1.05rem; display: grid; gap: 6px; }
+.verdict strong { font-size: 1.15rem; }
+
+/* one track = 120 seats; segments are cast votes, the rest is members who did not vote */
+.plenum { display: flex; gap: 2px; height: 10px; background: var(--note-bg); border-radius: 5px; overflow: hidden; }
+.seg { display: block; height: 100%; min-width: 2px; }
+
+.blocs { display: grid; gap: 6px; margin-bottom: 14px; }
+.bloc { display: grid; grid-template-columns: minmax(80px, 120px) 1fr auto; align-items: center; gap: 10px; }
+.blocName { font-size: 0.875rem; font-weight: 600; }
+@media (max-width: 560px) { .bloc { grid-template-columns: 1fr; gap: 2px; } }
+
+.details summary { cursor: pointer; margin-bottom: 0; }
+.details[open] summary { margin-bottom: 12px; }
