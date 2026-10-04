@@ -19,8 +19,9 @@ from hkv.topics import HE_PREFIX, RULES_VERSION, he_norm
 
 router = APIRouter(prefix="/api/v1")
 
-TOPIC_NOTE = (f"Topics are assigned automatically from bill titles by keyword rules (version {RULES_VERSION}) and have not "
-              "been reviewed by an editor; a vote inherits the topics of its bill.")
+TOPIC_NOTE = ("Topics come from the Knesset's official classification of the law a bill creates or amends (origin 'official'), "
+              f"and from keyword rules on the bill title (origin 'rule', version {RULES_VERSION}). Neither has been reviewed by an "
+              "editor; a vote inherits the topics of its bill.")
 
 
 class TopicSummary(BaseModel):

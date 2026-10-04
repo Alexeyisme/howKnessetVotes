@@ -18,6 +18,7 @@ from hkv.ingest.loader import Loader
 from hkv.names import LiveSources, NameSources, sync_factions, sync_members
 from hkv.sources.odata import ODataClient, PageSource
 from hkv.topics import sync as sync_topics
+from hkv.topics.official import load as load_official
 
 log = logging.getLogger("hkv.update")
 METRIC_VERSION = "1"
@@ -39,7 +40,16 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
         "SELECT DISTINCT v.knesset_vote_id FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE b.faction_id IS NULL")]
     if stale:
         loader.resolve_affiliations(stale)
-    log.info("topics: %s", sync_topics(conn))  # new bills get rule-based topics
+    # bills voted in the window: refresh their official law bindings, then topics (official + keyword rules)
+    bills = [r[0] for r in conn.execute(
+        """SELECT DISTINCT b.knesset_bill_id FROM vote_subject vs JOIN bill b ON b.id = vs.bill_id JOIN vote v ON v.id = vs.vote_id
+           WHERE v.occurred_on >= %s""", (date_from,))]
+    if bills:
+        try:
+            load_official(conn, v4, bills)
+        except Exception:  # the classification is an extra; a failure must not fail the vote update
+            log.exception("official law classification failed")
+    log.info("topics: %s", sync_topics(conn))  # new bills get official and rule-based topics
     # names for MKs seen for the first time; curated faction names (official current ones: `hkv names`)
     if names is None and isinstance(v4, ODataClient):
         names = LiveSources(v4.raw_dir, v4)

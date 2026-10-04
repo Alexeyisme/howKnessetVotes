@@ -38,9 +38,13 @@ export default async function BillPage({ params }: PageProps<"/bills/[id]">) {
           <p className="small" style={{ marginTop: 8 }}>
             Темы:{" "}
             {bill.topics.map((t, n) => (
-              <span key={t.slug}>{n > 0 && ", "}<Link href={`/topics/${t.slug}`} title={t.evidence ? `по слову «${t.evidence}»` : undefined}>{t.label_ru}</Link></span>
+              <span key={t.slug}>{n > 0 && ", "}<Link href={`/topics/${t.slug}`}
+              title={t.origin === "official" ? `официальная классификация закона: ${t.evidence}` : t.evidence ? `по слову «${t.evidence}» в названии` : undefined}>{t.label_ru}</Link>{t.origin === "official" && "*"}</span>
             ))}
-            {bill.topics.some((t) => t.review_state === "unreviewed") && <span className="muted"> (назначены автоматически)</span>}
+            <span className="muted small">
+              {bill.topics.some((t) => t.origin === "official") && " · * по официальной классификации законов Кнессета"}
+              {bill.topics.some((t) => t.origin === "rule") && " · без звёздочки — автоматически по словам в названии"}
+            </span>
           </p>
         )}
       </header>

@@ -39,7 +39,7 @@ def test_topic_faction_stats_use_final_reading(client):
     ballots_46699 = {r["MkId"] for r in SLICE["KNS_PlenumVoteResult"] if r["VoteID"] == 46699}
     assert sum(f["votes"] for f in stats.values()) >= 1 and len(ballots_46699) == 5
     assert all(f["votes"] == f["majority_for"] + f["majority_against"] + f["other"] for f in stats.values())
-    assert "automatically" in t["meta"]["note"]
+    assert "official classification" in t["meta"]["note"] and "been reviewed" in t["meta"]["note"]
 
 
 def test_votes_and_bills_filter_by_topic(client):

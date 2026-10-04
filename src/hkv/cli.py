@@ -49,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     ini = sub.add_parser("initiators", help="load KNS_BillInitiator for all bills in the database")
     ini.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     tp = sub.add_parser("topics", help="sync topic taxonomy, rule-based bill topics and Russian faction names")
+    tp.add_argument("--official", action="store_true", help="first refresh the official law classification from OData (~5 min)")
     tp.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     nm = sub.add_parser("names", help="member and faction names in en/ru (Knesset website, Wikidata, curated lists)")
     nm.add_argument("--refresh", action="store_true", help="re-fetch members who already have official names")
@@ -82,6 +83,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "topics":
         from hkv.topics import sync
         with psycopg.connect(args.db, autocommit=True) as conn:
+            if args.official:
+                from hkv.topics.official import load as load_official
+                print(load_official(conn, ODataClient(raw_dir=RAW_DIR)))
             print(sync(conn))
         return 0
     if args.cmd == "update":

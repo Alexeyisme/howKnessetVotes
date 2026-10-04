@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 import psycopg
 
-RULES_VERSION = "2026-10-04.1"
+RULES_VERSION = "2026-10-04.2"
 
 _NIQQUD = re.compile("[֑-ֽֿ-ׇ]")
 _TO_SPACE = str.maketrans({"־": " ", "–": " ", "—": " ", "-": " "})
@@ -146,9 +146,17 @@ def _pattern(keywords: tuple[str, ...]) -> re.Pattern[str]:
 _PATTERNS = {t.slug: _pattern(t.keywords) for t in TOPICS}
 
 
+# Phrases that contain a keyword but mean something else; removed before matching.
+FALSE_FRIENDS = tuple(he_norm(p) for p in (
+    "הכשרות המשפטית",   # legal capacity, not kashrut (כשרות)
+))
+
+
 def classify_title(title: str) -> dict[str, str]:
     """slug -> the keyword that matched."""
     norm = he_norm(title)
+    for phrase in FALSE_FRIENDS:
+        norm = norm.replace(phrase, " ")
     out = {}
     for slug, pat in _PATTERNS.items():
         m = pat.search(norm)
@@ -231,6 +239,9 @@ def sync(conn: psycopg.Connection) -> dict[str, int]:
         topic_ids = dict(conn.execute("SELECT slug, id FROM topic").fetchall())
 
         conn.execute("DELETE FROM bill_topic WHERE origin = 'rule' AND review_state = 'unreviewed'")
+        # official law classification first: for the same topic it wins over a keyword match
+        from hkv.topics.official import assign as assign_official
+        counts["bill_topics_official"] = assign_official(conn, topic_ids)
         assigned = 0
         for bill_id, title in conn.execute("SELECT id, title_he FROM bill").fetchall():
             for slug, kw in classify_title(title).items():

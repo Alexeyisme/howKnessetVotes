@@ -48,3 +48,33 @@ def test_faction_russian_names(he, ru):
 def test_national_insurance_is_welfare_not_finance():
     t = classify_title("הצעת חוק הביטוח הלאומי (תיקון מס' 230)")
     assert "welfare" in t and "finance-consumer" not in t
+
+
+def test_legal_capacity_is_not_kashrut():
+    assert "religion" not in classify_title("הצעת חוק הכשרות המשפטית והאפוטרופסות (תיקון מס' 22), התשפ\"ה-2025")
+    assert classify_title("הצעת חוק איסור הונאה בכשרות (תיקון), התשע\"ז-2017")["religion"] == "כשרות"
+
+
+def test_official_law_classification(new_database):
+    """Primary law = the one named in the bill title; a bill with more than three official topics gets none."""
+    from hkv.topics import sync
+    from hkv.topics.official import mark_primary
+    from tests.ingest.test_loader import SLICE, ingest
+    url = new_database()
+    ingest(url, SLICE)
+    with psycopg.connect(url, autocommit=True) as conn:
+        bills = conn.execute("SELECT id, title_he FROM bill ORDER BY knesset_bill_id LIMIT 2").fetchall()
+        (b1, title1), (b2, _) = bills
+        named = title1.removeprefix("הצעת ").split(" (")[0].split(",")[0]
+        conn.execute("INSERT INTO israel_law VALUES (1, %s, false, false), (2, 'חוק אחר, התשי\"ח-1958', false, false), (3, 'חוק שלישי', false, false)",
+                     (f"{named}, התשנ\"ה-1995",))
+        conn.execute("""INSERT INTO israel_law_classification VALUES (1, 7, 'בריאות'), (2, 19, 'מיסוי'),
+                        (3, 3, 'ביטחון'), (3, 14, 'חינוך'), (3, 37, 'רווחה'), (3, 45, 'תעסוקה')""")
+        conn.execute("INSERT INTO bill_law (bill_id, israel_law_id, binding_type_he) VALUES (%s, 1, 'מתקן'), (%s, 2, 'מתקן'), (%s, 3, 'מתקן')",
+                     (b1, b1, b2))
+        mark_primary(conn)
+        sync(conn)
+        official = lambda b: {r[0] for r in conn.execute(  # noqa: E731
+            "SELECT t.slug FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id WHERE bt.bill_id = %s AND bt.origin = 'official'", (b,))}
+        assert official(b1) == {"health"}       # taxes came from a consequential amendment to another law
+        assert official(b2) == set()            # four topics: too broad to say what the bill is about
