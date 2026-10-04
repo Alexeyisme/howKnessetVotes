@@ -10,7 +10,7 @@
 | Updates | Server timers: daily, plus every 2 h on plenum days. Nightly DB dump on the server. |
 | Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all three languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
 | API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in three languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
-| Gaps | Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
+| Gaps | No Arabic version yet (L10). Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -36,7 +36,7 @@ The site answers the questions a voter asks, in plain words, before it shows tab
 | U13 | **Contested votes** ✅: final votes with ≥ 60 votes cast where the coalition and opposition majorities differed (`/votes?view=contested`) | The user's idea "filter by number of voters": turnout alone also catches routine bills on big voting days, so it is combined with the coalition/opposition split | S |
 | U14 | **Recess notice**: "the Knesset is in recess until …" on the home page, from `KNS_KnessetDates` | Between sessions the latest vote can be months old; visitors should not think the site is stale | S |
 
-## Track 2 — Hebrew, English and Russian
+## Track 2 — Hebrew, English, Russian and Arabic
 
 Rule: every displayed text records its origin:
 
@@ -59,6 +59,7 @@ Hebrew source puts the translation back into the review queue.
 | L7 | **Bill descriptions he/en/ru**: 2–3 neutral sentences | Official `SummaryLaw` where it exists (1,144 bills); otherwise generated from the explanatory notes ("דברי הסבר") in `KNS_DocumentBill` DOCX, labelled "according to the sponsors…" | L |
 | L8 | **API language**: `?lang=` picks the display fields; every response also carries `{he, en, ru}` objects | — | S |
 | L9 | **Review screen**: approve or fix machine translations and topic assignments; sets `review_state` and removes the "machine" mark | Small admin page behind a login | M |
+| L10 | **Arabic** (`/ar`): about 21% of Israelis are Arab citizens, and Arabic-speaking voters have no Knesset voting tracker in their language | **Names:** the Knesset website's API returns official Arabic MK names and faction names (`languageKey=ar`, checked 2026-10-04: "بنيامين نتنياهو", "الليكود"), fetched by the same `hkv names` code. **Data:** the schema already allows `ar` in `person_alias`, `topic_label` and `topic_alias`; `faction_label` needs `ar` added back to its language check. **Site:** RTL layout from the Hebrew site; `dict/ar.tsx`, glossary and methodology need a native Arabic-speaking reviewer for Knesset terms (قراءة أولى، تحفّظ، حجب الثقة); Arabic search with alef/hamza and ta marbuta normalisation; Arabic topic labels and aliases; `?lang=ar` in the API. Curated short names for the 16th–25th Knesset factions where the website has none. **Later:** bill titles in Arabic come with L6 | M |
 
 L6 and L7 need an Anthropic API key. Expected cost: a few dollars for titles and tens of dollars for
 descriptions.
@@ -96,7 +97,7 @@ descriptions.
 | 1 ✅ | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
 | 2 ✅ | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
 | 3 (in progress) | D1, D2, D3 · U11, U13 | History back to 2003; parties across Knessets; coalition context; contested votes |
-| 4 | O7, U14 · L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
+| 4 | O7, U14 · L10 · L6, L7, L9 · U4 | Arabic site; bills readable in Russian and English, with descriptions and a review workflow |
 | 5 | U7, U9, U10 · D4, D5, D8 | Compare, share and follow; changelog and open data |
 
 Phases 1–2 change what every visitor sees. Phase 3 doubles the data and should come before any
