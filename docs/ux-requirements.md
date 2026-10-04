@@ -31,8 +31,21 @@ Captured with `apps/web/scripts/screens.mjs`. Beyond §1, the renders add these 
 - **Vote page**: the hero (badges, Hebrew title, verdict) works; the full desktop page is ~5,600 px tall because the 103-row roll call is expanded by default. The faction breakdown rows put name, Hebrew name, badge, counts and "majority for" on one dense line and the bar is thin relative to the text.
 - **Topic page**: the diverging bars are good, but "Likud 103 of 103 for · Shas 94 of 94 for" confirms that the chart measures bloc membership, not stance; the `Show` button next to the Knesset select is a form, not a switch.
 - **Member page** on a phone: a 30-row list of Hebrew titles between the summary and the statistics; the photo is small; the faction history table is as long as the vote list.
-- **Hebrew RTL is correct everywhere** sampled (header, chips, cards, bars). No dark-mode captures yet (the script does them; rerun once the environment allows).
+- **Hebrew RTL is correct everywhere** sampled (header, chips, cards, bars, tables, forms).
 - Two search boxes are visible at once on home (header + hero).
+
+Second round (members, parties, factions, bills, bill, faction, search, glossary, methodology, "all votes"; dark mode for home, vote, member, members, bills):
+
+- **Dark mode is sound**: tokens hold on every page sampled, the for/against colours stay distinguishable, no white flashes or unstyled blocks. Keep it; add a manual toggle only if analytics show demand.
+- **`/members` on a phone is unusable**: a four-column table (name, latest party, Knessets, roll-call records) at 390 px wraps every cell and runs to ~11,800 px for one Knesset. It should be a grid of photo chips (name + party badge) with letter navigation and the same typeahead as everywhere; "roll-call records" is an internal number and should go.
+- **`/bills/[id]` lists all 77 plenum votes**, mostly second-reading reservations, as a flat ~7,400 px list. This is the U4 "bill as a story" gap: three or four stage milestones with their verdict, reservations collapsed under a count.
+- **Faction page**: cohesion 99.9 % and "voted unanimously 98.6 %" for Likud are true but uninformative for a coalition party (they measure bloc discipline on routine bills); the interesting number — splits — is behind a "Party split" tab. Lead with contested and split votes; put cohesion in the statistics block with the denominator, as now.
+- **`/parties` is the best list page on the site** (name, Knessets, coalition badge, one line each) and should be the model for members and factions; its "Factions by Knesset →" link exposes the internal concept and should become the Knesset switch of R10.
+- **`/factions` for the 25th Knesset shows a 5-day "Religious Zionism" row with 10 records** (the pre-split list) next to the real one. Correct data, confusing list: hide or fold sub-month technical factions into their successor in lists (keep them on the detail pages).
+- **Search "likud"** returns "Ayoob Kara" as the first member (an alias match that nobody expects) and then ten "Likud · Nth Knesset" faction rows. Results should be grouped: one party card (→ `/parties/likud`) with the Knessets inside it, members only on name matches.
+- **"All votes" is 70 % reservation votes** ("2 for · 8 against") — confirms the U3 default; the view needs a stage/motion filter row rather than one undifferentiated feed.
+- Glossary and methodology read well and are the right length on a phone; link them from the places where the terms appear (the stage chip, the "no record" note) rather than only from the footer.
+- No page shows a *loading* or *error* state distinct from "no votes"; a slow API reply renders an empty card.
 
 ## 2. What is good and must stay
 
