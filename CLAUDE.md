@@ -22,7 +22,7 @@ The owner writes in Russian or English — answer in the language of the message
 | `db/migrations/NNNN_*.sql`, `db/migrate.py` | Postgres 17 schema, applied in order |
 | `src/hkv/sources/odata.py` | Knesset OData v4 client (paced, raw pages saved to `data/raw/`) |
 | `src/hkv/ingest/` | `loader`/`mapping` (v4 → DB), `backfill` (parallel history), `legacy` (old Votes.svc: official totals ≤ 2021-07), `update` (daily job), `verify` |
-| `src/hkv/names/` + `curated/*.toml` | MK/faction names in he/en/ru, photos, parties (`parties.toml`), faction short names (`factions.toml`) |
+| `src/hkv/names/` + `curated/*.toml` | MK/faction names in he/en/ru/ar, photos, parties (`parties.toml`), faction short names (`factions.toml`) |
 | `src/hkv/topics/` | topic taxonomy, rule-based + official law classification |
 | `src/hkv/coalition/` + `overrides.toml` | governments and coalition/opposition per faction derived from government posts; `vote_bloc` |
 | `src/hkv/api/` | FastAPI: `app.py` (votes), `entities.py` (members, factions, parties, governments, bills), `topics.py`, `names.py` (`?lang=` display names), `common.py` |
@@ -55,7 +55,7 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
 - **Nothing from the source is silently dropped or fixed**: problems go to `data_issue`, every row points to its
   `source_snapshot`, source corrections keep the old version in `row_revision`.
 - **Curated data needs evidence.** `coalition/overrides.toml` entries carry an `evidence` field; names in
-  `curated/*.toml` must exist in all three languages.
+  `curated/*.toml` must exist in every language (ru, en, ar; Hebrew is the official name).
 - Statistics show numerator and denominator; no hidden assumptions (see architecture §10, methodology page).
 
 ## Conventions
@@ -68,11 +68,12 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
 - **Web is Next.js 16, not the version you remember**: `middleware` is `src/proxy.ts`, routes live under
   `app/[lang]` and read the locale with `next/root-params`. Read `apps/web/node_modules/next/dist/docs/` before
   using an API you are unsure of.
-- **i18n:** every UI string goes in `apps/web/src/i18n/dict/{ru,en,he}.tsx` (the `Dict` type comes from `ru`, so
+- **i18n:** every UI string goes in `apps/web/src/i18n/dict/{ru,en,he,ar}.tsx` (the `Dict` type comes from `ru`, so
   a missing key in en/he fails the build). Long texts are in `i18n/content/`. Use `makeT(locale)` helpers for
-  names, dates, numbers and hrefs and the `components/Link` wrapper (adds the locale prefix). Hebrew is RTL —
-  use logical CSS properties (`margin-inline-start`, not `margin-left`). Arabic is planned (roadmap L10).
-- API display names: endpoints take `?lang=he|en|ru` and fill `name`/`short`/`label` via the mixins in
+  names, dates, numbers and hrefs and the `components/Link` wrapper (adds the locale prefix). Hebrew
+  and Arabic are RTL — use logical CSS properties (`margin-inline-start`, not `margin-left`). Arabic is a beta (roadmap L10):
+  its texts are machine-translated and unreviewed, and the methodology page says so (section `translation`).
+- API display names: endpoints take `?lang=he|en|ru|ar` and fill `name`/`short`/`label` via the mixins in
   `api/names.py`; add new name-bearing models there rather than translating in the web app.
 - Match the existing style: small modules, short docstrings explaining *why*, no frameworks beyond what is there
   (psycopg, FastAPI, plain CSS modules).

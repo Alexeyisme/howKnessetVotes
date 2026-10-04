@@ -1,15 +1,16 @@
 // Locales and URL helpers. Shared by proxy.ts and the app, so no server-only imports here.
 
-export const LOCALES = ["ru", "en", "he"] as const;
+export const LOCALES = ["ru", "en", "he", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "ru";
 export const LOCALE_COOKIE = "hkv_lang";
 /** request header set by proxy.ts: the path without the locale prefix, plus the query string (language switcher, hreflang) */
 export const PATH_HEADER = "x-hkv-path";
 
-export const DIR: Record<Locale, "ltr" | "rtl"> = { ru: "ltr", en: "ltr", he: "rtl" };
-export const INTL: Record<Locale, string> = { ru: "ru-RU", en: "en-GB", he: "he-IL" };
-export const LANG_NAME: Record<Locale, string> = { ru: "Русский", en: "English", he: "עברית" };
+export const DIR: Record<Locale, "ltr" | "rtl"> = { ru: "ltr", en: "ltr", he: "rtl", ar: "rtl" };
+// Arabic: Western digits and a 24-hour clock, as in Israeli Arabic-language media
+export const INTL: Record<Locale, string> = { ru: "ru-RU", en: "en-GB", he: "he-IL", ar: "ar-IL-u-nu-latn" };
+export const LANG_NAME: Record<Locale, string> = { ru: "Русский", en: "English", he: "עברית", ar: "العربية" };
 
 export const isLocale = (s: string | null | undefined): s is Locale => !!s && (LOCALES as readonly string[]).includes(s);
 

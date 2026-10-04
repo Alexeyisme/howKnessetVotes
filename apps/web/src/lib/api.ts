@@ -44,9 +44,12 @@ export interface VoteSummary {
 }
 
 /** en/ru names of a member (official Knesset website, Wikidata or curated); null when unknown */
-export interface PersonNames { name_he: string; name_ru?: string | null; name_en?: string | null }
+export interface PersonNames { name_he: string; name_ru?: string | null; name_en?: string | null; name_ar?: string | null }
 /** name_* = full name, short_* = for tables and charts */
-export interface FactionNames { name_he: string; name_ru?: string | null; short_ru?: string | null; name_en?: string | null; short_en?: string | null; short_he?: string | null }
+export interface FactionNames {
+  name_he: string; name_ru?: string | null; short_ru?: string | null; name_en?: string | null; short_en?: string | null;
+  name_ar?: string | null; short_ar?: string | null; short_he?: string | null;
+}
 
 export interface FactionBreakdown extends FactionNames {
   faction_id: number;
@@ -72,6 +75,8 @@ export interface Ballot extends PersonNames {
   faction_short_ru?: string | null;
   faction_name_en?: string | null;
   faction_short_en?: string | null;
+  faction_name_ar?: string | null;
+  faction_short_ar?: string | null;
   faction_short_he?: string | null;
   faction_ambiguous: boolean;
   choice: Choice | null;
@@ -146,7 +151,7 @@ export interface MemberVote {
   deviates: boolean | null;
 }
 
-export interface PartyRef { slug: string; name_he: string; name_ru: string; name_en: string }
+export interface PartyRef { slug: string; name_he: string; name_ru: string; name_en: string; name_ar?: string | null }
 
 export interface FactionSummary extends FactionNames {
   id: number;
@@ -186,7 +191,7 @@ export interface BillSummary {
 }
 
 export interface BillDetail extends BillSummary {
-  topics: { slug: string; label_ru: string; label_he: string; label_en?: string | null; origin: string; review_state: string; evidence: string | null }[];
+  topics: { slug: string; label_ru: string; label_he: string; label_en?: string | null; label_ar?: string | null; origin: string; review_state: string; evidence: string | null }[];
   summary_he: string | null;
   published_on: string | null;
   initiators: (PersonNames & { person_id: number; role: "initiator" | "joined" | "withdrew" })[];
@@ -220,10 +225,11 @@ export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills$
 export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
 export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);
 
-export interface TopicSummary { slug: string; label_ru: string; label_he: string; label_en?: string | null; bills: number }
+export interface TopicSummary { slug: string; label_ru: string; label_he: string; label_en?: string | null; label_ar?: string | null; bills: number }
 export interface TopicDetail extends TopicSummary {
   aliases_ru: string[];
   aliases_en: string[];
+  aliases_ar: string[];
   term: number;
   stage: string[];
   factions: { faction: FactionRef; faction_ru: string | null; votes: number; majority_for: number; majority_against: number; other: number }[];

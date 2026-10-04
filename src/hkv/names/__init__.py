@@ -1,7 +1,7 @@
-"""Member and faction names in he/en/ru (docs/roadmap.md L1, L2).
+"""Member and faction names in he/en/ru/ar (docs/roadmap.md L1, L2, L10).
 
-Members: link each person to the Knesset website ID, then take the official English and Russian names
-from the website API. The link is made in this order, and the first match wins:
+Members: link each person to the Knesset website ID, then take the official English, Russian and Arabic
+names from the website API. The link is made in this order, and the first match wins:
   1. curated/mk_names.toml   (hand-maintained `site_id`, for people the automatic steps cannot match)
   2. KNS_MkSiteCode          (official PersonID -> website ID; covers MKs up to ~2019)
   3. website's current MK list and its replacement list, matched by normalised Hebrew name
@@ -9,7 +9,7 @@ from the website API. The link is made in this order, and the first match wins:
 If the website has no names for an ID, Wikidata labels are used (origin 'wikidata'); a curated name, when
 present, is stored too (origin 'curated'). Wikidata alternative labels become search variants.
 
-Factions: curated/factions.toml (ru/en full and short names per Knesset faction ID). For the current
+Factions: curated/factions.toml (ru/en/ar full and short names per Knesset faction ID). For the current
 Knesset, the website's official faction names are stored as well and win (view priority in 0006).
 """
 
@@ -34,15 +34,16 @@ log = logging.getLogger("hkv.names")
 CURATED = Path(__file__).parent / "curated"
 SITE_API = "https://knesset.gov.il/WebSiteApi/knessetapi"
 WIKIDATA_SPARQL = "https://query.wikidata.org/sparql"
-WIKIDATA_QUERY = """SELECT ?item ?kid ?he ?en ?ru
+WIKIDATA_QUERY = """SELECT ?item ?kid ?he ?en ?ru ?ar
   (GROUP_CONCAT(DISTINCT ?enAlt; separator="|") AS ?enAlts) (GROUP_CONCAT(DISTINCT ?ruAlt; separator="|") AS ?ruAlts)
 WHERE { ?item wdt:P9770 ?kid .
   OPTIONAL { ?item rdfs:label ?he FILTER(lang(?he) = "he") }
   OPTIONAL { ?item rdfs:label ?en FILTER(lang(?en) = "en") }
   OPTIONAL { ?item rdfs:label ?ru FILTER(lang(?ru) = "ru") }
+  OPTIONAL { ?item rdfs:label ?ar FILTER(lang(?ar) = "ar") }
   OPTIONAL { ?item skos:altLabel ?enAlt FILTER(lang(?enAlt) = "en") }
   OPTIONAL { ?item skos:altLabel ?ruAlt FILTER(lang(?ruAlt) = "ru") }
-} GROUP BY ?item ?kid ?he ?en ?ru"""
+} GROUP BY ?item ?kid ?he ?en ?ru ?ar"""
 
 
 @dataclass(frozen=True)
@@ -60,6 +61,7 @@ class WikidataMk:
     ru: str | None
     en_alts: tuple[str, ...]
     ru_alts: tuple[str, ...]
+    ar: str | None = None
 
 
 @dataclass(frozen=True)
@@ -110,7 +112,7 @@ class LiveSources:
             v = lambda k: b[k]["value"] if k in b and b[k]["value"] else None  # noqa: E731
             if not (v("kid") or "").isdigit():
                 continue
-            out.append(WikidataMk(qid=v("item").rsplit("/", 1)[-1], site_id=int(v("kid")), he=v("he"), en=v("en"), ru=v("ru"),
+            out.append(WikidataMk(qid=v("item").rsplit("/", 1)[-1], site_id=int(v("kid")), he=v("he"), en=v("en"), ru=v("ru"), ar=v("ar"),
                                   en_alts=tuple(filter(None, (v("enAlts") or "").split("|"))),
                                   ru_alts=tuple(filter(None, (v("ruAlts") or "").split("|")))))
         return out
@@ -158,9 +160,10 @@ def sync_parties(conn: psycopg.Connection) -> dict[str, int]:
         conn.execute("DELETE FROM party_faction")
         conn.execute("DELETE FROM party WHERE slug <> ALL(%s)", (list(parties),))
         for sort, (slug, p) in enumerate(parties.items()):
-            conn.execute("""INSERT INTO party (slug, name_he, name_ru, name_en, sort) VALUES (%s, %s, %s, %s, %s)
+            conn.execute("""INSERT INTO party (slug, name_he, name_ru, name_en, name_ar, sort) VALUES (%s, %s, %s, %s, %s, %s)
                             ON CONFLICT (slug) DO UPDATE SET name_he = EXCLUDED.name_he, name_ru = EXCLUDED.name_ru,
-                              name_en = EXCLUDED.name_en, sort = EXCLUDED.sort""", (slug, p["he"], p["ru"], p["en"], sort))
+                              name_en = EXCLUDED.name_en, name_ar = EXCLUDED.name_ar, sort = EXCLUDED.sort""",
+                         (slug, p["he"], p["ru"], p["en"], p["ar"], sort))
             for kid in p["factions"]:
                 if kid not in ids:
                     counts["unknown_faction"] += 1
@@ -208,7 +211,8 @@ def _set_alias(conn: psycopg.Connection, person_id, language: str, name: str | N
 
 
 def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = False) -> dict[str, int]:
-    """Names for every person who has ballots. Without `refresh`, people who already have official names are skipped."""
+    """Names for every person who has ballots. Without `refresh`, people who already have official names are skipped
+    (so names added in a new language reach existing people only with `refresh`, e.g. `hkv names --refresh`)."""
     curated, _ = load_curated()
     people = conn.execute(
         """SELECT p.id, p.knesset_person_id, p.first_name_he || ' ' || p.last_name_he AS name_he,
@@ -253,7 +257,7 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
                 conn.execute("""INSERT INTO person_external_id (person_id, scheme, value, method) VALUES (%s, 'wikidata', %s, 'p9770')
                                 ON CONFLICT DO NOTHING""", (pid, wd.qid))
             named: dict[str, str] = {}
-            for lang in ("en", "ru"):
+            for lang in ("en", "ru", "ar"):
                 det = src.mk_details(site, lang) if site is not None else None
                 if det and det.name:
                     _set_alias(conn, pid, lang, det.name, "official", "official")
@@ -273,7 +277,7 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
                     counts["variants"] += _set_alias(conn, pid, "ru", alt, "variant", "wikidata")
             if site in current and he_norm(current[site]) != he_norm(name_he):
                 _set_alias(conn, pid, "he", current[site], "variant", "official")
-            for lang in ("en", "ru"):
+            for lang in ("en", "ru", "ar"):
                 counts[f"{lang}:{named.get(lang, 'missing')}"] += 1
             if "en" in named and "ru" in named:
                 close_issue(conn, "person_name_missing", pid)
@@ -304,7 +308,7 @@ def sync_photos(conn: psycopg.Connection, src: NameSources) -> dict[str, int]:
 
 
 def sync_factions(conn: psycopg.Connection, src: NameSources | None = None) -> dict[str, int]:
-    """Curated ru/en labels for every faction; official current-Knesset names from the website when `src` is given."""
+    """Curated ru/en/ar labels for every faction; official current-Knesset names from the website when `src` is given."""
     _, curated = load_curated()
     counts: Counter[str] = Counter()
     ids = {kid: fid for fid, kid in conn.execute("SELECT id, knesset_faction_id FROM faction")}
@@ -314,7 +318,7 @@ def sync_factions(conn: psycopg.Connection, src: NameSources | None = None) -> d
             if fid is None:
                 counts["curated_unknown_faction"] += 1
                 continue
-            for lang in ("ru", "en"):
+            for lang in ("ru", "en", "ar"):
                 if entry.get(lang):
                     conn.execute("""INSERT INTO faction_label (faction_id, language, name, short_name, origin) VALUES (%s, %s, %s, %s, 'curated')
                                     ON CONFLICT (faction_id, language) DO UPDATE SET name = EXCLUDED.name, short_name = EXCLUDED.short_name, origin = 'curated'
@@ -350,7 +354,7 @@ def _official_current_factions(conn: psycopg.Connection, src: NameSources) -> di
            WHERE upper(fm.valid) IS NULL AND f.term_number = (SELECT max(term_number) FROM faction)""").fetchall()
     names: dict[tuple, Counter] = defaultdict(Counter)
     for fid, site in rows:
-        for lang in ("ru", "en"):
+        for lang in ("ru", "en", "ar"):
             det = src.mk_details(int(site), lang)
             if det and det.faction:
                 names[(fid, lang)][det.faction] += 1

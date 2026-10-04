@@ -4,7 +4,7 @@ import Link from "@/components/Link";
 import { BallotTable, type BallotRow } from "@/components/BallotTable";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Ballot, type Counts, type VoteDetail } from "@/lib/api";
-import { bidiSafe, missingRollCallText, verdict } from "@/lib/labels";
+import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
 import { getT, type T } from "@/i18n/server";
 import styles from "./vote.module.css";
 
@@ -55,11 +55,12 @@ function ballotRows(vote: VoteDetail, ballots: Ballot[], t: T): BallotRow[] {
     const name = t.person(b);
     const fm = b.faction_id != null ? majority.get(b.faction_id) : undefined;
     const faction = b.faction_id
-      ? t.faction({ name_he: b.faction_name_he ?? "", name_ru: b.faction_name_ru, short_ru: b.faction_short_ru, name_en: b.faction_name_en, short_en: b.faction_short_en, short_he: b.faction_short_he })
+      ? t.faction({ name_he: b.faction_name_he ?? "", name_ru: b.faction_name_ru, short_ru: b.faction_short_ru, name_en: b.faction_name_en, short_en: b.faction_short_en,
+          name_ar: b.faction_name_ar, short_ar: b.faction_short_ar, short_he: b.faction_short_he })
       : "—";
     return {
       id: b.person_id, href: t.href(`/members/${b.person_id}`), name, nameHe: name !== b.name_he ? b.name_he : null,
-      search: [b.name_he, b.name_ru, b.name_en].filter(Boolean).join(" ").toLowerCase(),
+      search: fold([b.name_he, b.name_ru, b.name_en, b.name_ar].filter(Boolean).join(" ")),
       factionId: b.faction_id, faction, factionHe: b.faction_name_he && faction !== b.faction_name_he ? b.faction_name_he : null,
       factionHref: b.faction_id ? t.href(`/factions/${b.faction_id}`) : null, ambiguous: b.faction_ambiguous,
       choice: b.choice, label: t.ballot(b.choice, b.participation),

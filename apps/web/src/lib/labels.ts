@@ -9,6 +9,13 @@ export function bidiSafe(s: string): string {
   return s.replace(/(\d)\s*[–—־]\s*(\d)/g, "$1-$2");
 }
 
+/** Lower case, and Arabic without harakat, tatweel or the hamza / ta marbuta / alef maqsura distinctions (same rules
+ *  as the API's ar_norm), so "احمد" finds "أحمد". For client-side name filters. */
+export function fold(s: string): string {
+  return s.toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه")
+    .replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي");
+}
+
 // Only votes on a bill as a whole and no-confidence motions: what most readers mean by "how did they vote".
 export const MAIN_MOTIONS: MotionType[] = ["adopt_bill", "no_confidence"];
 

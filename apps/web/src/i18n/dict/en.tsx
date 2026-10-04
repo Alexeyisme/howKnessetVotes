@@ -20,7 +20,7 @@ export const en: Dict = {
     asOf: (updated, last, votes, ballots) => `Data updated ${updated}; latest vote ${last}. ${votes} votes, ${ballots} roll-call records.`,
     sources: "Sources: Knesset open data, the Knesset website (member names and photos), Wikidata,",
     oknesset: "Open Knesset",
-    methodology: "Methodology", glossary: "Glossary", api: "API",
+    methodology: "Methodology", glossary: "Glossary", translation: "About the translation", api: "API",
   },
   common: {
     show: "Show", find: "Search", nothingFound: "Nothing found.", noVotes: "No votes.", earlier: "Earlier →",
@@ -95,7 +95,7 @@ export const en: Dict = {
   },
   home: {
     title: "How the Knesset Votes",
-    lead: "How every party and member of Israel's parliament voted on each bill — from official Knesset data, in English, Russian and Hebrew.",
+    lead: "How every party and member of Israel's parliament voted on each bill — from official Knesset data, in English, Russian, Hebrew and Arabic.",
     searchPh: "Member, party, topic or bill — in any language",
     examples: "Try:",
     exampleQueries: ["Netanyahu", "budget", "Likud", "housing"],
@@ -242,7 +242,7 @@ export const en: Dict = {
   },
   search: {
     title: "Search", ph: "Name, party, topic, bill title or number",
-    hint: "Members, parties and topics can be searched in English, Russian or Hebrew (e.g. “netanyahu”, “likud”, “transport”). Bill titles are in Hebrew, typos tolerated. A number finds a bill.",
+    hint: "Members, parties and topics can be searched in English, Russian, Hebrew or Arabic (e.g. “netanyahu”, “likud”, “transport”). Bill titles are in Hebrew, typos tolerated. A number finds a bill.",
     topics: "Topics", factions: "Parties", members: "Members", bills: "Bills",
   },
   glossary: {
@@ -268,5 +268,7 @@ export const en: Dict = {
     byTerm: "Factions by Knesset →",
     faction: "Faction", term: "Knesset", period: "Period", members: "Members", role: "Coalition / opposition",
     kicker: "Party across Knessets",
-  },  notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },
+  },
+  translation: { beta: null, more: "How the site is translated" },
+  notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },
 };

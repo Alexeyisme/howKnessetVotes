@@ -8,9 +8,9 @@
 |---|---|
 | Data | 17,319 plenum votes (2016-10-31 … 2026-07-28), 1.21M ballots, 3,647 bills, 299 MKs who voted, 101 factions. Faction at the vote date for 99.998% of ballots. Official totals cross-checked up to 2021-07. **History back to 2003-10 is loading on the server** (D1, ~19,000 more votes). 37 governments with coalition/opposition per faction (derived from official government posts); 31 parties linked across Knessets. |
 | Updates | Server timers: daily, plus every 2 h on plenum days. Nightly DB dump on the server. |
-| Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all three languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
-| API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in three languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
-| Gaps | No Arabic version yet (L10). Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
+| Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew) and an Arabic beta (`/ar`); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all four languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
+| API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in four languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
+| Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -59,7 +59,7 @@ Hebrew source puts the translation back into the review queue.
 | L7 | **Bill descriptions he/en/ru**: 2–3 neutral sentences | Official `SummaryLaw` where it exists (1,144 bills); otherwise generated from the explanatory notes ("דברי הסבר") in `KNS_DocumentBill` DOCX, labelled "according to the sponsors…" | L |
 | L8 | **API language**: `?lang=` picks the display fields; every response also carries `{he, en, ru}` objects | — | S |
 | L9 | **Review screen**: approve or fix machine translations and topic assignments; sets `review_state` and removes the "machine" mark | Small admin page behind a login | M |
-| L10 | **Arabic** (`/ar`): about 21% of Israelis are Arab citizens, and Arabic-speaking voters have no Knesset voting tracker in their language | **Names:** the Knesset website's API returns official Arabic MK names and faction names (`languageKey=ar`, checked 2026-10-04: "بنيامين نتنياهو", "الليكود"), fetched by the same `hkv names` code. **Data:** the schema already allows `ar` in `person_alias`, `topic_label` and `topic_alias`; `faction_label` needs `ar` added back to its language check. **Site:** RTL layout from the Hebrew site; `dict/ar.tsx`, glossary and methodology need a native Arabic-speaking reviewer for Knesset terms (قراءة أولى، تحفّظ، حجب الثقة); Arabic search with alef/hamza and ta marbuta normalisation; Arabic topic labels and aliases; `?lang=ar` in the API. Curated short names for the 16th–25th Knesset factions where the website has none. **Later:** bill titles in Arabic come with L6 | M |
+| L10 | **Arabic** (`/ar`) — *beta, Phase 4*: about 21% of Israelis are Arab citizens, and Arabic-speaking voters have no Knesset voting tracker in their language | **Names:** the Knesset website's API returns official Arabic MK names and faction names (`languageKey=ar`, checked 2026-10-04: "بنيامين نتنياهو", "الليكود"), fetched by the same `hkv names` code. **Data:** the schema already allows `ar` in `person_alias`, `topic_label` and `topic_alias`; `faction_label` needs `ar` added back to its language check. **Site:** RTL layout from the Hebrew site; `dict/ar.tsx`, glossary and methodology need a native Arabic-speaking reviewer for Knesset terms (قراءة أولى، تحفّظ، حجب الثقة); Arabic search with alef/hamza and ta marbuta normalisation; Arabic topic labels and aliases; `?lang=ar` in the API. Curated short names for the 16th–25th Knesset factions where the website has none. **Later:** bill titles in Arabic come with L6 | M |
 
 L6 and L7 need an Anthropic API key. Expected cost: a few dollars for titles and tens of dollars for
 descriptions.
@@ -88,7 +88,7 @@ descriptions.
 | O4 | Uptime check on `/api/v1/status` (external) | S |
 | O5 | Raw source pages (366 MB) archived off-server for provenance | S |
 | O6 | Privacy-friendly analytics (self-hosted Umami) to learn what people search for | S |
-| O7 | **26th Knesset readiness** (opens 2026-11-10): curated ru/en/he names for the new factions in `factions.toml`, their links in `parties.toml`, and `hkv names` for new MKs' names and photos once the website lists them. Open `faction_name_missing` issues show what is left | S |
+| O7 | **26th Knesset readiness** (opens 2026-11-10): curated ru/en/ar names for the new factions in `factions.toml`, their links in `parties.toml`, and `hkv names` for new MKs' names and photos once the website lists them. Open `faction_name_missing` issues show what is left | S |
 
 ## Proposed order
 
@@ -159,6 +159,12 @@ public launch or press, so that early coverage isn't based on a partial history.
 | Deploy cleanup | done | `scripts/deploy.sh` now removes files no longer tracked from the server's code directories (moved pages broke the first Phase 2 build) |
 
 To check: the official data shows Yisrael Eichler (UTJ) as deputy communications minister from 2026-01-19, so UTJ is shown back in the coalition from then. This is later than the editor's own knowledge; if UTJ did not rejoin, add an override.
+
+### Phase 4 — status (2026-10-05)
+
+| Item | State | Result |
+|---|---|---|
+| L10 Arabic | beta | `/ar` with the full UI, glossary and methodology in Arabic (RTL, Western digits, 24-hour time). Official Arabic MK names from the Knesset website (`hkv names --refresh` fills them for known MKs; new MKs get them automatically); curated Arabic names for all 192 factions and 31 parties; Arabic topic labels and aliases. API `?lang=ar`, `name_ar`/`short_ar`/`label_ar`; search ignores hamza forms, ta marbuta and harakat (`ar_norm`, migration 0012). Every Arabic page carries a beta note; the methodology page has a "Translation" section in all four languages saying how each version was made. **Left:** review by a native Arabic speaker (Knesset terms, glossary, methodology), then remove `translation.beta` |
 
 ## Open Knesset (oknesset.org) — what we can reuse
 

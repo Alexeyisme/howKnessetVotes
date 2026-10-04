@@ -7,184 +7,215 @@
 he = "הליכוד"
 ru = "Ликуд"
 en = "Likud"
+ar = "الليكود"
 factions = [24, 690, 748, 804, 842, 882, 931, 933, 942, 962, 1096]
 
 [party.yesh-atid]
 he = "יש עתיד"
 ru = "Еш Атид"
 en = "Yesh Atid"
+ar = "يش عتيد"
 factions = [812, 904, 917, 938, 955, 967, 1102]
 
 [party.shas]
 he = "ש\"ס"
 ru = "ШАС"
 en = "Shas"
+ar = "شاس"
 factions = [44, 628, 753, 811, 910, 918, 932, 947, 971, 1095]
 
 [party.blue-and-white]
 he = "כחול לבן – המחנה הממלכתי"
 ru = "Кахоль-лаван – Государственный лагерь"
 en = "Blue and White – National Unity"
+ar = "أزرق أبيض – المعسكر الرسمي"
 factions = [917, 938, 946, 1079, 969, 1085, 1098, 1110]
 
 [party.utj]
 he = "יהדות התורה"
 ru = "Яадут ха-Тора"
 en = "United Torah Judaism"
+ar = "يهدوت هتوراه"
 factions = [48, 632, 746, 807, 908, 928, 936, 944, 965, 1101, 422, 424, 1039, 1041, 1065, 1066, 1071, 1072, 1082, 1083]
 
 [party.yisrael-beytenu]
 he = "ישראל ביתנו"
 ru = "Наш дом Израиль"
 en = "Yisrael Beytenu"
+ar = "يسرائيل بيتينو"
 factions = [45, 590, 638, 747, 804, 843, 905, 929, 937, 945, 968, 1104]
 
 [party.religious-zionism]
 he = "הציונות הדתית"
 ru = "Религиозный сионизм"
 en = "Religious Zionism"
+ar = "الصهيونية الدينية"
 factions = [961, 1097, 1105]
 
 [party.otzma-yehudit]
 he = "עוצמה יהודית"
 ru = "Оцма Йехудит"
 en = "Otzma Yehudit"
+ar = "عوتسما يهوديت"
 factions = [1051, 1106]
 
 [party.labor]
 he = "העבודה"
 ru = "Авода"
 en = "Labor"
+ar = "العمل"
 factions = [42, 502, 624, 1044, 1047, 750, 805, 902, 914, 925, 934, 956, 958, 963, 1100]
 
 [party.ra-am]
 he = "רע\"ם"
 ru = "РААМ"
 en = "Ra'am"
+ar = "الموحدة"
 factions = [52, 636, 752, 810, 1052, 1053, 903, 922, 1059, 940, 1069, 943, 1075, 973, 1099]
 
 [party.hadash]
 he = "חד\"ש"
 ru = "ХАДАШ"
 en = "Hadash"
+ar = "الجبهة"
 factions = [50, 604, 630, 745, 806, 903, 924, 1067, 940, 943, 1074, 964, 1103]
 
 [party.ta-al]
 he = "תע\"ל"
 ru = "ТААЛЬ"
 en = "Ta'al"
+ar = "العربية للتغيير"
 factions = [50, 602, 636, 752, 810, 1052, 1054, 903, 924, 1070, 940, 943, 1074, 1076, 964, 1103]
 
 [party.balad]
 he = "בל\"ד"
 ru = "БАЛАД"
 en = "Balad"
+ar = "التجمع"
 factions = [51, 626, 744, 802, 903, 922, 1060, 940, 1068, 943, 1074, 964]
 
 [party.joint-list]
 he = "הרשימה המשותפת"
 ru = "Объединённый список"
 en = "Joint List"
+ar = "القائمة المشتركة"
 factions = [903, 940, 943, 1074, 964]
 
 [party.new-hope]
 he = "תקווה חדשה"
 ru = "Новая надежда"
 en = "New Hope"
+ar = "أمل جديد"
 factions = [972, 1088, 1108]
 
 [party.noam]
 he = "נעם"
 ru = "Ноам"
 en = "Noam"
+ar = "نوعم"
 factions = [1107]
 
 [party.meretz]
 he = "מרצ"
 ru = "Мерец"
 en = "Meretz"
+ar = "ميرتس"
 factions = [46, 62, 522, 640, 749, 808, 909, 926, 939, 956, 959, 970]
 
 [party.yamina]
 he = "ימינה / הימין החדש"
 ru = "Ямина / Новые правые"
 en = "Yamina / New Right"
+ar = "يمينا / اليمين الجديد"
 factions = [916, 941, 1077, 948, 966, 1091]
 
 [party.jewish-home]
 he = "הבית היהודי / מפד\"ל"
 ru = "Еврейский дом / МАФДАЛ"
 en = "Jewish Home / NRP"
+ar = "البيت اليهودي / المفدال"
 factions = [49, 642, 1042, 1043, 743, 803, 907, 923, 935, 960]
 
 [party.national-union]
 he = "האיחוד הלאומי"
 ru = "Национальное единство"
 en = "National Union"
+ar = "الاتحاد القومي"
 factions = [45, 584, 642, 1045, 742]
 
 [party.agudat-yisrael]
 he = "אגודת ישראל"
 ru = "Агудат Исраэль"
 en = "Agudat Yisrael"
+ar = "أغودات يسرائيل"
 factions = [424, 1039, 1065, 1071, 1083]
 
 [party.degel-hatorah]
 he = "דגל התורה"
 ru = "Дегель ха-Тора"
 en = "Degel HaTorah"
+ar = "ديغل هتوراه"
 factions = [422, 1041, 1066, 1072, 1082]
 
 [party.kulanu]
 he = "כולנו"
 ru = "Кулану"
 en = "Kulanu"
+ar = "كولانو"
 factions = [906, 930]
 
 [party.hatnua]
 he = "התנועה"
 ru = "Ха-Тнуа"
 en = "Hatnua"
+ar = "هتنوعا"
 factions = [1048, 813, 902, 915]
 
 [party.kadima]
 he = "קדימה"
 ru = "Кадима"
 en = "Kadima"
+ar = "كديما"
 factions = [542, 562, 622, 751, 809]
 
 [party.gesher]
 he = "גשר"
 ru = "Гешер"
 en = "Gesher"
+ar = "غيشر"
 factions = [913, 934, 957]
 
 [party.derekh-eretz]
 he = "דרך ארץ"
 ru = "Дерех Эрец"
 en = "Derekh Eretz"
+ar = "ديرخ إيرتس"
 factions = [954, 1087]
 
 [party.shinui]
 he = "שינוי"
 ru = "Шинуй"
 en = "Shinui"
+ar = "شينوي"
 factions = [43, 1038, 1078, 564]
 
 [party.gil]
 he = "גיל"
 ru = "Гиль (Партия пенсионеров)"
 en = "Gil (Pensioners' Party)"
+ar = "غيل (حزب المتقاعدين)"
 factions = [634]
 
 [party.independence]
 he = "העצמאות"
 ru = "Ацмаут"
 en = "Independence"
+ar = "الاستقلال (عتسماؤوت)"
 factions = [762]
 
 [party.yisrael-baaliyah]
 he = "ישראל בעלייה"
 ru = "Исраэль ба-Алия"
 en = "Yisrael BaAliyah"
+ar = "يسرائيل بعلياه"
 factions = [53]
