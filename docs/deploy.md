@@ -35,7 +35,7 @@ so **commit before deploying**.
 | Timer | When (Asia/Jerusalem) | What |
 |---|---|---|
 | `hkv-update.timer` | daily 05:30; Mon–Wed 14:15–22:15 every 2 h; Tue–Thu 00:15 and 02:15 | `hkv update --days 30` in the `updater` container: reference data, the last 30 days of votes, topics, a `data_release` row |
-| `hkv-backup.timer` | daily 04:30 | `pg_dump -Fc` to `/srv/hkv/backups`, keeping the last 14 |
+| `hkv-backup.timer` | daily 04:30 | `pg_dump -Fc` to `/srv/hkv/backups`, keeping the last 14 (Hetzner server backups copy them off the server daily, 7 kept) |
 
 ```sh
 systemctl list-timers 'hkv-*'
@@ -43,6 +43,16 @@ journalctl -u hkv-update -n 50        # last update run
 sudo systemctl start hkv-update       # run an update now
 scripts/prod.sh ps | logs -f api      # on the server, from /srv/hkv
 ```
+
+Occasional manual jobs (run on the server from `/srv/hkv`; both are safe to repeat):
+
+```sh
+sudo systemd-run --unit=hkv-names --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv names
+sudo systemd-run --unit=hkv-topics --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv topics --official
+```
+
+- `hkv names` refreshes official faction names for the current Knesset (~10 min). New MKs get names in every regular update.
+- `hkv topics --official` reloads the official law classification (~3 min). Bills voted in the update window are refreshed automatically.
 
 Web pages cache API responses for 10 minutes, so an update appears on the site within 10 minutes.
 
@@ -54,8 +64,6 @@ scripts/prod.sh exec -T db pg_restore -U knesset -d knesset --clean --if-exists 
 
 ## Still to do
 
-- **Off-server backups:** backups exist only on the server itself. Options are a Hetzner Storage Box
-  or Hetzner's own server backups, each a few euros a month.
-- **Failure alerts** for the update and backup timers (Telegram or email). Until then, check
-  `systemctl list-timers` and the "data as of" date in the site footer.
-- **CI:** run the tests on every push, before deploying.
+- **Telegram alerts:** a failing update or backup triggers `hkv-alert@`, which logs to the journal. To also
+  get a Telegram message, add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to `/srv/hkv/.env`.
+- **Deploy only from green CI:** tests run on every push (GitHub Actions); `scripts/deploy.sh` does not check the result yet.

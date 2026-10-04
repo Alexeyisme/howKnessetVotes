@@ -90,7 +90,7 @@ descriptions.
 
 | Phase | Content | Outcome |
 |---|---|---|
-| 1 | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
+| 1 ✅ | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
 | 2 | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
 | 3 | D1, D2, D3 · U11 | History back to 2003; parties across Knessets; coalition context |
 | 4 | L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
@@ -113,6 +113,23 @@ public launch or press, so that early coverage isn't based on a partial history.
 | 8 | API/UI names | Members and factions return `name: {he, en, ru}`; Russian pages show the Russian name with Hebrew underneath | Member list, member, vote and faction pages show Russian names |
 | 9 | U2 + U3 | Vote page header in plain words (what was decided, the result, what the stage means); lists default to "important" votes (final readings and whole-bill votes), with a switch to "all" | — |
 | 10 | U8 | `/about/glossary` and `/about/methodology` pages; numbers link to them | — |
+
+### Phase 1 — status (2026-10-04)
+
+| Item | State | Result |
+|---|---|---|
+| O1 backups | done | Hetzner daily server backups (7 kept, window 06–10 UTC), plus the nightly `pg_dump` |
+| O2 alerts | done, Telegram pending | `hkv-alert@` runs on failure of the update or backup; it logs to the journal and sends to Telegram once the bot token and chat ID are in `/srv/hkv/.env` |
+| O3 CI | done | GitHub Actions: 81 Python tests on Postgres 17; web lint, type check and build |
+| L1 MK names | done | **All 299 MKs: official en/ru names from the Knesset website.** Website ID via `KNS_MkSiteCode` (128), the current and replaced MK lists (100), Wikidata P9770 (63), curated (8). All 171 name-based matches were verified against the website's Hebrew names. 370 search variants from Wikidata |
+| L2 party names | done | Curated ru/en full and short names for all 101 factions that voted; official names for the current Knesset (full name official, short name curated so a party reads the same across Knessets). Fixed machine labels (e.g. the Joint List was labelled as Ra'am's name) |
+| L4 topics en | done | 21 English labels and aliases |
+| L5 search | done | Russian and English names and nicknames find MKs ("нетаньяху", "биби", "ben gvir") |
+| API/UI names | done | `name_en`/`name_ru` for members, `name_*`/`short_*` for factions on every response; Russian name first, Hebrew original alongside |
+| U2 plain-language votes | done | Outcome line per vote type ("Закон принят: 64 за, 52 против"), official before 2021-07, otherwise derived and labelled; a sentence on what the stage means |
+| U3 main votes by default | done | Home page shows whole-bill votes and no-confidence motions; final, first, preliminary and "all votes" are one click away |
+| U8 glossary and methodology | done | `/about/glossary`, `/about/methodology`; footer credits all sources, including Open Knesset |
+| T1 official law topics | done | Official classification of the law a bill amends (only the law named in the title; omnibus laws with more than 3 categories skipped). Topic coverage 69% → 78% of voted bills; agrees with keyword rules on 91% of bills that have both. Also found and fixed a keyword false positive (legal capacity ≠ kashrut) |
 
 ## Open Knesset (oknesset.org) — what we can reuse
 
