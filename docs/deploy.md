@@ -28,7 +28,10 @@ scripts/deploy.sh   # rsync of committed files, then docker compose up -d --buil
 ```
 
 The repo is private. The server holds no GitHub credentials and gets only the files that git tracks,
-so **commit before deploying**.
+so **commit before deploying**. Files that are no longer tracked are removed from the server's code directories
+(`apps src db infra scripts tests docs`); `.env`, `backups/` and everything else there is left alone.
+
+A deploy does not wait for CI; check the GitHub Actions run first (`gh run list --limit 1`).
 
 ## Scheduled jobs (systemd on the server, units in [infra/systemd](../infra/systemd))
 
@@ -44,15 +47,30 @@ sudo systemctl start hkv-update       # run an update now
 scripts/prod.sh ps | logs -f api      # on the server, from /srv/hkv
 ```
 
-Occasional manual jobs (run on the server from `/srv/hkv`; both are safe to repeat):
+Occasional manual jobs (run on the server from `/srv/hkv` as **root** — `deploy` has no passwordless sudo —
+e.g. `ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address>`; all are safe to repeat):
 
 ```sh
 sudo systemd-run --unit=hkv-names --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv names
 sudo systemd-run --unit=hkv-topics --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv topics --official
+sudo systemd-run --unit=hkv-coalition --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv coalition
 ```
 
 - `hkv names` refreshes official faction names for the current Knesset and fills missing MK photo URLs (~10 min). New MKs get names and photos in every regular update; curated faction names (incl. Hebrew short names) are applied on every update.
 - `hkv topics --official` reloads the official law classification (~3 min). Bills voted in the update window are refreshed automatically.
+- `hkv coalition` reloads government posts and re-derives governments, coalition/opposition per faction and the per-vote blocs (~1 min). Every update does this too; run it after editing `src/hkv/coalition/overrides.toml` and deploying.
+
+Loading a historical period (as for D1, 2003–2016; ~2 h for 13 years with 4 workers). Logs go to the `raw` volume:
+
+```sh
+sudo systemd-run --unit=hkv-history --uid=deploy --gid=deploy --working-directory=/srv/hkv sh -c "P=scripts/prod.sh; \
+  \$P run --rm updater hkv backfill --from 2003-10-01 --to 2016-10-30 --workers 4 --months 3 --log /data/raw/logs/backfill-history.log && \
+  \$P run --rm updater hkv legacy --from 2003-10-01 --to 2016-10-30 --log /data/raw/logs/legacy-history.log && \
+  \$P run --rm updater hkv initiators && \$P run --rm updater hkv topics --official && \$P run --rm updater hkv names && \
+  \$P run --rm updater hkv coalition"
+```
+
+Take a backup first (`sudo systemctl start hkv-backup`).
 
 Web pages cache API responses for 10 minutes, so an update appears on the site within 10 minutes.
 
@@ -71,3 +89,4 @@ scripts/prod.sh exec -T db pg_restore -U knesset -d knesset --clean --if-exists 
 ## Still to do
 
 - **Deploy only from green CI:** tests run on every push (GitHub Actions); `scripts/deploy.sh` does not check the result yet.
+- **26th Knesset (2026-11-10):** new factions need curated names in `factions.toml` and links in `parties.toml`; run `hkv names` once the Knesset website lists the new MKs (roadmap O7).

@@ -6,11 +6,11 @@
 
 | Area | State |
 |---|---|
-| Data | 17,319 plenum votes (2016-10-31 … 2026-07-28), 1.21M ballots, 3,647 bills, 299 MKs who voted, 101 factions. Faction at the vote date for 99.998% of ballots. Official totals cross-checked up to 2021-07. |
+| Data | 17,319 plenum votes (2016-10-31 … 2026-07-28), 1.21M ballots, 3,647 bills, 299 MKs who voted, 101 factions. Faction at the vote date for 99.998% of ballots. Official totals cross-checked up to 2021-07. **History back to 2003-10 is loading on the server** (D1, ~19,000 more votes). 37 governments with coalition/opposition per faction (derived from official government posts); 31 parties linked across Knessets. |
 | Updates | Server timers: daily, plus every 2 h on plenum days. Nightly DB dump on the server. |
-| Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all three languages. |
-| API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in three languages on every response. |
-| Gaps | Bill titles and descriptions only in Hebrew (L6, L7). History starts in 2016 (D1). No party lineage or coalition context (D2, D3). Deploys don't wait for green CI. |
+| Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all three languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
+| API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in three languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
+| Gaps | Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -31,8 +31,10 @@ The site answers the questions a voter asks, in plain words, before it shows tab
 | U8 | **Glossary and methodology pages**: readings, reservations, "no record ≠ absent", how cohesion and deviation are computed, data sources | Trust; every number on the site links here | S |
 | U9 | **Share cards**: OpenGraph images for a vote, MK or topic ("Как голосовал Ликуд по закону о …") | Sharing in WhatsApp and Telegram is how this content travels | M |
 | U10 | **Follow**: a Telegram channel or bot and RSS for new votes by topic, MK or party | Russian-speaking Israelis live in Telegram | M |
-| U11 | **Coalition/opposition everywhere**: badges on parties, and "voted with the coalition N of M" on MK pages | Context needed to read any vote (needs D3) | S after D3 |
+| U11 | **Coalition/opposition everywhere**: badges on parties, and "voted with the coalition N of M" on MK pages | Context needed to read any vote (needs D3). **Badges, coalition history and per-vote blocs done (Phase 3); the MK-page number is left** | S after D3 |
 | U12 | **Accessibility and speed pass**: keyboard navigation, screen-reader labels on charts, a Lighthouse budget, dark mode verified | A public civic site should meet WCAG AA | S |
+| U13 | **Contested votes** ✅: final votes with ≥ 60 votes cast where the coalition and opposition majorities differed (`/votes?view=contested`) | The user's idea "filter by number of voters": turnout alone also catches routine bills on big voting days, so it is combined with the coalition/opposition split | S |
+| U14 | **Recess notice**: "the Knesset is in recess until …" on the home page, from `KNS_KnessetDates` | Between sessions the latest vote can be months old; visitors should not think the site is stale | S |
 
 ## Track 2 — Hebrew, English and Russian
 
@@ -65,9 +67,9 @@ descriptions.
 
 | # | Item | Details | Size |
 |---|---|---|---|
-| D1 | **Extend history back to October 2003** (16th–20th Knessets) | Checked 2026-10-04: OData v4 has **19,152 more votes before 2016-10**, with per-MK ballots back to vote 6 on 2003-10-20. Legacy `Votes.svc` has official totals for the same years. Faction memberships go back to 1948, so the faction at the vote date works. This more than doubles the history. Audit first: some early votes have very few ballots (vote 5000 in 2005: 10 records). The existing backfill and legacy loaders can load it; expect 1.1M+ ballots and a few hours with 5 workers. | M |
-| D2 | **Party lineage across Knessets**: a `party` entity linking per-term factions (Likud 16th…25th, Yesh Atid, joint lists, splits and mergers) | Pages "Ликуд за все созывы" and stable links; the spec's party ≠ faction rule. Curated YAML (~60 parties since 2003) plus Wikidata "follows / followed by" | M |
-| D3 | **Governments and coalition membership** (`government`, `faction_alignment` are empty) | ~9 governments since 2003; coalition composition by date, curated from official government pages; entries for coalition exits and entries | M |
+| D1 | **Extend history back to October 2003** (16th–20th Knessets) — *loading, Phase 3* | Checked 2026-10-04: OData v4 has **19,152 more votes before 2016-10**, with per-MK ballots back to vote 6 on 2003-10-20. Legacy `Votes.svc` has official totals for the same years. Faction memberships go back to 1948, so the faction at the vote date works. This more than doubles the history. Audit first: some early votes have very few ballots (vote 5000 in 2005: 10 records). The existing backfill and legacy loaders can load it; expect 1.1M+ ballots and a few hours with 5 workers. | M |
+| D2 | **Party lineage across Knessets** ✅: a `party` entity linking per-term factions (Likud 16th…25th, Yesh Atid, joint lists, splits and mergers) | Done as curated `parties.toml`: 31 parties, 219 faction links; a joint list belongs to every member party. Pages `/parties/[slug]` | M |
+| D3 | **Governments and coalition membership** ✅ | Done without a hand-made list: derived from official government posts (`KNS_PersonToPosition` with `GovernmentNum`), plus 7 curated overrides with evidence. All 37 governments | M |
 | D4 | **Bill history**: merged bills (`KNS_BillUnion`), initiator changes, committee referral, status changes over time | Status changes are captured from now on through `row_revision`; earlier ones come from vote stages | M |
 | D5 | **Visible change history**: a "data changes" page and API with new votes per update and source corrections (old → new value). `row_revision` already holds 51 vote corrections; the `data_release` diff becomes the changelog | Transparency; lets journalists cite a fixed version | S |
 | D6 | **Official totals after 2021-07** (Votes.svc stopped then) | Check whether the website's vote cards are reachable from the server; otherwise show "official total not published" | S |
@@ -79,12 +81,13 @@ descriptions.
 
 | # | Item | Size |
 |---|---|---|
-| O1 | Off-server backups: Hetzner server backups (~€1–2/month) or Storage Box (~€4/month); monthly restore test | S |
-| O2 | Failure alerts: Telegram bot for the update and backup timers, and for "no update in 36 h" | S |
-| O3 | CI: GitHub Actions runs the tests on push; deploy only from green `main` | S |
+| O1 ✅ | Off-server backups: Hetzner server backups (~€1–2/month) or Storage Box (~€4/month); monthly restore test | S |
+| O2 ✅ | Failure alerts: Telegram bot for the update and backup timers, and for "no update in 36 h" | S |
+| O3 ✅ (tests; deploy gate open) | CI: GitHub Actions runs the tests on push; deploy only from green `main` | S |
 | O4 | Uptime check on `/api/v1/status` (external) | S |
 | O5 | Raw source pages (366 MB) archived off-server for provenance | S |
 | O6 | Privacy-friendly analytics (self-hosted Umami) to learn what people search for | S |
+| O7 | **26th Knesset readiness** (opens 2026-11-10): curated ru/en/he names for the new factions in `factions.toml`, their links in `parties.toml`, and `hkv names` for new MKs' names and photos once the website lists them. Open `faction_name_missing` issues show what is left | S |
 
 ## Proposed order
 
@@ -92,8 +95,8 @@ descriptions.
 |---|---|---|
 | 1 ✅ | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
 | 2 ✅ | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
-| 3 | D1, D2, D3 · U11 | History back to 2003; parties across Knessets; coalition context |
-| 4 | L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
+| 3 (in progress) | D1, D2, D3 · U11, U13 | History back to 2003; parties across Knessets; coalition context; contested votes |
+| 4 | O7, U14 · L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
 | 5 | U7, U9, U10 · D4, D5, D8 | Compare, share and follow; changelog and open data |
 
 Phases 1–2 change what every visitor sees. Phase 3 doubles the data and should come before any
@@ -142,6 +145,19 @@ public launch or press, so that early coverage isn't based on a partial history.
 | U5 MK page | done | Official photo (linked from the Knesset website, 299/299), current or last party, a one-sentence summary (participation, votes against own faction, bills sponsored); the vote list opens on final votes |
 | U6 roll call | done | Filter by name (any language), by faction and "against own faction's majority"; sticky header; cards on phones |
 | Quorum | done (new) | Glossary entry and a note on votes with fewer than 40 votes cast: the plenum has no quorum, a simple majority of those voting decides |
+
+### Phase 3 — status (2026-10-04)
+
+| Item | State | Result |
+|---|---|---|
+| D1 history to 2003 | loading | Audit by pilot (2005 Q2): 276 votes, all ballots got a faction, roll call matches the official total in 217 of 220 votes (the other 3 differ by one vote). Full load running on the server: `hkv backfill 2003-10-01..2016-10-30`, then legacy official totals, bill sponsors, topics and names. Per-year match rates to be added here when it finishes |
+| D3 governments and coalitions | done | `gov_position` (all government posts), 37 governments, coalition/opposition per faction per day. Rules: a member holds a post → coalition; ministers who left the Knesset under the Norwegian law (2015+) count for their faction; gaps under 30 days don't flip a faction; no posts at all → `unknown` (between election and swearing-in). 7 curated overrides with evidence: Yamina 2020 (opposition), Ra'am 2021–22, Shas from 2025-07, Degel HaTorah 2019–21, Agudat Yisrael and Degel HaTorah Jan–Mar 2005. Checked against governments 30–37 |
+| D2 parties | done | 31 parties, 219 faction links; curated ru/en/he names for the 91 factions of the 16th–19th Knessets (192 factions curated in total) |
+| U11 coalition context | mostly done | Badges on vote breakdowns, faction lists and party pages; coalition history on faction pages; coalition vs opposition counts on every vote (`vote_bloc`). Left: "voted with the coalition N of M" on MK pages |
+| U13 contested votes | done (new) | `/votes?view=contested`: final votes, ≥ 60 cast, coalition and opposition majorities differ. API `contested`, `min_cast` |
+| Deploy cleanup | done | `scripts/deploy.sh` now removes files no longer tracked from the server's code directories (moved pages broke the first Phase 2 build) |
+
+To check: the official data shows Yisrael Eichler (UTJ) as deputy communications minister from 2026-01-19, so UTJ is shown back in the coalition from then. This is later than the editor's own knowledge; if UTJ did not rejoin, add an override.
 
 ## Open Knesset (oknesset.org) — what we can reuse
 
