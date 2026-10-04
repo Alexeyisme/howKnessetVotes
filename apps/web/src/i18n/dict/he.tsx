@@ -1,0 +1,250 @@
+import type { Majority, MotionType, Stage } from "@/lib/api";
+import type { Dict } from "./ru";
+
+const kn = (n: number) => `הכנסת ה-${n}`;
+
+export const he: Dict = {
+  site: {
+    name: "איך הכנסת מצביעה",
+    description: "הצבעות שמיות במליאת הכנסת: איך הצביעו הסיעות וחברי הכנסת על כל הצעת חוק, עם מקור לכל מספר.",
+  },
+  nav: {
+    label: "מדורים", votes: "הצבעות", topics: "נושאים", bills: "הצעות חוק", members: "חברי כנסת", factions: "סיעות",
+    searchLabel: "חיפוש", searchPh: "חיפוש: נושא, חוק, חבר כנסת", language: "שפה",
+  },
+  footer: {
+    asOf: (updated, last, votes, ballots) => `הנתונים עודכנו ב-${updated}; ההצבעה האחרונה: ${last}. ${votes} הצבעות, ${ballots} רישומים שמיים.`,
+    sources: "מקורות: המידע הפתוח של הכנסת, אתר הכנסת (שמות ותמונות של חברי הכנסת), ויקינתונים,",
+    oknesset: "כנסת פתוחה",
+    methodology: "מתודולוגיה", glossary: "מילון מונחים", api: "API",
+  },
+  common: {
+    show: "הצג", find: "חיפוש", nothingFound: "לא נמצאו תוצאות.", noVotes: "אין הצבעות.", earlier: "מוקדמות יותר ←",
+    term: kn,
+    knessetOf: kn,
+    allTerms: "כל הכנסות", termLabel: "כנסת", present: "היום", all: "הכול",
+    rateDetail: (num, den, unit) => `${num} מתוך ${den} ${unit}`,
+    billsCount: (n) => `${n} הצעות חוק`,
+    votesCount: (n) => `${n} הצבעות`,
+    lastVote: (d) => `אחרונה ${d}`,
+    passedThird: "התקבלה בקריאה שלישית", passed: "התקבלה",
+    factionUnknown: "סיעה לא ידועה",
+    glossaryLink: "מילון מונחים ←",
+    sourceKnesset: "מקור:",
+  },
+  stage: {
+    preliminary: "קריאה טרומית", first: "קריאה ראשונה", second: "קריאה שנייה", third: "קריאה שלישית",
+    not_applicable: "מחוץ לקריאות החקיקה", unknown: "שלב לא ידוע",
+  } as Record<Stage, string>,
+  stageHint: {
+    preliminary: "ההצבעה הראשונה על הצעת חוק פרטית: הכנסת מחליטה אם לדון בה בכלל. לאחר מכן ועדה מכינה את הנוסח.",
+    first: "הצבעה על הצעת החוק לאחר הכנה בוועדה (הצעות ממשלתיות מתחילות כאן). אם היא מתקבלת, היא חוזרת לוועדה להמשך עבודה.",
+    second: "הצבעות על סעיפי הנוסח הסופי ועל ההסתייגויות להם. בדרך כלל באותו יום כמו הקריאה השלישית.",
+    third: "ההצבעה הסופית. הצעת חוק שהתקבלה בקריאה שלישית הופכת לחוק.",
+  },
+  motion: {
+    adopt_bill: "הצבעה על הצעת החוק", reject_bill: "הסרת הצעת החוק מסדר היום",
+    adopt_section: "הצבעה על סעיפי הצעת החוק", reservation: "הצבעה על הסתייגות",
+    no_confidence: "הצעת אי-אמון בממשלה", agenda: "הצעה לסדר היום", secondary_legislation: "חקיקת משנה",
+    procedural: "החלטה פרוצדורלית", other: "החלטה אחרת", unknown: "סוג ההצבעה לא ידוע",
+  } as Record<MotionType, string>,
+  motionHint: {
+    reservation: "״בעד״ כאן הוא בעד ההסתייגות (בדרך כלל של האופוזיציה), לא בעד הצעת החוק כולה.",
+    reject_bill: "״בעד״ כאן הוא בעד הסרת הצעת החוק מסדר היום.",
+    no_confidence: "״בעד״ כאן הוא בעד הבעת אי-אמון בממשלה.",
+    adopt_section: "״בעד״ כאן הוא בעד אישור הסעיפים המפורטים בקריאה שנייה.",
+  },
+  method: {
+    electronic: "אלקטרונית", roll_call: "שמית", show_of_hands_counted: "בהרמת ידיים, עם ספירה",
+    show_of_hands: "בהרמת ידיים", secret: "חשאית", unknown: "שיטה לא ידועה",
+  },
+  methodBadge: (m) => `הצבעה ${m}`,
+  choice: { for: "בעד", against: "נגד", abstain: "נמנע" },
+  choiceShort: { for: "בעד", against: "נגד", abstain: "נמנע" },
+  participation: {
+    cast: "הצביע", present_not_voting: "נוכח, לא הצביע", participated_choice_unavailable: "הצביע, הבחירה לא ידועה",
+    absent_reported: "דווח כנעדר", declared_nonparticipation: "הודיע על אי-השתתפות", unknown: "קוד לא ידוע",
+  },
+  majority: { for: "רוב בעד", against: "רוב נגד", abstain: "רוב נמנעים", mixed: "אין רוב", none: "לא הצביעו" } as Record<Majority, string>,
+  origin: { private: "פרטית", government: "ממשלתית", committee: "של ועדה" },
+  initiatorRole: { initiator: "יוזם", joined: "הצטרף", withdrew: "הסיר חתימה" },
+  verdict: (motion, stage, yes) => {
+    switch (motion) {
+      case "adopt_bill":
+        if (stage === "third") return yes ? "החוק התקבל" : "החוק לא התקבל";
+        if (stage === "first") return yes ? "הצעת החוק עברה בקריאה ראשונה" : "הצעת החוק לא עברה בקריאה ראשונה";
+        if (stage === "preliminary") return yes ? "הצעת החוק עברה בקריאה טרומית" : "הצעת החוק לא עברה בקריאה טרומית";
+        return yes ? "הצעת החוק אושרה" : "הצעת החוק לא אושרה";
+      case "reservation": return yes ? "ההסתייגות התקבלה" : "ההסתייגות נדחתה";
+      case "adopt_section": return yes ? "הסעיפים אושרו" : "הסעיפים נדחו";
+      case "no_confidence": return yes ? "הצעת האי-אמון התקבלה" : "הצעת האי-אמון נדחתה";
+      case "reject_bill": return yes ? "הצעת החוק הוסרה מסדר היום" : "הצעת החוק לא הוסרה מסדר היום";
+      default: return yes ? "ההצעה התקבלה" : "ההצעה נדחתה";
+    }
+  },
+  rc: {
+    for: "בעד", against: "נגד", abstained: "נמנעו", present: "נוכחים שלא הצביעו",
+    line: (f, a, ab) => `${f} בעד · ${a} נגד${ab ? ` · ${ab} נמנעו` : ""}`,
+    noList: (method) => `אין רישום שמי: הצבעה ${method}`,
+    notLoaded: "הנתונים השמיים עדיין לא נטענו או חסרים במקור",
+    noRollCall: "ללא רישום שמי",
+  },
+  home: {
+    title: "איך הכנסת מצביעה",
+    lead: "איך הצביעו הסיעות וחברי הכנסת על כל חוק — לפי הנתונים הרשמיים של הכנסת, בעברית, באנגלית וברוסית.",
+    searchPh: "חבר כנסת, מפלגה, נושא או חוק",
+    examples: "לדוגמה:",
+    exampleQueries: ["נתניהו", "תקציב", "הליכוד", "דיור"],
+    topicsTitle: "איך הצביעו הסיעות לפי נושא",
+    topicsAll: "כל הנושאים ←",
+    finalTitle: "ההצבעות הסופיות האחרונות",
+    finalAll: "כל ההצבעות ←",
+    browse: "מדורים",
+    tiles: [
+      { href: "/members", title: "חברי כנסת", text: "איך הצביע כל חבר כנסת ומתי הצביע נגד סיעתו" },
+      { href: "/factions", title: "סיעות", text: "הרכב, לכידות והצבעות של כל סיעה" },
+      { href: "/bills", title: "הצעות חוק", text: "כל ההצבעות על הצעת חוק, מקריאה טרומית ועד שלישית" },
+      { href: "/votes", title: "כל ההצבעות", text: "הצבעות המליאה עם סינון לפי שלב" },
+    ],
+  },
+  votes: {
+    title: "הצבעות במליאה",
+    filtersLabel: "אילו הצבעות להציג",
+    filters: { main: "עיקריות", final: "סופיות (קריאה שלישית)", first: "קריאה ראשונה", preliminary: "טרומית", all: "כל ההצבעות" },
+    lead: {
+      main: "הצבעות על הצעות חוק בשלמותן והצעות אי-אמון. הסתייגויות, סעיפים והחלטות פרוצדורליות — תחת ״כל ההצבעות״.",
+      final: "הצבעות שלאחריהן הצעת החוק הופכת לחוק (או לא).",
+      all: "כל ההצבעות, כולל הסתייגויות, סעיפים בודדים והחלטות פרוצדורליות.",
+    },
+  },
+  vote: {
+    meta: (date, term, id) => `${date} · ${kn(term)} · הצבעה מס׳ ${id}`,
+    status: (st) => `סטטוס: ${st}`,
+    derived: " — לפי הרישומים השמיים (התוצאה הרשמית אינה מתפרסמת)",
+    official: " — לפי התוצאה הרשמית של הכנסת",
+    resultLine: (f, a, ab) => `: ${f} בעד, ${a} נגד${ab ? `, ${ab} נמנעו` : ""}`,
+    quorum: (cast) => `הצביעו ${cast} מתוך 120 חברי הכנסת. במליאה אין מניין חוקי: החלטה מתקבלת ברוב רגיל של המצביעים. רוב מיוחד (61 קולות) נדרש רק בהצעת אי-אמון ובחלק מהוראות חוקי היסוד.`,
+    question: "מה הועמד להצבעה",
+    bill: "הצעת חוק:",
+    resultTitle: "התוצאה לפי הרישומים השמיים",
+    noRecords: (why) => `אין רישומים שמיים: ${why}.`,
+    officialTotals: (f, a, ab) => `התוצאה הרשמית: ${f} בעד, ${a} נגד, ${ab} נמנעו`,
+    officialAccepted: " — התקבלה.", officialRejected: " — נדחתה.",
+    excluded: (n) => ` לפי המקור, ${n} רישומים מהרשימה השמית לא נכללו בתוצאה הרשמית (קול שנמסר או תוקן לאחר ההצבעה).`,
+    totalsMatch: " בהתחשב בכך, הרשימה השמית תואמת את התוצאה הרשמית.",
+    totalsMismatch: " הרשימה השמית שונה מהתוצאה הרשמית — הפער נרשם לבדיקה.",
+    onlyRecords: "נספרים רק חברי כנסת שיש לגביהם רישום. היעדר רישום אינו אומר שחבר הכנסת נעדר.",
+    noOfficial: " התוצאה הרשמית של הצבעות אחרי יולי 2021 אינה מתפרסמת במידע הפתוח.",
+    byFaction: "לפי סיעות ביום ההצבעה",
+    unresolved: (n) => `ל-${n} רישומים לא ידועה הסיעה בתאריך זה.`,
+    table: (n) => `הרשימה השמית (${n})`,
+    sourceLink: "דף ההצבעה באתר הכנסת ↗",
+    notFound: "ההצבעה לא נמצאה", notFoundText: "ייתכן שהיא עדיין לא נטענה.", backToList: "לרשימת ההצבעות",
+  },
+  breakdown: {
+    legend: "מקרא", for: "בעד", abstain: "נמנעו", against: "נגד",
+    counts: (c) => {
+      const p = [`${c.for} בעד`, `${c.against} נגד`];
+      if (c.abstain) p.push(`${c.abstain} נמנעו`);
+      if (c.present_not_voting) p.push(`${c.present_not_voting} נוכחים, לא הצביעו`);
+      if (c.other) p.push(`${c.other} אחר`);
+      return p.join(" · ");
+    },
+    ambiguous: (n) => ` · ${n} לא חד-משמעי`,
+    ambiguousTitle: "הצבעה ביום מעבר סיעה: השיוך אינו חד-משמעי",
+    factionPage: "דף הסיעה ←",
+  },
+  ballots: {
+    member: "חבר כנסת", factionThen: "הסיעה אז", vote: "הצבעה", code: "קוד במקור",
+    filterName: "שם", filterNamePh: "סינון לפי שם", filterFaction: "סיעה", allFactions: "כל הסיעות",
+    deviates: "רק הצבעות נגד רוב הסיעה",
+    deviatesMark: "נגד רוב הסיעה",
+    shown: (n, total) => `מוצגים ${n} מתוך ${total}`,
+    notCounted: "לא נכלל בתוצאה הרשמית",
+  },
+  members: {
+    title: "חברי כנסת", searchPh: "שם בכל שפה, למשל לפיד",
+    searchAll: (n) => `חיפוש בכל הכנסות: ${n}`,
+    termCount: (term, n) => `${kn(Number(term))}: ${n} חברי כנסת עם הצבעות שמיות`,
+    member: "חבר כנסת", lastFaction: "סיעה אחרונה", terms: "כנסות", records: "רישומים שמיים",
+  },
+  member: {
+    kicker: (terms) => `חבר הכנסת · כנסות ${terms}`,
+    currentFaction: "סיעה:", lastFaction: "סיעה אחרונה:",
+    photoCredit: "צילום: אתר הכנסת",
+    summary: (p) => <>השתתפות ב-<strong>{p.part}</strong> מההצבעות השמיות בתקופת הכהונה ({p.cast} מתוך {p.avail}).
+      {" "}הצבעה שונה מרוב הסיעה: <strong>{p.dev}</strong> פעמים מתוך {p.comparable} הצבעות שניתן להשוות.
+      {p.initiated > 0 && <> יזם {p.initiated} הצעות חוק שהגיעו להצבעה במליאה.</>}</>,
+    participation: "השתתפות בהצבעות שמיות", participationUnit: "הצבעות בתקופת הכהונה",
+    deviation: "הצבעה שונה מרוב הסיעה", deviationUnit: "הצבעות שניתן להשוות",
+    bills: "הצעות חוק שהגיעו להצבעה", billsDetail: (n) => `כיוזם; הצטרף לעוד ${n}`,
+    note: "הנתונים מתייחסים להצבעות מ-27 בספטמבר 2016. השתתפות היא שיעור ההצבעות השמיות בתקופת הכהונה שבהן חבר הכנסת הצביע בעד, נגד או נמנע. זו אינה נוכחות. רוב הסיעה מחושב לפי שאר חבריה שהצביעו באותה הצבעה (לפחות שניים); הצבעה שונה אינה מעידה על הפרת משמעת סיעתית.",
+    factions: "סיעות", faction: "סיעה", term: "כנסת", period: "תקופה",
+    votes: "הצבעות", tabFinal: "הצבעות סופיות", tabAll: "הכול", tabDeviated: "נגד רוב הסיעה",
+    finalHint: "הצבעות בקריאה שלישית על הצעות חוק בשלמותן: לאחריהן הצעת החוק הופכת לחוק.",
+    noVotes: "אין הצבעות.",
+  },
+  factions: {
+    title: "סיעות",
+    lead: "סיעה היא קבוצת חברי כנסת בכנסת מסוימת; סיעה אחת יכולה לכלול כמה מפלגות. הקולות משויכים לסיעה ביום ההצבעה.",
+    faction: "סיעה", period: "תקופה", membersEver: "חברים (בסך הכול)", records: "רישומים שמיים",
+  },
+  faction: {
+    kicker: (term, period) => `סיעה ב${kn(term)} · ${period}`,
+    titleWithTerm: (name, term) => `${name} (${kn(term)})`,
+    votesWithMembers: "הצבעות בהשתתפות חברי הסיעה",
+    cohesion: "לכידות", cohesionUnit: "קולות תאמו את הבחירה הנפוצה בסיעה",
+    unanimous: "הצביעו פה אחד", unanimousUnit: "הצבעות (שבהן הצביעו שניים או יותר)",
+    members: (n) => `הרכב (${n} בסך הכול)`, former: (n) => `חברים לשעבר (${n})`,
+    votes: "הצבעות", tabAll: "הכול", tabSplit: "הסיעה התפצלה",
+  },
+  bills: {
+    title: "הצעות חוק", searchPh: "מילה מהשם או מספר", onlyPassed: "רק כאלה שהתקבלו בקריאה שלישית",
+    lead: "הצעות חוק שהמליאה הצביעה עליהן; האחרונות קודם.",
+  },
+  bill: {
+    kicker: (origin, term) => `הצעת חוק ${origin} · ${kn(term)}`,
+    published: (d) => ` · פורסם כחוק ב-${d}`,
+    status: "סטטוס:", topics: "נושאים:",
+    officialTitle: (e) => `סיווג רשמי של החוק: ${e}`,
+    ruleTitle: (e) => `לפי המילה ״${e}״ בשם`,
+    officialNote: " · * לפי הסיווג הרשמי של חוקי הכנסת",
+    ruleNote: " · ללא כוכבית — אוטומטית לפי מילים בשם",
+    initiators: "יוזמים", also: "וגם:",
+    timeline: (n) => `כל ההצבעות במליאה (${n})`,
+    timelineHint: "לפי הסדר. הצבעות על הסתייגויות ועל סעיפים בודדים מוצגות בנפרד מההצבעה על הצעת החוק בשלמותה.",
+    related: "הצעות חוק קשורות",
+    sourceLink: "דף הצעת החוק במאגר החקיקה של הכנסת ↗",
+  },
+  topics: {
+    title: "נושאים",
+    note: "הנושאים נקבעים לפי הסיווג הרשמי של חוקי הכנסת ולפי מילים בשם הצעת החוק; הם עדיין לא נבדקו בידי עורך. הצעת חוק יכולה להשתייך לכמה נושאים.",
+  },
+  topic: {
+    kicker: "נושא", aliases: "נמצא גם לפי:",
+    factionsTitle: (term) => `איך הצביעו הסיעות על הצעות החוק בנושא — ${kn(term)}`,
+    factionsHint: "נספרות הצבעות בקריאה שלישית על הצעות חוק בשלמותן. לכל סיעה — בכמה מהן רוב חבריה שהצביעו היה בעד או נגד. הצעות שנדחו בשלבים מוקדמים אינן נכללות.",
+    none: "אין הצבעות כאלה בכנסת זו.",
+    bills: (n) => `הצעות חוק בנושא (${n})`,
+    lastVote: (d) => ` · הצבעה אחרונה ${d}`,
+    allBills: "כל הצעות החוק בנושא ←",
+    legendAgainst: "רוב נגד", legendFor: "רוב בעד",
+    of: (n) => `מתוך ${n}`, noMajority: (n) => ` · ${n} ללא רוב ברור`,
+    aria: (name, f, a, o, n) => `${name}: ${f} בעד, ${a} נגד, ${o} ללא רוב ברור, מתוך ${n}`,
+  },
+  search: {
+    title: "חיפוש", ph: "שם, סיעה, נושא, שם חוק או מספר",
+    hint: "אפשר לחפש חברי כנסת, סיעות ונושאים בעברית, באנגלית וברוסית. בשמות חוקים החיפוש סובלני לשגיאות כתיב. מספר — הצעת חוק.",
+    topics: "נושאים", factions: "סיעות", members: "חברי כנסת", bills: "הצעות חוק",
+  },
+  glossary: {
+    title: "מילון מונחים",
+    lead: "המונחים שמופיעים בדפי ההצבעות, בשפה פשוטה.",
+    description: "מונחי הכנסת בשפה פשוטה: קריאות, הסתייגויות, סיעות, הצעות אי-אמון.",
+  },
+  methodology: {
+    title: "מתודולוגיה ומקורות",
+    description: "מאיפה הנתונים, איך מחושבים המדדים ומה הם אינם אומרים.",
+  },
+  notFound: { title: "הדף לא נמצא", text: "אין דף כזה.", home: "לדף הבית" },
+};

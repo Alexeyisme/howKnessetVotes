@@ -8,9 +8,9 @@
 |---|---|
 | Data | 17,319 plenum votes (2016-10-31 … 2026-07-28), 1.21M ballots, 3,647 bills, 299 MKs who voted, 101 factions. Faction at the vote date for 99.998% of ballots. Official totals cross-checked up to 2021-07. |
 | Updates | Server timers: daily, plus every 2 h on plenum days. Nightly DB dump on the server. |
-| Web | Votes, members, factions, bills and topics; Russian UI with Hebrew source text; RU/HE search. |
-| API | `/api/v1`, documented at `/docs`. |
-| Gaps | UI only in Russian. MK names only in Hebrew. 186 faction names translated by machine. Bill titles only in Hebrew. No off-server backup. No failure alerts. |
+| Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all three languages. |
+| API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in three languages on every response. |
+| Gaps | Bill titles and descriptions only in Hebrew (L6, L7). History starts in 2016 (D1). No party lineage or coalition context (D2, D3). Deploys don't wait for green CI. |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -91,7 +91,7 @@ descriptions.
 | Phase | Content | Outcome |
 |---|---|---|
 | 1 ✅ | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
-| 2 | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
+| 2 ✅ | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
 | 3 | D1, D2, D3 · U11 | History back to 2003; parties across Knessets; coalition context |
 | 4 | L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
 | 5 | U7, U9, U10 · D4, D5, D8 | Compare, share and follow; changelog and open data |
@@ -130,6 +130,18 @@ public launch or press, so that early coverage isn't based on a partial history.
 | U3 main votes by default | done | Home page shows whole-bill votes and no-confidence motions; final, first, preliminary and "all votes" are one click away |
 | U8 glossary and methodology | done | `/about/glossary`, `/about/methodology`; footer credits all sources, including Open Knesset |
 | T1 official law topics | done | Official classification of the law a bill amends (only the law named in the title; omnibus laws with more than 3 categories skipped). Topic coverage 69% → 78% of voted bills; agrees with keyword rules on 91% of bills that have both. Also found and fixed a keyword false positive (legal capacity ≠ kashrut) |
+
+### Phase 2 — status (2026-10-04)
+
+| Item | State | Result |
+|---|---|---|
+| L3 locale routes | done | `/ru`, `/en`, `/he` with full UI dictionaries, RTL for Hebrew, language switcher in the header, `hreflang` alternates, dates and numbers per locale. Unprefixed links (all old URLs) redirect by cookie → `Accept-Language` → Russian. Glossary and methodology written in all three languages |
+| L8 API language | done | `?lang=he|en|ru` on every endpoint fills `name` / `short` / `faction_name` / `label`, falling back to Hebrew; `label_en` on topics; search returns full faction name objects |
+| Hebrew short names | done (new) | Long official list names ("התאחדות הספרדים שומרי תורה…") get curated short forms (`he_short`, 38 factions) for tables and charts; the official name stays as a tooltip |
+| U1 home page | done | Search box for any language with examples, top topics, the latest final votes with the outcome in words, tiles for the sections. The vote feed moved to `/votes` (old `/?view=` links redirect) |
+| U5 MK page | done | Official photo (linked from the Knesset website, 299/299), current or last party, a one-sentence summary (participation, votes against own faction, bills sponsored); the vote list opens on final votes |
+| U6 roll call | done | Filter by name (any language), by faction and "against own faction's majority"; sticky header; cards on phones |
+| Quorum | done (new) | Glossary entry and a note on votes with fewer than 40 votes cast: the plenum has no quorum, a simple majority of those voting decides |
 
 ## Open Knesset (oknesset.org) — what we can reuse
 

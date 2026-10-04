@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
-from hkv.api.names import FactionNames, PersonNames, with_names
+from hkv.api.names import FactionNames, PersonNames, TopicLabels, with_names
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -70,6 +70,7 @@ class MemberStats(BaseModel):
 
 
 class MemberDetail(MemberSummary):
+    photo_url: str | None        # official portrait on the Knesset website (fs.knesset.gov.il)
     mandates: list[MandateOut]
     factions: list[MembershipOut]
     stats: MemberStats
@@ -135,9 +136,10 @@ class BillSummary(BaseModel):
     source_url: str
 
 
-class BillTopic(BaseModel):
+class BillTopic(TopicLabels):
     slug: str
     label_ru: str
+    label_he: str
     origin: str
     review_state: str
     evidence: str | None
@@ -234,12 +236,14 @@ def member_summary(r: dict) -> MemberSummary:
 @with_names
 def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Query(min_length=2)] = None,
                  faction: int | None = None):
-    """MKs with at least one roll-call record; filter by term (held a mandate), name substring, or faction membership."""
+    """MKs with at least one roll-call record; filter by term (held a mandate), name substring (any language), or faction membership."""
     where, params = ["EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)"], {}
     if term:
         where.append("EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.term_number = %(term)s)"); params["term"] = term
     if q:
-        where.append("(p.first_name_he || ' ' || p.last_name_he) ILIKE %(q)s"); params["q"] = f"%{q}%"
+        # Hebrew name, or any English/Russian name or variant (person_alias)
+        where.append("""((p.first_name_he || ' ' || p.last_name_he) ILIKE %(q)s
+                        OR EXISTS (SELECT 1 FROM person_alias a WHERE a.person_id = p.id AND a.full_name ILIKE %(q)s))"""); params["q"] = f"%{q}%"
     if faction:
         where.append("""EXISTS (SELECT 1 FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                                WHERE fm.person_id = p.id AND f.knesset_faction_id = %(faction)s)"""); params["faction"] = faction
@@ -296,6 +300,7 @@ def get_member(member_id: int, conn: Conn):
     return {
         "data": MemberDetail(
             **base.model_dump(),
+            photo_url=(ph := conn.execute("SELECT url FROM person_photo WHERE person_id = %s", (pid,)).fetchone()) and ph["url"],
             mandates=mandates,
             factions=[MembershipOut(faction=faction_ref(f["knesset_faction_id"], f["name_he"], f["term_number"]),
                                     valid_from=f["valid_from"], valid_to=f["valid_to"]) for f in factions],
@@ -507,8 +512,8 @@ def get_bill(bill_id: int, conn: Conn):
         f"{VOTE_SELECT} WHERE EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.vote_id = v.id AND vs.bill_id = %s) ORDER BY v.occurred_on, v.ordinal NULLS LAST, v.knesset_vote_id",
         (r["pk"],)).fetchall()
     topics = conn.execute(
-        """SELECT t.slug, l.label AS label_ru, bt.origin, bt.review_state, bt.evidence FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
-           JOIN topic_label l ON l.topic_id = t.id AND l.language = 'ru' WHERE bt.bill_id = %s AND bt.review_state <> 'rejected' ORDER BY t.sort""",
+        """SELECT t.slug, l.label AS label_ru, he.label AS label_he, bt.origin, bt.review_state, bt.evidence FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
+           JOIN topic_label l ON l.topic_id = t.id AND l.language = 'ru' JOIN topic_label he ON he.topic_id = t.id AND he.language = 'he' WHERE bt.bill_id = %s AND bt.review_state <> 'rejected' ORDER BY t.sort""",
         (r["pk"],)).fetchall()
     return {"data": BillDetail(**bill_summary(r).model_dump(), topics=topics, summary_he=r["summary_he"], published_on=r["published_on"],
                                initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline]),

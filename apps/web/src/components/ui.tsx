@@ -1,26 +1,31 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Choice, FactionNames, PersonNames, Rate, VoteSummary } from "@/lib/api";
-import { bidiSafe, formatDate, percent, STAGE } from "@/lib/labels";
+import { getT } from "@/i18n/server";
+import { bidiSafe } from "@/lib/labels";
+import Link from "./Link";
 import styles from "./ui.module.css";
 
 export function He({ children, as: Tag = "span", className = "" }: { children: ReactNode; as?: "span" | "h1" | "p"; className?: string }) {
   return <Tag className={`he ${className}`} lang="he" dir="rtl">{children}</Tag>;
 }
 
-/** A member's name in Russian with the Hebrew original. `he`: "inline" shows both, "title" keeps Hebrew as a tooltip. */
-export function PersonName({ p, he = "inline" }: { p: PersonNames; he?: "inline" | "title" }) {
-  if (!p.name_ru) return <He>{p.name_he}</He>;
-  if (he === "title") return <span title={p.name_he}>{p.name_ru}</span>;
-  return <>{p.name_ru} <He className="muted small">{p.name_he}</He></>;
+/** A member's name in the UI language with the Hebrew original. `he`: "inline" shows both, "title" keeps Hebrew as a
+ *  tooltip. The Hebrew UI shows the Hebrew name only. */
+export async function PersonName({ p, he = "inline" }: { p: PersonNames; he?: "inline" | "title" }) {
+  const t = await getT();
+  const name = t.person(p);
+  if (name === p.name_he) return <He>{p.name_he}</He>;
+  if (he === "title") return <span title={p.name_he}>{name}</span>;
+  return <>{name} <He className="muted small">{p.name_he}</He></>;
 }
 
-/** A faction's Russian short name (or full list name), falling back to the official Hebrew name. */
-export function FactionName({ f, full = false, he = "title" }: { f: FactionNames; full?: boolean; he?: "inline" | "title" }) {
-  const ru = full ? f.name_ru ?? f.short_ru : f.short_ru ?? f.name_ru;
-  if (!ru) return <He>{f.name_he}</He>;
-  if (he === "title") return <span title={f.name_he}>{ru}</span>;
-  return <>{ru} <He className="muted small">{f.name_he}</He></>;
+/** A faction's short name (or full list name) in the UI language, falling back to the official Hebrew name. */
+export async function FactionName({ f, full = false, he = "title" }: { f: FactionNames; full?: boolean; he?: "inline" | "title" }) {
+  const t = await getT();
+  const name = t.faction(f, full);
+  if (name === f.name_he) return <He>{f.name_he}</He>;
+  if (he === "title") return <span title={f.name_he}>{name}</span>;
+  return <>{name} <He className="muted small">{f.name_he}</He></>;
 }
 
 export function Stat({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
@@ -34,32 +39,33 @@ export function Stat({ label, value, detail }: { label: string; value: ReactNode
 }
 
 /** A rate always shows its numerator and denominator (architecture.md §10). */
-export function RateStat({ label, rate, unit }: { label: string; rate: Rate; unit: string }) {
-  return <Stat label={label} value={percent(rate)} detail={`${rate.numerator.toLocaleString("ru-RU")} из ${rate.denominator.toLocaleString("ru-RU")} ${unit}`} />;
+export async function RateStat({ label, rate, unit }: { label: string; rate: Rate; unit: string }) {
+  const t = await getT();
+  return <Stat label={label} value={t.pct(rate)} detail={t.d.common.rateDetail(t.num(rate.numerator), t.num(rate.denominator), unit)} />;
 }
 
 export function Stats({ children }: { children: ReactNode }) {
   return <div className={styles.stats}>{children}</div>;
 }
 
-const CHOICE_TEXT: Record<Choice, string> = { for: "за", against: "против", abstain: "возд." };
-
-export function ChoiceMark({ choice, text }: { choice: Choice | null; text?: string }) {
+export async function ChoiceMark({ choice, text }: { choice: Choice | null; text?: string }) {
+  const t = await getT();
   return (
     <span className={styles.choice}>
       <span className={`${styles.dot} ${choice ? styles[choice] : styles.none}`} aria-hidden />
-      {text ?? (choice ? CHOICE_TEXT[choice] : "—")}
+      {text ?? (choice ? t.d.choiceShort[choice] : "—")}
     </span>
   );
 }
 
 /** One vote in a list: date, stage, linked title, and a slot for what the page wants to show about it. */
-export function VoteLine({ vote, children }: { vote: VoteSummary; children?: ReactNode }) {
+export async function VoteLine({ vote, children }: { vote: VoteSummary; children?: ReactNode }) {
+  const t = await getT();
   return (
     <li className={styles.voteLine}>
       <div className={styles.voteMain}>
         <span className="small muted">
-          {formatDate(vote.occurred_on)} · {vote.stage ? STAGE[vote.stage] : "—"}
+          {t.date(vote.occurred_on)} · {vote.stage ? t.d.stage[vote.stage] : "—"}
           {vote.subject_he && <> · <He>{bidiSafe(vote.subject_he)}</He></>}
         </span>
         <Link href={`/votes/${vote.id}`} className={styles.voteTitle}><He>{vote.title_he}</He></Link>
@@ -83,8 +89,9 @@ export function Tabs({ items }: { items: { href: string; label: string; current:
   );
 }
 
-export function NextPage({ href }: { href: string | null }) {
-  return href ? <p className={styles.next}><Link href={href}>Более ранние →</Link></p> : null;
+export async function NextPage({ href }: { href: string | null }) {
+  const t = await getT();
+  return href ? <p className={styles.next}><Link href={href}>{t.d.common.earlier}</Link></p> : null;
 }
 
 export function withParams(path: string, params: Record<string, string | undefined>): string {

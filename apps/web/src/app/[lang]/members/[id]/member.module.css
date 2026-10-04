@@ -1,0 +1,12 @@
+.head { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 8px; }
+.photo { flex: none; display: grid; gap: 4px; justify-items: center; }
+.photo img { width: 120px; height: 150px; object-fit: cover; border-radius: 10px; background: var(--note-bg); border: 1px solid var(--border); }
+.who { display: grid; gap: 6px; min-width: 0; }
+.name { font-size: 1.75rem; line-height: 1.2; }
+.summary { margin-top: 6px; max-width: 44em; color: var(--ink-2); }
+@media (max-width: 560px) {
+  .head { gap: 14px; }
+  .photo img { width: 84px; height: 105px; }
+  .photo figcaption { display: none; }
+  .name { font-size: 1.4rem; }
+}

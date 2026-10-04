@@ -1,0 +1,29 @@
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 6px; }
+.filters input[type="search"], .filters select {
+  font: inherit; font-size: 0.9375rem; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface); color: var(--ink); min-width: 0;
+}
+.filters input[type="search"] { flex: 1 1 200px; }
+.filters select { flex: 0 1 240px; }
+
+.table { margin-top: 8px; }
+.table thead th { position: sticky; top: 0; background: var(--surface); z-index: 1; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 6px; }
+.for { background: var(--vote-for); }
+.against { background: var(--vote-against); }
+.abstain { background: var(--vote-abstain); }
+.none { border: 1px solid var(--muted); }
+.flag { font-size: 0.8125rem; font-weight: 600; color: var(--ink-2); }
+.vote { white-space: nowrap; }
+
+/* phones: one card per member instead of a four-column table */
+@media (max-width: 560px) {
+  .table thead { display: none; }
+  .table, .table tbody, .table tr, .table td { display: block; width: 100%; }
+  .table tr { padding: 8px 0; border-bottom: 1px solid var(--hairline); display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; }
+  .table td { border: 0; padding: 0; }
+  .name { grid-column: 1; font-weight: 600; }
+  .vote { grid-column: 2; grid-row: 1 / span 2; text-align: end; white-space: normal; }
+  .faction { grid-column: 1; font-size: 0.875rem; color: var(--ink-2); }
+  .codeCol { display: none !important; }
+}

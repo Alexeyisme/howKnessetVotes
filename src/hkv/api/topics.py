@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from hkv.api.common import Conn, Meta, Stage
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, bill_summary
-from hkv.api.names import PersonNames, with_names
+from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, he_norm
 
 router = APIRouter(prefix="/api/v1")
@@ -24,7 +24,7 @@ TOPIC_NOTE = ("Topics come from the Knesset's official classification of the law
               "editor; a vote inherits the topics of its bill.")
 
 
-class TopicSummary(BaseModel):
+class TopicSummary(TopicLabels):
     slug: str
     label_ru: str
     label_he: str
@@ -42,6 +42,7 @@ class FactionTopicStats(BaseModel):
 
 class TopicDetail(TopicSummary):
     aliases_ru: list[str]
+    aliases_en: list[str]
     term: int
     stage: list[str]
     factions: list[FactionTopicStats]
@@ -57,7 +58,7 @@ class SearchResult(BaseModel):
     topics: list[TopicSummary]
     bills: list[BillSummary]
     members: list[SearchMember]
-    factions: list[dict]
+    factions: list[FactionRef]
     script: Literal["hebrew", "cyrillic", "latin", "number", "other"]
 
 
@@ -111,9 +112,11 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
         f"""SELECT * FROM ({BILL_SELECT} WHERE EXISTS (SELECT 1 FROM bill_topic bt WHERE bt.bill_id = b.id AND bt.topic_id = %s AND bt.review_state <> 'rejected')
                AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) x ORDER BY last_vote_on DESC NULLS LAST LIMIT 20""",
         (t["id"],)).fetchall()
-    aliases = [r["alias"] for r in conn.execute("SELECT alias FROM topic_alias WHERE topic_id = %s AND language = 'ru' ORDER BY alias", (t["id"],))]
+    aliases = {"ru": [], "en": []}
+    for r in conn.execute("SELECT language, alias FROM topic_alias WHERE topic_id = %s AND language IN ('ru', 'en') ORDER BY alias", (t["id"],)):
+        aliases[r["language"]].append(r["alias"])
     detail = TopicDetail(
-        **topic_summary(t).model_dump(), aliases_ru=aliases, term=term, stage=stages,
+        **topic_summary(t).model_dump(), aliases_ru=aliases["ru"], aliases_en=aliases["en"], term=term, stage=stages,
         factions=[FactionTopicStats(faction=FactionRef(id=r["knesset_faction_id"], name_he=r["name_he"].strip(), term=r["term_number"]),
                                     faction_ru=r["ru"], votes=r["votes"], majority_for=r["maj_for"], majority_against=r["maj_against"],
                                     other=r["votes"] - r["maj_for"] - r["maj_against"]) for r in rows],
@@ -149,7 +152,7 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
     topics: list[TopicSummary] = []
     bills: list = []
     members: list = []
-    factions: list[dict] = []
+    factions: list[FactionRef] = []
     if script in ("cyrillic", "latin"):
         ql = q.strip().lower()
         lang = "ru" if script == "cyrillic" else "en"
@@ -157,11 +160,9 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
             f"""{TOPIC_SELECT} WHERE EXISTS (SELECT 1 FROM topic_alias a WHERE a.topic_id = t.id AND a.language = %(lang)s
                    AND (lower(a.alias) LIKE %(like)s OR %(q)s LIKE '%%' || lower(a.alias) || '%%' OR similarity(lower(a.alias), %(q)s) > 0.35))
                 ORDER BY t.sort""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
-        factions = [dict(r) for r in conn.execute(
-            """SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, coalesce(ru.short_name, ru.name) AS name_ru,
-                      coalesce(en.short_name, en.name) AS name_en, f.term_number AS term
+        factions = [FactionRef(**r) for r in conn.execute(
+            """SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, f.term_number AS term
                FROM faction_label fl JOIN faction f ON f.id = fl.faction_id
-               LEFT JOIN faction_label ru ON ru.faction_id = f.id AND ru.language = 'ru' LEFT JOIN faction_label en ON en.faction_id = f.id AND en.language = 'en'
                WHERE fl.language = %(lang)s AND (lower(fl.name) LIKE %(like)s OR lower(fl.short_name) LIKE %(like)s OR similarity(lower(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
@@ -182,10 +183,11 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                WHERE (he_norm(p.first_name_he || ' ' || p.last_name_he) LIKE %(like)s OR %(n)s <%% he_norm(p.first_name_he || ' ' || p.last_name_he))
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
                ORDER BY word_similarity(%(n)s, he_norm(p.first_name_he || ' ' || p.last_name_he)) DESC LIMIT 10""", {"n": n, "like": f"%{n}%"})]
-        factions = [dict(r) for r in conn.execute(
-            """SELECT f.knesset_faction_id AS id, f.name_he, coalesce(fl.short_name, fl.name) AS name_ru, f.term_number AS term FROM faction f
-               LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
-               WHERE he_norm(f.name_he) LIKE %(like)s AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
+        factions = [FactionRef(**r) for r in conn.execute(
+            """SELECT f.knesset_faction_id AS id, f.name_he, f.term_number AS term FROM faction f
+               WHERE (he_norm(f.name_he) LIKE %(like)s OR EXISTS (SELECT 1 FROM faction_label l WHERE l.faction_id = f.id
+                                                                     AND l.language = 'he' AND he_norm(l.short_name) LIKE %(like)s))
+                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC LIMIT 10""", {"like": f"%{n}%"})]
         # whole word (with prefixes) > substring > typo-tolerant word similarity; fuzzy only when nothing matched exactly
         word = rf"(^|[ (]){HE_PREFIX}{re.escape(n)}($|[ ),.:;])"

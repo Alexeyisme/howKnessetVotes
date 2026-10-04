@@ -51,10 +51,12 @@ sudo systemd-run --unit=hkv-names --uid=deploy --gid=deploy --working-directory=
 sudo systemd-run --unit=hkv-topics --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv topics --official
 ```
 
-- `hkv names` refreshes official faction names for the current Knesset (~10 min). New MKs get names in every regular update.
+- `hkv names` refreshes official faction names for the current Knesset and fills missing MK photo URLs (~10 min). New MKs get names and photos in every regular update; curated faction names (incl. Hebrew short names) are applied on every update.
 - `hkv topics --official` reloads the official law classification (~3 min). Bills voted in the update window are refreshed automatically.
 
 Web pages cache API responses for 10 minutes, so an update appears on the site within 10 minutes.
+
+The site is served under `/ru`, `/en` and `/he`; any path without a language redirects there (cookie, then the browser's language, then Russian), so old links keep working.
 
 ## Alerts
 

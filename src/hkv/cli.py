@@ -73,11 +73,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "names":
         import logging
 
-        from hkv.names import LiveSources, sync_factions, sync_members
+        from hkv.names import LiveSources, sync_factions, sync_members, sync_photos
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
         src = LiveSources(RAW_DIR)
         with psycopg.connect(args.db, autocommit=True) as conn:
             print(sync_members(conn, src, refresh=args.refresh))
+            print(sync_photos(conn, src))
             print(sync_factions(conn, None if args.no_official_factions else src))
         return 0
     if args.cmd == "topics":

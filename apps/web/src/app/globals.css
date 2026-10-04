@@ -104,3 +104,10 @@ th { font-weight: 600; color: var(--ink-2); font-size: 0.8125rem; }
 .glossary-item dd { margin: 0; color: var(--ink-2); }
 .prose p + p { margin-top: 10px; }
 .prose ul { padding-inline-start: 20px; display: grid; gap: 6px; }
+
+/* language switcher */
+.lang-switch { display: flex; gap: 10px; font-size: 0.8125rem; }
+.lang-switch a { color: var(--muted); }
+.lang-switch a[aria-current="true"] { color: var(--ink); font-weight: 600; }
+.chip { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 4px 12px; font-size: 0.875rem; color: var(--ink-2); background: var(--surface); }
+.chip:hover { text-decoration: none; border-color: var(--accent); color: var(--accent); }

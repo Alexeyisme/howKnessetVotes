@@ -66,6 +66,7 @@ class WikidataMk:
 class MkDetails:
     name: str | None
     faction: str | None
+    photo: str | None = None
 
 
 class NameSources(Protocol):
@@ -123,7 +124,9 @@ class LiveSources:
         d = self._json(f"{SITE_API}/MKs/GetMkdetailsHeader?mkId={site_id}&languageKey={lang}", "knesset_site_api", "GetMkdetailsHeader")
         if not d:
             return None
-        return MkDetails(name=clean(d.get("Name")), faction=clean(d.get("Faction")))
+        photo = clean(d.get("MkImage")) or clean(d.get("LobbyImage"))
+        return MkDetails(name=clean(d.get("Name")), faction=clean(d.get("Faction")),
+                         photo=photo if photo and photo.startswith("https://") else None)
 
 
 def clean(s: str | None) -> str | None:
@@ -239,6 +242,8 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
                 if kid in curated and curated[kid].get(lang):
                     _set_alias(conn, pid, lang, curated[kid][lang], "official", "curated")
                     named.setdefault(lang, "curated")
+                if det and det.photo:
+                    counts["photos"] += _set_photo(conn, pid, det.photo)
             if wd:
                 for alt in wd.en_alts:
                     counts["variants"] += _set_alias(conn, pid, "en", alt, "variant", "wikidata")
@@ -255,6 +260,24 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
                            {"name_he": name_he, "site_id": site, "missing": [lg for lg in ("en", "ru") if lg not in named],
                             "fix": "add [mk.<knesset person id>] to src/hkv/names/curated/mk_names.toml"})
     log.info("member names: %s", dict(counts))
+    return dict(counts)
+
+
+def _set_photo(conn: psycopg.Connection, pid, url: str) -> int:
+    return conn.execute("""INSERT INTO person_photo (person_id, url) VALUES (%s, %s) ON CONFLICT (person_id) DO UPDATE
+                           SET url = EXCLUDED.url, fetched_at = now() WHERE person_photo.url <> EXCLUDED.url""", (pid, url)).rowcount
+
+
+def sync_photos(conn: psycopg.Connection, src: NameSources) -> dict[str, int]:
+    """Website photo URLs for members who have a website ID but no photo yet."""
+    rows = conn.execute(
+        """SELECT e.person_id, e.value FROM person_external_id e
+           WHERE e.scheme = 'knesset_site' AND NOT EXISTS (SELECT 1 FROM person_photo ph WHERE ph.person_id = e.person_id)""").fetchall()
+    counts: Counter[str] = Counter(todo=len(rows))
+    for pid, site in rows:
+        det = src.mk_details(int(site), "en")
+        counts["photos" if det and det.photo and _set_photo(conn, pid, det.photo) else "none"] += 1
+    log.info("member photos: %s", dict(counts))
     return dict(counts)
 
 
@@ -276,6 +299,12 @@ def sync_factions(conn: psycopg.Connection, src: NameSources | None = None) -> d
                                     WHERE faction_label.origin IN ('machine', 'wikidata', 'curated')""",
                                  (fid, lang, entry[lang], entry.get(f"{lang}_short")))
                     counts[f"curated:{lang}"] += 1
+            if entry.get("he_short"):
+                conn.execute("""INSERT INTO faction_label (faction_id, language, name, short_name, origin)
+                                SELECT id, 'he', btrim(name_he), %s, 'curated' FROM faction WHERE id = %s
+                                ON CONFLICT (faction_id, language) DO UPDATE SET name = EXCLUDED.name, short_name = EXCLUDED.short_name""",
+                             (entry["he_short"], fid))
+                counts["curated:he_short"] += 1
         # nothing machine-made stays once a curated label exists for that language
         counts["machine_left"] = conn.execute("SELECT count(*) FROM faction_label WHERE origin = 'machine'").fetchone()[0]
     if src is not None:
