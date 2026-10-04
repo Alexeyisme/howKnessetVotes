@@ -11,6 +11,7 @@ export const he: Dict = {
   nav: {
     label: "מדורים", votes: "הצבעות", topics: "נושאים", bills: "הצעות חוק", members: "חברי כנסת", factions: "מפלגות",
     searchLabel: "חיפוש", searchPh: "חיפוש: נושא, חוק, חבר כנסת", language: "שפה",
+    compass: "מצפן", compare: "השוואה",
   },
   footer: {
     asOf: (updated, last, votes, ballots) => `הנתונים עודכנו ב-${updated}; ההצבעה האחרונה: ${last}. ${votes} הצבעות, ${ballots} רישומים שמיים.`,
@@ -105,6 +106,8 @@ export const he: Dict = {
     latestVote: (d) => `הצבעה אחרונה ${d}`,
     browse: "מדורים",
     tiles: [
+      { href: "/compass", title: "מצפן", text: "כל המפלגות בכל הנושאים במסך אחד" },
+      { href: "/compare", title: "השוואה", text: "שתי מפלגות או שני חברי כנסת: באיזו תדירות הם מצביעים אותו דבר" },
       { href: "/members", title: "חברי כנסת", text: "איך הצביע כל חבר כנסת ומתי הצביע נגד סיעתו" },
       { href: "/factions", title: "סיעות", text: "הרכב, לכידות והצבעות של כל סיעה" },
       { href: "/bills", title: "הצעות חוק", text: "כל ההצבעות על הצעת חוק, מקריאה טרומית ועד שלישית" },
@@ -179,6 +182,8 @@ export const he: Dict = {
     kicker: (terms) => `חבר הכנסת · כנסות ${terms}`,
     currentFaction: "סיעה:", lastFaction: "סיעה אחרונה:",
     photoCredit: "צילום: אתר הכנסת",
+    withCoalition: "הצביע עם הקואליציה", withCoalitionUnit: "הצבעות שבהן לקואליציה היה רוב",
+    compareLink: "השוואה לחבר כנסת אחר ←", topicFilter: "נושא",
     summary: (p) => <>השתתפות ב-<strong>{p.part}</strong> מההצבעות השמיות בתקופת הכהונה ({p.cast} מתוך {p.avail}).
       {" "}הצבעה שונה מרוב הסיעה: <strong>{p.dev}</strong> פעמים מתוך {p.comparable} הצבעות שניתן להשוות.
       {p.initiated > 0 && <> יזם {p.initiated} הצעות חוק שהגיעו להצבעה במליאה.</>}</>,
@@ -276,6 +281,19 @@ export const he: Dict = {
     finalVotes: "הצבעות סופיות: איך הצביע רוב הסיעה",
     history: "לאורך הכנסות",
     allVotes: "כל ההצבעות של הסיעה ←",
+  },
+  compass: {
+    title: "מצפן המפלגות",
+    lead: "כל תא: איך הצביע רוב המפלגה בקריאה שלישית על הצעות חוק בנושא — כחול בעד, אדום נגד, אפור חלוקה שווה. מפלגות הקואליציה מצביעות בעד חוקי הממשלה, ולכן “רק שנויות במחלוקת” משאיר את ההצבעות שבהן הקואליציה והאופוזיציה נחלקו.",
+    all: "כל ההצבעות הסופיות", contestedOnly: "רק שנויות במחלוקת", party: "מפלגה", empty: "אין הצבעות",
+    cell: (f, a, n) => `${f} בעד, ${a} נגד מתוך ${n}`,
+  },
+  compare: {
+    title: "השוואה",
+    lead: "שתי מפלגות או שני חברי כנסת: באיזו תדירות הצביעו אותו דבר על הצעות חוק בשלמותן ועל הצעות אי-אמון, ובאילו הצבעות נחלקו.",
+    parties: "מפלגות", members: "חברי כנסת", pick: "בחרו שניים להשוואה.",
+    agreement: "הצביעו אותו דבר", agreementUnit: "הצבעות משותפות",
+    differences: (n) => `הצבעות שבהן נחלקו (${n})`,
   },
   translation: { beta: null, more: "איך האתר תורגם" },
   notFound: { title: "הדף לא נמצא", text: "אין דף כזה.", home: "לדף הבית" },

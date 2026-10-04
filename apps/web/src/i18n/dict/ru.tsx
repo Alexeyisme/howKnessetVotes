@@ -18,6 +18,7 @@ export const ru = {
   nav: {
     label: "Разделы", votes: "Голосования", topics: "Темы", bills: "Законопроекты", members: "Депутаты", factions: "Партии",
     searchLabel: "Поиск", searchPh: "Поиск: тема, закон, депутат", language: "Язык",
+    compass: "Компас", compare: "Сравнить",
   },
   footer: {
     asOf: (updated: string, last: string, votes: string, ballots: string) =>
@@ -114,6 +115,8 @@ export const ru = {
     latestVote: (d: string) => `Последнее голосование ${d}`,
     browse: "Разделы",
     tiles: [
+      { href: "/compass", title: "Компас", text: "Все партии по всем темам на одном экране" },
+      { href: "/compare", title: "Сравнить", text: "Две партии или два депутата: как часто голосуют одинаково" },
       { href: "/members", title: "Депутаты", text: "Как голосовал каждый депутат и когда шёл против своей фракции" },
       { href: "/factions", title: "Фракции", text: "Состав, единство и голосования каждой фракции" },
       { href: "/bills", title: "Законопроекты", text: "Все голосования по законопроекту — от предварительного до третьего чтения" },
@@ -188,6 +191,8 @@ export const ru = {
     kicker: (terms: string) => `Депутат Кнессета · созывы ${terms}`,
     currentFaction: "Фракция:", lastFaction: "Последняя фракция:",
     photoCredit: "Фото: сайт Кнессета",
+    withCoalition: "Голосовал вместе с коалицией", withCoalitionUnit: "голосований, где у коалиции было большинство",
+    compareLink: "Сравнить с другим депутатом →", topicFilter: "Тема",
     summary: (p: { part: string; cast: string; avail: string; dev: number; comparable: string; initiated: number }) =>
       <>Участвовал в <strong>{p.part}</strong> поимённых голосований за время мандата ({p.cast} из {p.avail}).
         {" "}Голосовал не так, как большинство своей фракции, <strong>{p.dev} {plural(p.dev, "раз", "раза", "раз")}</strong> из {p.comparable} сравнимых голосов.
@@ -289,6 +294,19 @@ export const ru = {
     allVotes: "Все голосования списка →",
   },
   /** banner on every page of a version whose translation has not been reviewed by a native speaker */
+  compass: {
+    title: "Партийный компас",
+    lead: "Каждая клетка — как большинство партии голосовало в третьем чтении по законопроектам темы: синий — за, красный — против, серый — поровну. Коалиционные партии голосуют за правительственные законы, поэтому «спорные» оставляет только голосования, где коалиция и оппозиция разошлись.",
+    all: "Все окончательные", contestedOnly: "Только спорные", party: "Партия", empty: "Нет голосований",
+    cell: (f: number, a: number, n: number) => `${f} за, ${a} против из ${n}`,
+  },
+  compare: {
+    title: "Сравнение",
+    lead: "Две партии или два депутата: как часто они голосовали одинаково по законопроектам в целом и вотумам недоверия, и голосования, где они разошлись.",
+    parties: "Партии", members: "Депутаты", pick: "Выберите двоих для сравнения.",
+    agreement: "Голосовали одинаково", agreementUnit: "общих голосований",
+    differences: (n: number) => `Голосования, где они разошлись (${n})`,
+  },
   translation: { beta: null as string | null, more: "Как переведён сайт" },
   notFound: { title: "Страница не найдена", text: "Такой страницы нет.", home: "На главную" },
 };

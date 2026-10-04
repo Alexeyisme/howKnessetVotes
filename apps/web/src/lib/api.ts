@@ -137,6 +137,7 @@ export interface MemberDetail extends MemberSummary {
     participation: Rate;
     choices: Record<string, number>;
     deviation_from_faction: Rate;
+    with_coalition: Rate;
     bills_initiated: number;
     bills_joined: number;
   };
@@ -242,6 +243,16 @@ export interface SearchResult {
   factions: (FactionNames & { id: number; term: number })[];
   script: string;
 }
+
+/** U7: two members or two factions on their shared votes */
+export interface Comparison {
+  agreement: Rate;
+  differences: { vote: VoteSummary; a: { choice: Choice }; b: { choice: Choice } }[];
+  stage: string[];
+  motion_type: string[];
+}
+export const compareMembers = (a: number, b: number) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/members${qs({ a: String(a), b: String(b) })}`);
+export const compareFactions = (a: number, b: number) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ a: String(a), b: String(b) })}`);
 
 export const listTopics = () => get<{ data: TopicSummary[]; meta: Meta }>(`/api/v1/topics`);
 export const getTopic = (slug: string, p: Params) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}${qs(p)}`);

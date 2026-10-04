@@ -73,7 +73,8 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
   const home = path === "/";
   // which nav item the page belongs to; faction pages count as "parties"
   const section = path.split("/")[1] === "factions" ? "parties" : path.split("/")[1];
-  const navItems: [string, string][] = [["parties", d.nav.factions], ["topics", d.nav.topics], ["votes", d.nav.votes], ["members", d.nav.members], ["bills", d.nav.bills]];
+  const navItems: [string, string][] = [["parties", d.nav.factions], ["compass", d.nav.compass], ["votes", d.nav.votes], ["members", d.nav.members],
+    ["topics", d.nav.topics], ["bills", d.nav.bills], ["compare", d.nav.compare]];
   return (
     <html lang={t.locale} dir={DIR[t.locale]} className={rubik.variable}>
       <body>

@@ -15,6 +15,7 @@ export const en: Dict = {
   nav: {
     label: "Sections", votes: "Votes", topics: "Topics", bills: "Bills", members: "Members", factions: "Parties",
     searchLabel: "Search", searchPh: "Search: topic, bill, member", language: "Language",
+    compass: "Compass", compare: "Compare",
   },
   footer: {
     asOf: (updated, last, votes, ballots) => `Data updated ${updated}; latest vote ${last}. ${votes} votes, ${ballots} roll-call records.`,
@@ -109,6 +110,8 @@ export const en: Dict = {
     latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [
+      { href: "/compass", title: "Compass", text: "Every party on every topic, on one screen" },
+      { href: "/compare", title: "Compare", text: "Two parties or two members: how often they vote the same way" },
       { href: "/members", title: "Members", text: "How each member voted, and when they broke with their party" },
       { href: "/factions", title: "Parties", text: "Members, cohesion and votes of each party" },
       { href: "/bills", title: "Bills", text: "Every vote on a bill, from preliminary to third reading" },
@@ -183,6 +186,8 @@ export const en: Dict = {
     kicker: (terms) => `Member of Knesset · Knessets ${terms}`,
     currentFaction: "Party:", lastFaction: "Latest party:",
     photoCredit: "Photo: Knesset website",
+    withCoalition: "Voted with the coalition", withCoalitionUnit: "votes where the coalition had a majority",
+    compareLink: "Compare with another member →", topicFilter: "Topic",
     summary: (p) => <>Voted in <strong>{p.part}</strong> of roll-call votes held during their mandate ({p.cast} of {p.avail}).
       {" "}Voted differently from their party&apos;s majority <strong>{p.dev} {s(p.dev, "time", "times")}</strong> out of {p.comparable} comparable votes.
       {p.initiated > 0 && <> Sponsored {p.initiated} {s(p.initiated, "bill", "bills")} that reached a plenum vote.</>}</>,
@@ -280,6 +285,19 @@ export const en: Dict = {
     finalVotes: "Final votes: how the list's majority voted",
     history: "Across Knessets",
     allVotes: "All votes of the list →",
+  },
+  compass: {
+    title: "Party compass",
+    lead: "Each cell: how the party's majority voted on final readings of bills in that topic — blue for, red against, grey split. Coalition parties vote for government bills, so “contested only” keeps the votes where the coalition and opposition split.",
+    all: "All final votes", contestedOnly: "Contested only", party: "Party", empty: "No votes",
+    cell: (f, a, n) => `${f} for, ${a} against of ${n}`,
+  },
+  compare: {
+    title: "Compare",
+    lead: "Two parties or two members: how often they voted the same way on bills as a whole and no-confidence motions, and the votes where they differed.",
+    parties: "Parties", members: "Members", pick: "Choose two to compare.",
+    agreement: "Voted the same way", agreementUnit: "shared votes",
+    differences: (n) => `Votes where they differed (${n})`,
   },
   translation: { beta: null, more: "How the site is translated" },
   notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },
