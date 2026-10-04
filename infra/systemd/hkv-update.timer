@@ -1,0 +1,13 @@
+[Unit]
+Description=hkv: scheduled Knesset update
+
+[Timer]
+# every night, and every 2 hours on plenum days (sessions run Mon-Wed, often past midnight)
+OnCalendar=*-*-* 05:30
+OnCalendar=Mon..Wed *-*-* 14,16,18,20,22:15
+OnCalendar=Tue..Thu *-*-* 00,02:15
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

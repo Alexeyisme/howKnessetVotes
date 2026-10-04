@@ -1,5 +1,7 @@
 // Typed client for the hkv REST API (src/hkv/api/app.py). Server-side only.
 
+import { connection } from "next/server";
+
 const API_URL = process.env.HKV_API_URL ?? "http://127.0.0.1:8000";
 
 export type Stage = "preliminary" | "first" | "second" | "third" | "not_applicable" | "unknown";
@@ -75,7 +77,9 @@ export interface Meta {
 export class NotFound extends Error {}
 
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { headers: { Accept: "application/json" } });
+  await connection(); // render at request time, never at build time (the API is not reachable during the image build)
+  // data changes a few times a day (scheduled update); a short cache keeps page views off the database
+  const res = await fetch(`${API_URL}${path}`, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
   if (res.status === 404) throw new NotFound(path);
   if (!res.ok) throw new Error(`API ${res.status} for ${path}`);
   return (await res.json()) as T;

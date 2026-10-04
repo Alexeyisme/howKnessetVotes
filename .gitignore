@@ -11,3 +11,4 @@ audit/raw/
 .pytest_cache/
 logs/
 *.out
+/backups/

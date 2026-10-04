@@ -1,0 +1,11 @@
+[Unit]
+Description=hkv: load new Knesset votes (scripts/prod.sh run --rm updater)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/srv/hkv
+ExecStart=/srv/hkv/scripts/prod.sh run --rm updater
+TimeoutStartSec=2h

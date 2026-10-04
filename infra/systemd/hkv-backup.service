@@ -1,0 +1,10 @@
+[Unit]
+Description=hkv: nightly database dump (scripts/backup.sh)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/srv/hkv
+ExecStart=/srv/hkv/scripts/backup.sh

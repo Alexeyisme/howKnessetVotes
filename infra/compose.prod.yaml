@@ -1,0 +1,79 @@
+# Production stack on the Hetzner server (docs/deploy.md). Run through scripts/prod.sh, which passes /srv/hkv/.env:
+#   POSTGRES_PASSWORD=...   SITE_DOMAIN=knessetvotes.org
+name: hkv
+
+x-db-url: &db-url postgresql://knesset:${POSTGRES_PASSWORD:?set in .env}@db:5432/knesset
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: knesset
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: knesset
+    # sized for a 4 GB server shared with the API and web processes
+    command: postgres -c shared_buffers=512MB -c effective_cache_size=2GB -c work_mem=16MB -c maintenance_work_mem=256MB
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knesset"]
+      interval: 5s
+      retries: 30
+
+  api:
+    build: { context: .., dockerfile: infra/docker/api.Dockerfile }
+    image: hkv-api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: *db-url
+    command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips '*'"
+    depends_on:
+      db: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/status', timeout=5)"]
+      interval: 30s
+      start_period: 30s
+
+  web:
+    build: ../apps/web
+    image: hkv-web
+    restart: unless-stopped
+    environment:
+      HKV_API_URL: http://api:8000
+    depends_on:
+      api: { condition: service_healthy }
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?set in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web, api]
+
+  # scheduled job, started by the hkv-update systemd timer: scripts/prod.sh run --rm updater
+  updater:
+    image: hkv-api
+    profiles: [jobs]
+    environment:
+      DATABASE_URL: *db-url
+    volumes:
+      - raw:/data/raw
+    command: hkv update --days 30
+    depends_on:
+      db: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  raw:
+  caddy_data:
+  caddy_config:
