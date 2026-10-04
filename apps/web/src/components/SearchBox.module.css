@@ -1,0 +1,18 @@
+.box { position: relative; min-width: 0; }
+.form { display: flex; gap: 8px; }
+.form input { flex: 1; min-width: 0; font: inherit; font-size: 0.875rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--page); color: var(--ink); width: 220px; max-width: 100%; }
+.form button { display: none; }
+
+.large .form input { font-size: 1.0625rem; padding: 10px 14px; border-radius: 10px; background: var(--surface); width: auto; }
+.large .form button { display: block; font: inherit; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+.large { max-width: 640px; }
+
+.list { position: absolute; inset-inline: 0; top: calc(100% + 6px); z-index: 30; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14); padding: 6px; max-height: 60vh; overflow-y: auto; min-width: 260px; }
+.group + .group { margin-top: 4px; border-top: 1px solid var(--hairline); padding-top: 4px; }
+.groupTitle { font-size: 0.75rem; color: var(--muted); padding: 4px 10px 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+.hit { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 8px; color: var(--ink); }
+.hit:hover, .active { background: var(--note-bg); text-decoration: none; }
+.sub { color: var(--muted); font-size: 0.875rem; }
+.all { color: var(--accent); margin-top: 4px; border-top: 1px solid var(--hairline); border-radius: 0 0 8px 8px; }

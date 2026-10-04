@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
+import { SearchBox } from "@/components/SearchBox";
+import { rubik } from "@/fonts";
 import { getStatus } from "@/lib/api";
 import { DIR, isLocale, LANG_NAME, LOCALES, localize, PATH_HEADER } from "@/i18n/config";
 import { getT } from "@/i18n/server";
@@ -73,7 +75,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
   const section = path.split("/")[1] === "factions" ? "parties" : path.split("/")[1];
   const navItems: [string, string][] = [["parties", d.nav.factions], ["topics", d.nav.topics], ["votes", d.nav.votes], ["members", d.nav.members], ["bills", d.nav.bills]];
   return (
-    <html lang={t.locale} dir={DIR[t.locale]}>
+    <html lang={t.locale} dir={DIR[t.locale]} className={rubik.variable}>
       <body>
         <header className="site-header">
           <div className="wrap">
@@ -82,9 +84,10 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
               <div className="header-tools">
                 {!home && (
                   <>
-                    <form action={t.href("/search")} className="header-search" role="search">
-                      <input name="q" placeholder={d.nav.searchPh} aria-label={d.nav.searchLabel} dir="auto" />
-                    </form>
+                    <div className="header-search">
+                      <SearchBox locale={t.locale} action={t.href("/search")}
+                                 labels={{ placeholder: d.nav.searchPh, label: d.nav.searchLabel, members: d.search.members, parties: d.search.factions, topics: d.search.topics, all: d.common.find }} />
+                    </div>
                     <Link href="/search" className="header-search-icon" aria-label={d.nav.searchLabel}><SearchIcon /></Link>
                   </>
                 )}

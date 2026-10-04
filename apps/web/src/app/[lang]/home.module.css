@@ -2,10 +2,6 @@
 .hero { display: grid; gap: 12px; padding: 12px 0 4px; }
 .hero h1 { font-size: 2rem; line-height: 1.2; }
 .lead { font-size: 1.0625rem; color: var(--ink-2); max-width: 46em; }
-.search { display: flex; gap: 8px; max-width: 640px; }
-.search input { flex: 1; min-width: 0; font: inherit; font-size: 1.0625rem; padding: 10px 14px; border: 1px solid var(--border);
-  border-radius: 10px; background: var(--surface); color: var(--ink); }
-.search button { font: inherit; padding: 10px 18px; border-radius: 10px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
 .fresh { color: var(--ink-2); background: var(--note-bg); border-radius: 8px; padding: 8px 12px; max-width: 640px; }
 
 .topics { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }

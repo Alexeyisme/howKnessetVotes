@@ -57,6 +57,24 @@ def test_faction_cohesion_counts_the_dissent(client):
         (37689, len(LIKUD_IN_37689) - 1, 1, "for")]
 
 
+def test_compare_members_and_factions(client):
+    other = LIKUD_IN_37689[1]
+    c = client.get("/api/v1/compare/members", params={"a": DISSENTER, "b": other}).json()["data"]
+    assert c["agreement"]["denominator"] >= 1 and c["agreement"]["denominator"] - c["agreement"]["numerator"] == 1
+    assert [(d["vote"]["id"], d["a"]["choice"], d["b"]["choice"]) for d in c["differences"]] == [(37689, "against", "for")]
+    same = client.get("/api/v1/compare/members", params={"a": other, "b": other}).json()["data"]
+    assert same["agreement"]["numerator"] == same["agreement"]["denominator"] and same["differences"] == []
+    f = client.get("/api/v1/compare/factions", params={"a": LIKUD, "b": LIKUD}).json()["data"]
+    assert f["differences"] == [] and f["agreement"]["denominator"] >= 1
+    assert client.get("/api/v1/compare/members", params={"a": 1, "b": other}).status_code == 404
+
+
+def test_member_votes_topic_filter_and_coalition_stat(client):
+    m = client.get(f"/api/v1/members/{DISSENTER}").json()["data"]
+    assert set(m["stats"]["with_coalition"]) == {"numerator", "denominator", "value"}   # no coalition derivation in the slice: 0 of 0
+    assert client.get(f"/api/v1/members/{DISSENTER}/votes", params={"topic": "no-such-topic"}).json()["data"] == []
+
+
 def test_bills(client):
     listed = client.get("/api/v1/bills").json()["data"]
     assert {b["id"] for b in listed} == {2196976, 2229019}

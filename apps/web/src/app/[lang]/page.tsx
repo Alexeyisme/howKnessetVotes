@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "@/components/Link";
+import { SearchBox } from "@/components/SearchBox";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { getStatus, listTopics, listVotes } from "@/lib/api";
 import { RECESS_UNTIL } from "@/lib/labels";
@@ -29,10 +30,8 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
       <section className={styles.hero}>
         <h1>{d.title}</h1>
         <p className={styles.lead}>{d.lead}</p>
-        <form action={t.href("/search")} className={styles.search} role="search">
-          <input name="q" placeholder={d.searchPh} aria-label={t.d.nav.searchLabel} dir="auto" />
-          <button type="submit">{t.d.common.find}</button>
-        </form>
+        <SearchBox locale={t.locale} action={t.href("/search")} large
+                   labels={{ placeholder: d.searchPh, label: t.d.nav.searchLabel, button: t.d.common.find, members: t.d.search.members, parties: t.d.search.factions, topics: t.d.search.topics, all: t.d.common.find }} />
         <p className="small muted">
           {d.examples}{" "}
           {d.exampleQueries.map((q, n) => <span key={q}>{n > 0 && " · "}<Link href={`/search?q=${encodeURIComponent(q)}`}>{q}</Link></span>)}
