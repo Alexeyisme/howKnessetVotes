@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { He, NextPage, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
+import { He, NextPage, PersonName, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
 import { getFaction, getFactionVotes, NotFound } from "@/lib/api";
 import { MAJORITY, period } from "@/lib/labels";
 
@@ -18,7 +18,7 @@ async function load(idParam: string) {
 
 export async function generateMetadata({ params }: PageProps<"/factions/[id]">): Promise<Metadata> {
   const { faction } = await load((await params).id);
-  return { title: `${faction.name_he} (${faction.term}-й созыв)` };
+  return { title: `${faction.short_ru ?? faction.name_he} (${faction.term}-й созыв)` };
 }
 
 export default async function FactionPage({ params, searchParams }: PageProps<"/factions/[id]">) {
@@ -36,6 +36,7 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
       <header className="page-head">
         <p className="small muted">Фракция Кнессета {faction.term}-го созыва · {period(faction.valid.valid_from, faction.valid.valid_to)}</p>
         {faction.name_ru && <h1>{faction.name_ru}</h1>}
+        {faction.name_en && <p className="muted">{faction.name_en}</p>}
         {faction.name_ru ? <He as="p">{faction.name_he}</He> : <He as="h1">{faction.name_he}</He>}
       </header>
 
@@ -50,7 +51,7 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
         <ul style={{ listStyle: "none", columns: "2 240px", columnGap: 24 }}>
           {current.map((m) => (
             <li key={`${m.person_id}-${m.valid_from}`} style={{ padding: "3px 0", breakInside: "avoid" }}>
-              <Link href={`/members/${m.person_id}`}><He>{m.name_he}</He></Link>
+              <Link href={`/members/${m.person_id}`}><PersonName p={m} he="title" /></Link>
             </li>
           ))}
         </ul>
@@ -61,7 +62,7 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
               <tbody>
                 {former.map((m) => (
                   <tr key={`${m.person_id}-${m.valid_from}`}>
-                    <td><Link href={`/members/${m.person_id}`}><He>{m.name_he}</He></Link></td>
+                    <td><Link href={`/members/${m.person_id}`}><PersonName p={m} he="title" /></Link></td>
                     <td className="small">{period(m.valid_from, m.valid_to)}</td>
                   </tr>
                 ))}

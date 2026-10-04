@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PersonName } from "./ui";
 import type { Ballot, Choice, FactionBreakdown as Row } from "@/lib/api";
 import { ballotLabel, MAJORITY } from "@/lib/labels";
 import styles from "./FactionBreakdown.module.css";
@@ -46,7 +47,7 @@ export function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots: Ball
           <details key={r.faction_id} className={styles.row}>
             <summary className={styles.summary}>
               <span className={styles.name}>
-                {r.name_ru && <span className={styles.nameRu}>{r.name_ru}</span>}
+                {r.short_ru && <span className={styles.nameRu}>{r.short_ru}</span>}
                 <span className="he" lang="he" dir="rtl">{r.name_he}</span>
               </span>
               <span className={styles.bar} role="img" aria-label={`${r.name_he}: ${countsText(r)}`}>
@@ -69,7 +70,7 @@ export function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots: Ball
             <ul className={styles.members}>
               {members.map((b) => (
                 <li key={b.person_id}>
-                  <Link href={`/members/${b.person_id}`} className="he" lang="he" dir="rtl">{b.name_he}</Link>
+                  <Link href={`/members/${b.person_id}`}><PersonName p={b} he="title" /></Link>
                   <span className={`${styles.choice} ${b.choice ? styles[`c_${b.choice}`] : ""}`}>{ballotLabel(b.choice, b.participation)}</span>
                 </li>
               ))}

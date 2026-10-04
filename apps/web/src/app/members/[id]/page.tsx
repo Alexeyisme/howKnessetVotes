@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChoiceMark, He, NextPage, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
+import { ChoiceMark, FactionName, He, NextPage, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
 import { getMember, getMemberVotes, NotFound } from "@/lib/api";
 import { ballotLabel, MAJORITY, period } from "@/lib/labels";
 
@@ -18,7 +18,7 @@ async function load(idParam: string) {
 
 export async function generateMetadata({ params }: PageProps<"/members/[id]">): Promise<Metadata> {
   const { member } = await load((await params).id);
-  return { title: member.name_he };
+  return { title: member.name_ru ?? member.name_he };
 }
 
 export default async function MemberPage({ params, searchParams }: PageProps<"/members/[id]">) {
@@ -34,9 +34,10 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/m
     <div className="stack">
       <header className="page-head">
         <p className="small muted">Депутат Кнессета · созывы {member.terms.join(", ")}</p>
-        <He as="h1">{member.name_he}</He>
+        {member.name_ru ? <h1>{member.name_ru}</h1> : <He as="h1">{member.name_he}</He>}
+        {member.name_ru && <p className="muted"><He>{member.name_he}</He>{member.name_en && <> · {member.name_en}</>}</p>}
         {member.last_faction && (
-          <p className="small">Последняя фракция: <Link href={`/factions/${member.last_faction.id}`}><He>{member.last_faction.name_he}</He></Link></p>
+          <p className="small">Последняя фракция: <Link href={`/factions/${member.last_faction.id}`}><FactionName f={member.last_faction} /></Link></p>
         )}
       </header>
 
@@ -58,7 +59,7 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/m
             <tbody>
               {member.factions.map((f) => (
                 <tr key={`${f.faction.id}-${f.valid_from}`}>
-                  <td><Link href={`/factions/${f.faction.id}`}><He>{f.faction.name_he}</He></Link></td>
+                  <td><Link href={`/factions/${f.faction.id}`}><FactionName f={f.faction} he="inline" /></Link></td>
                   <td className="num">{f.faction.term}</td>
                   <td className="small">{period(f.valid_from, f.valid_to)}</td>
                 </tr>
@@ -79,7 +80,7 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/m
             <VoteLine key={v.vote.id} vote={v.vote}>
               <ChoiceMark choice={v.choice} text={ballotLabel(v.choice, v.participation)} />
               <span className="small muted">
-                {v.faction ? <He>{v.faction.name_he}</He> : "фракция не установлена"}: {MAJORITY[v.faction_majority]}
+                {v.faction ? <FactionName f={v.faction} /> : "фракция не установлена"}: {MAJORITY[v.faction_majority]}
               </span>
             </VoteLine>
           ))}

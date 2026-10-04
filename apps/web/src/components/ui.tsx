@@ -1,11 +1,26 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import type { Choice, Rate, VoteSummary } from "@/lib/api";
+import type { Choice, FactionNames, PersonNames, Rate, VoteSummary } from "@/lib/api";
 import { bidiSafe, formatDate, percent, STAGE } from "@/lib/labels";
 import styles from "./ui.module.css";
 
 export function He({ children, as: Tag = "span", className = "" }: { children: ReactNode; as?: "span" | "h1" | "p"; className?: string }) {
   return <Tag className={`he ${className}`} lang="he" dir="rtl">{children}</Tag>;
+}
+
+/** A member's name in Russian with the Hebrew original. `he`: "inline" shows both, "title" keeps Hebrew as a tooltip. */
+export function PersonName({ p, he = "inline" }: { p: PersonNames; he?: "inline" | "title" }) {
+  if (!p.name_ru) return <He>{p.name_he}</He>;
+  if (he === "title") return <span title={p.name_he}>{p.name_ru}</span>;
+  return <>{p.name_ru} <He className="muted small">{p.name_he}</He></>;
+}
+
+/** A faction's Russian short name (or full list name), falling back to the official Hebrew name. */
+export function FactionName({ f, full = false, he = "title" }: { f: FactionNames; full?: boolean; he?: "inline" | "title" }) {
+  const ru = full ? f.name_ru ?? f.short_ru : f.short_ru ?? f.name_ru;
+  if (!ru) return <He>{f.name_he}</He>;
+  if (he === "title") return <span title={f.name_he}>{ru}</span>;
+  return <>{ru} <He className="muted small">{f.name_he}</He></>;
 }
 
 export function Stat({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {

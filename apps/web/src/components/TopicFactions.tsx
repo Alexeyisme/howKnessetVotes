@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TopicDetail } from "@/lib/api";
+import { FactionName } from "./ui";
 import styles from "./TopicFactions.module.css";
 
 /** Diverging bars: votes where the faction's majority was against (left, red) / for (right, blue) the bill.
@@ -16,11 +17,10 @@ export function TopicFactions({ rows }: { rows: TopicDetail["factions"] }) {
         {rows.map((r) => (
           <li key={r.faction.id} className={styles.row}>
             <Link href={`/factions/${r.faction.id}`} className={styles.name}>
-              {r.faction_ru && <span>{r.faction_ru} · </span>}
-              <span className="he" lang="he" dir="rtl">{r.faction.name_he}</span>
+              <FactionName f={r.faction} />
             </Link>
             <div className={styles.bars} role="img"
-                 aria-label={`${r.faction_ru ?? r.faction.name_he}: ${r.majority_for} за, ${r.majority_against} против, ${r.other} без явного большинства, из ${r.votes}`}>
+                 aria-label={`${r.faction.short_ru ?? r.faction.name_he}: ${r.majority_for} за, ${r.majority_against} против, ${r.other} без явного большинства, из ${r.votes}`}>
               <div className={styles.left}>
                 {r.majority_against > 0 && <span className="num small">{r.majority_against}</span>}
                 <span className={`${styles.bar} ${styles.against}`} style={{ width: `${(100 * r.majority_against) / scale}%` }} />

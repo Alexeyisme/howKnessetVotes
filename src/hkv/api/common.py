@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from fastapi import Depends, Request
 from psycopg import Connection
 from pydantic import BaseModel, ConfigDict, Field
+
+from hkv.api.names import BallotFactionNames, FactionNames, PersonNames
 
 DEFAULT_DB = "postgresql://knesset:knesset@localhost:5433/knesset"
 VOTE_CARD = "https://main.knesset.gov.il/Activity/plenum/Votes/Pages/vote.aspx?voteId={}"
@@ -62,10 +64,10 @@ class VoteSummary(BaseModel):
     source_url: str
 
 
-class FactionBreakdown(BaseModel):
+class FactionBreakdown(FactionNames):
+    _faction_key: ClassVar[str] = "faction_id"
     faction_id: int
     name_he: str
-    name_ru: str | None = None
     counts: Counts
     majority: Literal["for", "against", "abstain", "mixed", "none"]
     ambiguous_records: int
@@ -79,7 +81,8 @@ class VoteDetail(VoteSummary):
     unresolved_faction_records: int
 
 
-class Ballot(BaseModel):
+class Ballot(PersonNames, BallotFactionNames):
+    _person_key: ClassVar[str] = "person_id"
     person_id: int
     name_he: str
     faction_id: int | None

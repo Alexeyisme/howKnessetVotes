@@ -1,0 +1,23 @@
+# Members whose names the automatic steps (src/hkv/names) cannot resolve, keyed by Knesset person ID (KNS_Person.Id).
+#   site_id = Knesset website ID (main.knesset.gov.il/mk/apps/mk/mk-personal-details/<site_id>), if known:
+#             official en/ru names are then fetched from the website.
+#   en, ru  = names to use when the website has none (stored with origin 'curated').
+# `hkv names` reports anyone still missing as data_issue 'person_name_missing'.
+
+# Website IDs found by hand (2026-10-04): Hebrew name differs from Wikidata's label, or no Wikidata P9770.
+[mk.30480]  # אברהם בצלאל
+site_id = 1097
+[mk.30549]  # דן סיידה (Wikidata: דני סיידה)
+site_id = 960
+[mk.30657]  # בנימין גנץ (Wikidata: בני גנץ)
+site_id = 988
+[mk.30714]  # אנטאנס שחאדה (Wikidata: מטאנס שחאדה)
+site_id = 985
+[mk.30751]  # סמי אבו שחאדה (Wikidata: סאמי אבו שחאדה)
+site_id = 1031
+[mk.30760]  # אנדרי קוז'ינוב (Wikidata: אנדריי קוז'ינוב)
+site_id = 1033
+[mk.30796]  # יוסף שיין (Wikidata: יוסי שיין)
+site_id = 1080
+[mk.30833]  # אלמוג כהן
+site_id = 1104

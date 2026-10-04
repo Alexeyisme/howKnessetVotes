@@ -6,12 +6,13 @@ from __future__ import annotations
 import base64
 import datetime as dt
 import json
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
+from hkv.api.names import FactionNames, PersonNames, with_names
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -32,7 +33,7 @@ def rate(n: int, d: int) -> Rate:
     return Rate(numerator=n, denominator=d, value=round(n / d, 4) if d else None)
 
 
-class FactionRef(BaseModel):
+class FactionRef(FactionNames):
     id: int
     name_he: str
     term: int
@@ -51,7 +52,7 @@ class MembershipOut(Interval):
     faction: FactionRef
 
 
-class MemberSummary(BaseModel):
+class MemberSummary(PersonNames):
     id: int
     name_he: str
     gender: str | None
@@ -83,10 +84,9 @@ class MemberVote(BaseModel):
     deviates: bool | None  # None when there is no comparable faction majority
 
 
-class FactionSummary(BaseModel):
+class FactionSummary(FactionNames):
     id: int
     name_he: str
-    name_ru: str | None  # machine-written Russian name (faction_label, origin='machine')
     term: int
     valid: Interval
     members_ever: int
@@ -99,7 +99,8 @@ class FactionStats(BaseModel):
     unanimous_votes: Rate        # votes where all casting members chose the same / votes with >= 2 casting members
 
 
-class FactionMember(MembershipOut):
+class FactionMember(MembershipOut, PersonNames):
+    _person_key: ClassVar[str] = "person_id"
     person_id: int
     name_he: str
 
@@ -115,7 +116,8 @@ class FactionVote(BaseModel):
     majority: Literal["for", "against", "abstain", "mixed", "none"]
 
 
-class Initiator(BaseModel):
+class Initiator(PersonNames):
+    _person_key: ClassVar[str] = "person_id"
     person_id: int
     name_he: str
     role: Literal["initiator", "joined", "withdrew"]
@@ -205,6 +207,7 @@ def person_id(conn, knesset_id: int):
 # -- terms -------------------------------------------------------------------------------------------
 
 @router.get("/terms", response_model=Page[Term])
+@with_names
 def list_terms(conn: Conn):
     rows = conn.execute("SELECT number, name_he, started_on, ended_on FROM knesset_term WHERE number > 0 ORDER BY number DESC").fetchall()
     return {"data": rows, "meta": Meta(filters={})}
@@ -228,6 +231,7 @@ def member_summary(r: dict) -> MemberSummary:
 
 
 @router.get("/members", response_model=Page[MemberSummary])
+@with_names
 def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Query(min_length=2)] = None,
                  faction: int | None = None):
     """MKs with at least one roll-call record; filter by term (held a mandate), name substring, or faction membership."""
@@ -264,6 +268,7 @@ MEMBER_VOTES_CTE = f"""
 
 
 @router.get("/members/{member_id}", response_model=One[MemberDetail])
+@with_names
 def get_member(member_id: int, conn: Conn):
     pid = person_id(conn, member_id)
     r = conn.execute(f"{MEMBER_SELECT} WHERE p.id = %s", (pid,)).fetchone()
@@ -306,6 +311,7 @@ def get_member(member_id: int, conn: Conn):
 
 
 @router.get("/members/{member_id}/votes", response_model=Page[MemberVote])
+@with_names
 def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, date_to: dt.date | None = None,
                  stage: Annotated[list[Stage] | None, Query()] = None, motion_type: Annotated[list[MotionType] | None, Query()] = None,
                  deviated: bool = False, limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
@@ -354,11 +360,12 @@ FACTION_SELECT = """
 
 
 def faction_summary(r: dict) -> FactionSummary:
-    return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), name_ru=r["name_ru"], term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
+    return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
                           members_ever=r["members_ever"], roll_call_records=r["records"])
 
 
 @router.get("/factions", response_model=Page[FactionSummary])
+@with_names
 def list_factions(conn: Conn, term: int | None = None):
     """Factions with at least one roll-call record; by default of the latest term that has votes."""
     if term is None:
@@ -376,6 +383,7 @@ def faction_pk(conn, knesset_id: int):
 
 
 @router.get("/factions/{faction_id}", response_model=One[FactionDetail])
+@with_names
 def get_faction(faction_id: int, conn: Conn):
     r = faction_pk(conn, faction_id)
     members = conn.execute(
@@ -406,6 +414,7 @@ def get_faction(faction_id: int, conn: Conn):
 
 
 @router.get("/factions/{faction_id}/votes", response_model=Page[FactionVote])
+@with_names
 def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | None, Query()] = None,
                   motion_type: Annotated[list[MotionType] | None, Query()] = None, split_only: bool = False,
                   limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
@@ -454,6 +463,7 @@ def bill_summary(r: dict) -> BillSummary:
 
 
 @router.get("/bills", response_model=Page[BillSummary])
+@with_names
 def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None, term: int | None = None,
                third_reading: bool | None = None, topic: str | None = None,
                limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
@@ -481,6 +491,7 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
 
 
 @router.get("/bills/{bill_id}", response_model=One[BillDetail])
+@with_names
 def get_bill(bill_id: int, conn: Conn):
     r = conn.execute(f"{BILL_SELECT} WHERE b.knesset_bill_id = %s", (bill_id,)).fetchone()
     if r is None:

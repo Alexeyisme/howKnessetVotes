@@ -15,7 +15,8 @@ from importlib.metadata import version
 import psycopg
 
 from hkv.ingest.loader import Loader
-from hkv.sources.odata import PageSource
+from hkv.names import LiveSources, NameSources, sync_factions, sync_members
+from hkv.sources.odata import ODataClient, PageSource
 from hkv.topics import sync as sync_topics
 
 log = logging.getLogger("hkv.update")
@@ -23,7 +24,7 @@ METRIC_VERSION = "1"
 
 
 def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: dt.date | None = None,
-           reference: bool = True) -> dict:
+           reference: bool = True, names: NameSources | None = None) -> dict:
     today = today or dt.date.today()
     date_from = today - dt.timedelta(days=days)
     loader = Loader(conn, v4)
@@ -39,6 +40,15 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     if stale:
         loader.resolve_affiliations(stale)
     log.info("topics: %s", sync_topics(conn))  # new bills get rule-based topics
+    # names for MKs seen for the first time; curated faction names (official current ones: `hkv names`)
+    if names is None and isinstance(v4, ODataClient):
+        names = LiveSources(v4.raw_dir, v4)
+    if names is not None:
+        try:
+            sync_members(conn, names)
+        except Exception:  # a name source being down must not fail the vote update
+            log.exception("member names failed; votes are loaded")
+    sync_factions(conn)
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")
     log.info("done: %d votes in window, release %s", len(ids), summary["id"])
     return {"votes": len(ids), "release": str(summary["id"])}

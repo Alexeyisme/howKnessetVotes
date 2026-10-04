@@ -37,10 +37,13 @@ export interface VoteSummary {
   source_url: string;
 }
 
-export interface FactionBreakdown {
+/** en/ru names of a member (official Knesset website, Wikidata or curated); null when unknown */
+export interface PersonNames { name_he: string; name_ru?: string | null; name_en?: string | null }
+/** name_* = full name, short_* = for tables and charts */
+export interface FactionNames { name_he: string; name_ru?: string | null; short_ru?: string | null; name_en?: string | null; short_en?: string | null }
+
+export interface FactionBreakdown extends FactionNames {
   faction_id: number;
-  name_he: string;
-  name_ru: string | null;
   counts: Counts;
   majority: Majority;
   ambiguous_records: number;
@@ -54,11 +57,12 @@ export interface VoteDetail extends VoteSummary {
   unresolved_faction_records: number;
 }
 
-export interface Ballot {
+export interface Ballot extends PersonNames {
   person_id: number;
-  name_he: string;
   faction_id: number | null;
   faction_name_he: string | null;
+  faction_name_ru?: string | null;
+  faction_short_ru?: string | null;
   faction_ambiguous: boolean;
   choice: Choice | null;
   participation: string;
@@ -99,12 +103,11 @@ export function listVotes(params: Record<string, string | string[] | undefined>)
 // -- members, factions, bills -------------------------------------------------------------------
 
 export interface Rate { numerator: number; denominator: number; value: number | null }
-export interface FactionRef { id: number; name_he: string; term: number }
+export interface FactionRef extends FactionNames { id: number; term: number }
 export interface Interval { valid_from: string; valid_to: string | null }
 
-export interface MemberSummary {
+export interface MemberSummary extends PersonNames {
   id: number;
-  name_he: string;
   gender: string | null;
   terms: number[];
   last_faction: FactionRef | null;
@@ -132,10 +135,8 @@ export interface MemberVote {
   deviates: boolean | null;
 }
 
-export interface FactionSummary {
+export interface FactionSummary extends FactionNames {
   id: number;
-  name_he: string;
-  name_ru: string | null;
   term: number;
   valid: Interval;
   members_ever: number;
@@ -143,7 +144,7 @@ export interface FactionSummary {
 }
 
 export interface FactionDetail extends FactionSummary {
-  members: (Interval & { person_id: number; name_he: string; faction: FactionRef })[];
+  members: (Interval & PersonNames & { person_id: number; faction: FactionRef })[];
   stats: { votes_with_members: number; cohesion: Rate; unanimous_votes: Rate };
 }
 
@@ -169,7 +170,7 @@ export interface BillDetail extends BillSummary {
   topics: { slug: string; label_ru: string; origin: string; review_state: string; evidence: string | null }[];
   summary_he: string | null;
   published_on: string | null;
-  initiators: { person_id: number; name_he: string; role: "initiator" | "joined" | "withdrew" }[];
+  initiators: (PersonNames & { person_id: number; role: "initiator" | "joined" | "withdrew" })[];
   related: { id: number; title_he: string }[];
   timeline: VoteSummary[];
 }
@@ -208,8 +209,8 @@ export interface TopicDetail extends TopicSummary {
 export interface SearchResult {
   topics: TopicSummary[];
   bills: BillSummary[];
-  members: { id: number; name_he: string }[];
-  factions: { id: number; name_he: string; name_ru: string | null; term: number }[];
+  members: (PersonNames & { id: number })[];
+  factions: { id: number; name_he: string; name_ru: string | null; name_en?: string | null; term: number }[];
   script: string;
 }
 

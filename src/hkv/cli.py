@@ -50,6 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     ini.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     tp = sub.add_parser("topics", help="sync topic taxonomy, rule-based bill topics and Russian faction names")
     tp.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    nm = sub.add_parser("names", help="member and faction names in en/ru (Knesset website, Wikidata, curated lists)")
+    nm.add_argument("--refresh", action="store_true", help="re-fetch members who already have official names")
+    nm.add_argument("--no-official-factions", action="store_true", help="skip current-Knesset faction names from the website")
+    nm.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -64,6 +68,16 @@ def main(argv: list[str] | None = None) -> int:
             loader = Loader(conn, ODataClient(raw_dir=RAW_DIR))
             loader.load_initiators([r[0] for r in conn.execute("SELECT knesset_bill_id FROM bill")])
             print(dict(loader.counts))
+        return 0
+    if args.cmd == "names":
+        import logging
+
+        from hkv.names import LiveSources, sync_factions, sync_members
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        src = LiveSources(RAW_DIR)
+        with psycopg.connect(args.db, autocommit=True) as conn:
+            print(sync_members(conn, src, refresh=args.refresh))
+            print(sync_factions(conn, None if args.no_official_factions else src))
         return 0
     if args.cmd == "topics":
         from hkv.topics import sync

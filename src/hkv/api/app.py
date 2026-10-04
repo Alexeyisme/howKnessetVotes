@@ -20,6 +20,7 @@ from psycopg_pool import ConnectionPool
 from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, Meta,
                             MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, counts, majority, vote_summary)
 from hkv.api.entities import router
+from hkv.api.names import with_names
 from hkv.api.topics import router as topics_router
 
 
@@ -35,6 +36,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
                   description="Plenum roll-call votes of the Knesset. IDs are official Knesset IDs.")
 
     @app.get("/api/v1/votes", response_model=VoteList)
+
+    @with_names
     def list_votes(
         conn: Conn,
         date_from: dt.date | None = None,
@@ -89,6 +92,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
         return {"data": [vote_summary(r) for r in rows], "meta": Meta(filters=filters, note=COUNTS_NOTE), "next_cursor": next_cursor}
 
     @app.get("/api/v1/votes/{vote_id}", response_model=VoteDetailResponse)
+
+    @with_names
     def get_vote(vote_id: int, conn: Conn):
         row = conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = %s", (vote_id,)).fetchone()
         if row is None:
@@ -121,7 +126,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 excluded_from_official_total=conn.execute(
                     """SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id
                        WHERE v.knesset_vote_id = %s AND b.counted_in_official_total IS FALSE""", (vote_id,)).fetchone()["n"],
-                by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), name_ru=f["name_ru"], counts=counts(f),
+                by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), counts=counts(f),
                                              majority=majority(counts(f)), ambiguous_records=f["ambiguous"]) for f in factions],
                 unresolved_faction_records=unresolved,
             ),
@@ -129,6 +134,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
         }
 
     @app.get("/api/v1/votes/{vote_id}/ballots", response_model=BallotList)
+
+    @with_names
     def get_ballots(vote_id: int, conn: Conn):
         if conn.execute("SELECT 1 FROM vote WHERE knesset_vote_id = %s", (vote_id,)).fetchone() is None:
             raise HTTPException(404, "vote not found")
@@ -150,6 +157,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
     app.include_router(topics_router)
 
     @app.get("/api/v1/status")
+
+    @with_names
     def status(conn: Conn):
         """When the data was last refreshed and what it covers."""
         r = conn.execute("SELECT published_at, notes, coverage FROM data_release ORDER BY published_at DESC LIMIT 1").fetchone()

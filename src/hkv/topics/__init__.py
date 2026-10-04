@@ -15,7 +15,7 @@ from dataclasses import dataclass, field
 
 import psycopg
 
-RULES_VERSION = "2026-09-28.3"
+RULES_VERSION = "2026-10-04.1"
 
 _NIQQUD = re.compile("[֑-ֽֿ-ׇ]")
 _TO_SPACE = str.maketrans({"־": " ", "–": " ", "—": " ", "-": " "})
@@ -107,6 +107,31 @@ TOPICS: tuple[Topic, ...] = (
           ("война", "чрезвычайное положение", "коронавирус", "COVID", "ковид", "эпидемия")),
 )
 
+# English labels and search aliases (lower case), by slug.
+TOPICS_EN: dict[str, tuple[str, tuple[str, ...]]] = {
+    "budget": ("State budget", ("budget", "state budget", "arrangements law", "economic plan")),
+    "taxes": ("Taxes", ("tax", "taxes", "vat", "income tax", "customs", "arnona")),
+    "labor": ("Labor and wages", ("labor", "labour", "wages", "salary", "minimum wage", "workers", "pension", "unions")),
+    "welfare": ("Welfare and social security", ("welfare", "social security", "national insurance", "bituach leumi", "disability", "allowances", "holocaust survivors")),
+    "health": ("Health", ("health", "healthcare", "hospitals", "health funds", "kupot holim", "medicines", "doctors", "mental health")),
+    "education": ("Education", ("education", "schools", "universities", "students", "kindergartens", "teachers")),
+    "housing": ("Housing, land and construction", ("housing", "apartments", "rent", "real estate", "construction", "mortgage", "land")),
+    "transport": ("Transport", ("transport", "transportation", "buses", "railway", "trains", "roads", "driving license", "aviation", "public transport")),
+    "defense": ("Military and defense", ("military", "army", "idf", "defense", "reservists", "soldiers", "draft", "conscription", "war", "iron swords")),
+    "police": ("Police and internal security", ("police", "shin bet", "shabak", "terrorism", "prisons", "firearms", "security")),
+    "justice": ("Courts and criminal law", ("courts", "judges", "judicial reform", "judicial overhaul", "criminal law", "attorney general", "prosecution")),
+    "governance": ("Government and elections", ("basic law", "elections", "knesset dissolution", "government", "state comptroller", "parties", "constitution")),
+    "religion": ("Religion and state", ("religion", "shabbat", "sabbath", "kashrut", "kosher", "rabbinate", "conversion", "giyur", "marriage", "divorce", "yeshivas")),
+    "immigration": ("Aliyah, citizenship and immigration", ("aliyah", "immigration", "immigrants", "olim", "absorption", "citizenship", "law of return", "foreign workers")),
+    "environment": ("Environment and energy", ("environment", "pollution", "water", "electricity", "energy", "natural gas", "climate", "waste", "fuel")),
+    "communications": ("Communications, media and technology", ("media", "broadcasting", "public broadcasting", "communications", "privacy", "cyber", "internet", "data")),
+    "local-government": ("Local government", ("local government", "municipalities", "local authorities", "regional councils")),
+    "agriculture": ("Agriculture and food", ("agriculture", "farmers", "food", "animals", "animal welfare")),
+    "finance-consumer": ("Finance and consumer protection", ("banks", "banking", "credit", "loans", "consumers", "consumer protection", "insurance", "capital market", "competition", "insolvency")),
+    "family": ("Family, children and equality", ("children", "youth", "family", "women", "equality", "domestic violence", "child support", "adoption")),
+    "emergency": ("Emergency, war and COVID", ("war", "emergency", "state of emergency", "coronavirus", "covid", "epidemic")),
+}
+
 # Real Hebrew prefix sequences only: optional ו or ש, then optional one of ה ב ל מ כ (or מה). "לה" is not a
 # prefix sequence, so להשבת ("restoring") is not the word שבת.
 HE_PREFIX = "(?:[וש]?(?:מה|[הבלמכ])?)"
@@ -191,7 +216,7 @@ def sync(conn: psycopg.Connection) -> dict[str, int]:
             tid = conn.execute(
                 """INSERT INTO topic (slug, sort) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET sort = EXCLUDED.sort RETURNING id""",
                 (t.slug, i)).fetchone()[0]
-            for lang, label in (("ru", t.ru), ("he", t.he)):
+            for lang, label in (("ru", t.ru), ("he", t.he), ("en", TOPICS_EN[t.slug][0])):
                 conn.execute(
                     """INSERT INTO topic_label (topic_id, language, label, description) VALUES (%s, %s, %s, %s)
                        ON CONFLICT (topic_id, language) DO UPDATE SET label = EXCLUDED.label, description = EXCLUDED.description""",
@@ -199,6 +224,8 @@ def sync(conn: psycopg.Connection) -> dict[str, int]:
             conn.execute("DELETE FROM topic_alias WHERE topic_id = %s", (tid,))
             for alias in (*t.ru_aliases, t.ru):
                 conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'ru', %s) ON CONFLICT DO NOTHING", (tid, alias))
+            for alias in (*TOPICS_EN[t.slug][1], TOPICS_EN[t.slug][0]):
+                conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'en', %s) ON CONFLICT DO NOTHING", (tid, alias))
             for kw in t.keywords:
                 conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'he', %s) ON CONFLICT DO NOTHING", (tid, kw))
         topic_ids = dict(conn.execute("SELECT slug, id FROM topic").fetchall())

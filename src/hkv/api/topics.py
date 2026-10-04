@@ -14,6 +14,7 @@ from pydantic import BaseModel
 
 from hkv.api.common import Conn, Meta, Stage
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, bill_summary
+from hkv.api.names import PersonNames, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, he_norm
 
 router = APIRouter(prefix="/api/v1")
@@ -46,10 +47,15 @@ class TopicDetail(TopicSummary):
     recent_bills: list[BillSummary]
 
 
+class SearchMember(PersonNames):
+    id: int
+    name_he: str
+
+
 class SearchResult(BaseModel):
     topics: list[TopicSummary]
     bills: list[BillSummary]
-    members: list[dict]
+    members: list[SearchMember]
     factions: list[dict]
     script: Literal["hebrew", "cyrillic", "latin", "number", "other"]
 
@@ -66,12 +72,14 @@ def topic_summary(r: dict) -> TopicSummary:
 
 
 @router.get("/topics", response_model=dict)
+@with_names
 def list_topics(conn: Conn):
     rows = conn.execute(f"{TOPIC_SELECT} ORDER BY t.sort").fetchall()
     return {"data": [topic_summary(r) for r in rows], "meta": Meta(filters={}, note=TOPIC_NOTE)}
 
 
 @router.get("/topics/{slug}", response_model=dict)
+@with_names
 def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[list[Stage] | None, Query()] = None):
     t = conn.execute(f"{TOPIC_SELECT} WHERE t.slug = %s", (slug,)).fetchone()
     if t is None:
@@ -92,7 +100,7 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
                       count(*) FILTER (WHERE b.choice = 'abstain') ab
                FROM ballot b JOIN v ON v.id = b.vote_id WHERE b.faction_id IS NOT NULL AND b.choice IS NOT NULL GROUP BY 1, 2
            )
-           SELECT f.knesset_faction_id, f.name_he, f.term_number, fl.name AS ru, count(*) AS votes,
+           SELECT f.knesset_faction_id, f.name_he, f.term_number, coalesce(fl.short_name, fl.name) AS ru, count(*) AS votes,
                   count(*) FILTER (WHERE 2 * per.f > per.f + per.a + per.ab) AS maj_for,
                   count(*) FILTER (WHERE 2 * per.a > per.f + per.a + per.ab) AS maj_against
            FROM per JOIN faction f ON f.id = per.faction_id LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
@@ -132,25 +140,39 @@ def detect_script(q: str) -> str:
 
 
 @router.get("/search", response_model=dict)
+@with_names
 def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
     """One box for everything. Hebrew: bills, members, factions (normalised, typo-tolerant). Russian: topics by name
     and synonyms, factions by Russian name. Number: bill, vote or private-bill number."""
     script = detect_script(q)
     topics: list[TopicSummary] = []
     bills: list = []
-    members: list[dict] = []
+    members: list = []
     factions: list[dict] = []
     if script in ("cyrillic", "latin"):
         ql = q.strip().lower()
+        lang = "ru" if script == "cyrillic" else "en"
         topics = [topic_summary(r) for r in conn.execute(
-            f"""{TOPIC_SELECT} WHERE EXISTS (SELECT 1 FROM topic_alias a WHERE a.topic_id = t.id AND a.language = 'ru'
+            f"""{TOPIC_SELECT} WHERE EXISTS (SELECT 1 FROM topic_alias a WHERE a.topic_id = t.id AND a.language = %(lang)s
                    AND (lower(a.alias) LIKE %(like)s OR %(q)s LIKE '%%' || lower(a.alias) || '%%' OR similarity(lower(a.alias), %(q)s) > 0.35))
-                ORDER BY t.sort""", {"q": ql, "like": f"%{ql}%"})]
+                ORDER BY t.sort""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         factions = [dict(r) for r in conn.execute(
-            """SELECT f.knesset_faction_id AS id, f.name_he, fl.name AS name_ru, f.term_number AS term FROM faction_label fl
-               JOIN faction f ON f.id = fl.faction_id WHERE fl.language = 'ru' AND (lower(fl.name) LIKE %(like)s OR similarity(lower(fl.name), %(q)s) > 0.4)
+            """SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, coalesce(ru.short_name, ru.name) AS name_ru,
+                      coalesce(en.short_name, en.name) AS name_en, f.term_number AS term
+               FROM faction_label fl JOIN faction f ON f.id = fl.faction_id
+               LEFT JOIN faction_label ru ON ru.faction_id = f.id AND ru.language = 'ru' LEFT JOIN faction_label en ON en.faction_id = f.id AND en.language = 'en'
+               WHERE fl.language = %(lang)s AND (lower(fl.name) LIKE %(like)s OR lower(fl.short_name) LIKE %(like)s OR similarity(lower(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
-               ORDER BY f.term_number DESC LIMIT 20""", {"q": ql, "like": f"%{ql}%"})]
+               ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
+        # members by their Russian/English names and variants (Wikidata alternative labels), typo-tolerant
+        members = [dict(r) for r in conn.execute(
+            """SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, lower(a.full_name))) AS score
+               FROM person_alias a JOIN person p ON p.id = a.person_id
+               WHERE a.language = %(lang)s AND (lower(a.full_name) LIKE %(like)s OR %(q)s <%% lower(a.full_name))
+                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
+               GROUP BY 1, 2 ORDER BY score DESC, 2 LIMIT 10""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
+        for m in members:
+            m.pop("score")
     elif script == "hebrew":
         n = he_norm(q)
         params = {"n": n, "like": f"%{n}%"}
@@ -160,7 +182,7 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
                ORDER BY word_similarity(%(n)s, he_norm(p.first_name_he || ' ' || p.last_name_he)) DESC LIMIT 10""", {"n": n, "like": f"%{n}%"})]
         factions = [dict(r) for r in conn.execute(
-            """SELECT f.knesset_faction_id AS id, f.name_he, fl.name AS name_ru, f.term_number AS term FROM faction f
+            """SELECT f.knesset_faction_id AS id, f.name_he, coalesce(fl.short_name, fl.name) AS name_ru, f.term_number AS term FROM faction f
                LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
                WHERE he_norm(f.name_he) LIKE %(like)s AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC LIMIT 10""", {"like": f"%{n}%"})]
@@ -183,5 +205,5 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
         num = int(q.strip())
         bills = [bill_summary(r) for r in conn.execute(
             f"{BILL_SELECT} WHERE b.knesset_bill_id = %(n)s OR b.private_number = %(n)s OR b.bill_number = %(n)s LIMIT 20", {"n": num})]
-    return {"data": SearchResult(topics=topics, bills=bills, members=members, factions=factions, script=script),
-            "meta": Meta(filters={"q": q}, note="Member names are searchable in Hebrew only for now." if script == "cyrillic" else None)}
+    return {"data": SearchResult(topics=topics, bills=bills, members=[SearchMember(**m) for m in members], factions=factions, script=script),
+            "meta": Meta(filters={"q": q})}

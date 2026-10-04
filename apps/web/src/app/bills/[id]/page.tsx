@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { He, VoteLine, VoteList } from "@/components/ui";
+import { He, PersonName, VoteLine, VoteList } from "@/components/ui";
 import { getBill, NotFound } from "@/lib/api";
 import { formatDate, INITIATOR_ROLE, MOTION, ORIGIN } from "@/lib/labels";
 
@@ -52,13 +52,13 @@ export default async function BillPage({ params }: PageProps<"/bills/[id]">) {
           <h2 className="section-title">Инициаторы</h2>
           <p>
             {initiators.map((i, n) => (
-              <span key={i.person_id}>{n > 0 && ", "}<Link href={`/members/${i.person_id}`}><He>{i.name_he}</He></Link></span>
+              <span key={i.person_id}>{n > 0 && ", "}<Link href={`/members/${i.person_id}`}><PersonName p={i} he="title" /></Link></span>
             ))}
           </p>
           {joined.length > 0 && (
             <p className="small muted" style={{ marginTop: 6 }}>
               Также: {joined.map((i, n) => (
-                <span key={i.person_id}>{n > 0 && ", "}<Link href={`/members/${i.person_id}`}><He>{i.name_he}</He></Link> ({INITIATOR_ROLE[i.role]})</span>
+                <span key={i.person_id}>{n > 0 && ", "}<Link href={`/members/${i.person_id}`}><PersonName p={i} he="title" /></Link> ({INITIATOR_ROLE[i.role]})</span>
               ))}
             </p>
           )}

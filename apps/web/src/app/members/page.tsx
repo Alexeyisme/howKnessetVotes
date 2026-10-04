@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TermSelect } from "@/components/TermSelect";
-import { He } from "@/components/ui";
+import { FactionName, PersonName } from "@/components/ui";
 import { listMembers } from "@/lib/api";
 
 export const metadata: Metadata = { title: "Депутаты" };
@@ -27,8 +27,8 @@ export default async function MembersPage({ searchParams }: PageProps<"/members"
           <tbody>
             {data.map((m) => (
               <tr key={m.id}>
-                <td><Link href={`/members/${m.id}`}><He>{m.name_he}</He></Link></td>
-                <td>{m.last_faction ? <Link href={`/factions/${m.last_faction.id}`}><He>{m.last_faction.name_he}</He></Link> : "—"}</td>
+                <td><Link href={`/members/${m.id}`}><PersonName p={m} he="title" /></Link></td>
+                <td>{m.last_faction ? <Link href={`/factions/${m.last_faction.id}`}><FactionName f={m.last_faction} /></Link> : "—"}</td>
                 <td className="small">{m.terms.join(", ")}</td>
                 <td className="num">{m.roll_call_records.toLocaleString("ru-RU")}</td>
               </tr>

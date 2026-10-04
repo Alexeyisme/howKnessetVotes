@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { FactionName, PersonName } from "@/components/ui";
 import { notFound } from "next/navigation";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Counts } from "@/lib/api";
@@ -123,9 +124,9 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
                 <tbody>
                   {ballots.map((b) => (
                     <tr key={b.person_id}>
-                      <td><Link href={`/members/${b.person_id}`} className="he" lang="he" dir="rtl">{b.name_he}</Link></td>
+                      <td><Link href={`/members/${b.person_id}`}><PersonName p={b} he="title" /></Link></td>
                       <td>
-                        {b.faction_id ? <Link href={`/factions/${b.faction_id}`} className="he" lang="he" dir="rtl">{b.faction_name_he}</Link> : "—"}
+                        {b.faction_id ? <Link href={`/factions/${b.faction_id}`}><FactionName f={{ name_he: b.faction_name_he ?? "", name_ru: b.faction_name_ru, short_ru: b.faction_short_ru }} /></Link> : "—"}
                         {b.faction_ambiguous ? " *" : ""}
                       </td>
                       <td>
