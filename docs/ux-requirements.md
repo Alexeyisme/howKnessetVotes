@@ -20,6 +20,20 @@ how parties really voted, in seconds, mostly on a phone, mostly arriving from a 
 Takeaway: the site is **honest and complete, vote-centred**; the voter is **party-centred and question-centred**.
 The main redesign is a change of entry point and hierarchy, not of data.
 
+## 1b. What the screenshots show (live site, 2026-10-04, 390 px and 1,280 px, ru/en/he)
+
+Captured with `apps/web/scripts/screens.mjs`. Beyond §1, the renders add these concrete points:
+
+- **Phone header is four rows** (brand, five nav links, full-width search, language row) ≈ 140 px before any content, and the home H1 then repeats the brand. A phone visitor sees the site name twice and no answer above the fold.
+- **Home is 70 % Hebrew for a ru/en reader**: the six "latest final votes" are Hebrew titles; the only non-Hebrew words are the verdict line. The topic chips carry bill counts ("Courts and criminal law 415") that mean nothing to a visitor and make the chips look like filters.
+- **End-of-session votes dominate "latest"**: "Law passed 5 for · 0 against" six times in a row. Correct (no quorum), but to a first-time visitor it reads as broken data. Low-turnout verdicts need the "5 of 120 voted" context inline, and the home feed should prefer contested/key votes over the most recent.
+- **Party page on a phone hides the one thing that matters**: the table scrolls horizontally and the *Coalition / opposition* column is off-screen; the visible columns are Knesset number, list name ("Likud headed by Benjamin Netanyahu") and full date ranges. No votes anywhere on the page.
+- **Vote page**: the hero (badges, Hebrew title, verdict) works; the full desktop page is ~5,600 px tall because the 103-row roll call is expanded by default. The faction breakdown rows put name, Hebrew name, badge, counts and "majority for" on one dense line and the bar is thin relative to the text.
+- **Topic page**: the diverging bars are good, but "Likud 103 of 103 for · Shas 94 of 94 for" confirms that the chart measures bloc membership, not stance; the `Show` button next to the Knesset select is a form, not a switch.
+- **Member page** on a phone: a 30-row list of Hebrew titles between the summary and the statistics; the photo is small; the faction history table is as long as the vote list.
+- **Hebrew RTL is correct everywhere** sampled (header, chips, cards, bars). No dark-mode captures yet (the script does them; rerun once the environment allows).
+- Two search boxes are visible at once on home (header + hero).
+
 ## 2. What is good and must stay
 
 - Plain-language verdict line per vote ("Law passed: 64 for, 52 against") and the stage explanation — keep as the hero.
@@ -160,7 +174,7 @@ U7 as designed: two parties or two MKs, agreement rate on shared final votes, th
 3. **Think-aloud tests, 5 people per language (ru, he; en later), 20 min each, remote over a phone (1–2 days).** Recruit from the Russian-speaking Telegram groups the site targets. Script: "You are deciding whether to vote for X again. Find out how they voted on …", "Find your MK and see if they broke with their party", "Share this with a friend". Measure success, time, first tap, and the words they use (vocabulary feeds the dictionaries). Five people find ~80 % of the issues; more languages beat more people.
 4. **Heuristic review with a civic-data checklist (half a day).** Nielsen's ten, plus: is the stance distinguishable from the count; is the denominator visible; is "no record" explained where it appears; does every number lead to its source in one tap; does every page have a one-sentence answer. Score 0–2 per page, keep the table in this file.
 5. **Comparative review (half a day).** TheyWorkForYou (UK), GovTrack and VoteSmart (US), VoteWatch/HowTheyVote (EU), abgeordnetenwatch (DE), Open Knesset (IL) for structure; Wahl-O-Mat / Smartvote for the VoteMatch pattern; Datawrapper and the Guardian's election graphics for the matrix and bar visuals. Record what to borrow, not what they look like.
-6. **Screenshot matrix for design review (1 h to set up).** A Playwright script (`apps/web/scripts/screens.ts`) that captures home, votes, vote, party, member, topic, compass at 390 px and 1,280 px in ru/en/he, light and dark — 84 images. Review them side by side (and let an AI reviewer go through them); re-run before every deploy to catch RTL and dark-mode regressions. Chromium is already available in CI.
+6. **Screenshot matrix for design review (done: `apps/web/scripts/screens.mjs`).** Captures home, votes, vote, party, member, topic, search at 390 px and 1,280 px in ru/en/he, light and dark — 84 images; add compass when it exists. Review them side by side (and let an AI reviewer go through them); re-run before every deploy to catch RTL and dark-mode regressions. Chromium is already available in CI.
 7. **Five-second test on home and on the share image (free, 10 people).** Show for five seconds, ask "what is this site, what can you do here?" — the brand/tagline and OG card must pass this.
 8. **Tree test for navigation labels (free tier of Optimal Workshop, or a Google Form).** Ten tasks against the proposed nav in each language; the Hebrew and Russian words for party/list/faction are the known trouble spot.
 9. **Accessibility pass (half a day).** axe DevTools on every page, Lighthouse budget in CI, one screen-reader session in Hebrew, keyboard-only walk-through.
