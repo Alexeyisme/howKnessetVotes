@@ -90,7 +90,7 @@ descriptions.
 
 | Phase | Content | Outcome |
 |---|---|---|
-| 1 | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
+| 1 | O1, O2, O3 · L1, L2, L4, L5 · U2, U3, U8 · T1 | Safe operations; every MK and party has proper names in 3 languages; votes read in plain words |
 | 2 | L3, L8 · U1, U5, U6 | Full English and Hebrew site; a home page and MK pages built for first-time visitors |
 | 3 | D1, D2, D3 · U11 | History back to 2003; parties across Knessets; coalition context |
 | 4 | L6, L7, L9 · U4 | Bills readable in Russian and English, with descriptions and a review workflow |
@@ -113,6 +113,37 @@ public launch or press, so that early coverage isn't based on a partial history.
 | 8 | API/UI names | Members and factions return `name: {he, en, ru}`; Russian pages show the Russian name with Hebrew underneath | Member list, member, vote and faction pages show Russian names |
 | 9 | U2 + U3 | Vote page header in plain words (what was decided, the result, what the stage means); lists default to "important" votes (final readings and whole-bill votes), with a switch to "all" | — |
 | 10 | U8 | `/about/glossary` and `/about/methodology` pages; numbers link to them | — |
+
+## Open Knesset (oknesset.org) — what we can reuse
+
+[Open Knesset](https://oknesset.org) is run by Hasadna (the Public Knowledge Workshop). The site is
+Hebrew only and centred on members and committees, with no vote-centred UI. It updates daily from
+the official Knesset APIs. Its pipeline ([hasadna/knesset-data-pipelines](https://github.com/hasadna/knesset-data-pipelines))
+publishes everything as CSV under `production.oknesset.org/pipelines/data/`. The data requires
+attribution, so the site footer and the methodology page will credit Open Knesset for the tables we
+use.
+
+| Dataset | What it gives | Use | Roadmap item |
+|---|---|---|---|
+| `members/mk_individual` | `mk_individual_id` ↔ `PersonID` | Already used for the MK name lookup | L1 |
+| `members/member_english_names` | English names for 797 MKs (by `mk_individual_id`) | Fallback English names. Covers 121 of our 299 MKs, all older ones | L1 |
+| `members/kns_mksitecode` (also `KNS_MkSiteCode` in OData v4) | Official `PersonID` ↔ website ID | Preferred over Open Knesset's `mk_individual` where present. Only 128 of our 299 MKs, all older ones | L1 |
+| `laws/kns_israel_law_classification` + `kns_law_binding` | Official classification of laws into 51 categories (taxation, health, security, welfare…), and which law each bill amends | **Official topics**: covers 1,203 of our 3,647 bills. Use it to validate and extend the keyword topics, shown as "official classification" | new T1 |
+| `laws/kns_israel_law`, `kns_israel_law_name` | Laws in force: basic law, budget law, validity, name history | "Which law does this bill amend", Basic Law badges | U4, D4 |
+| `bills/kns_billunion`, `kns_billsplit`, `kns_billname`, `kns_billhistoryinitiator` | Merged and split bills, name changes across stages, initiator history | Bill story page, related bills | U4, D4 |
+| `knesset/kns_govministry` | Ministries by government | Ministry glossary for translations; government data | L6, D3 |
+| `people/mk_voted_against_majority` | Open Knesset's own "voted against faction majority" | A cross-check for our deviation metric (definitions may differ: document any difference) | D7 |
+| `committees/*` (sessions, protocols, speaker-divided text) | Committee meetings and full protocols | Out of scope for now (plenum votes only); possible later "what was said in committee" | later |
+| `lobbyists/*` | Registered lobbyists and their clients | Out of scope; possible later | later |
+| `members/presence` | Hours each MK was present in the building | **Not usable**: stale since 2025-09-05 | — |
+| Redash (`redash.hasadna.org.il`) | SQL over the same data | Ad-hoc checks during audits | — |
+
+New item:
+
+- **T1 — official law classification as a topic source (S).** Map the 51 official categories to
+  our 21 topics. Store assignments with `origin='official'`. A bill keeps its rule-based topics, and
+  where they disagree with the official category the bill is queued for review. Topic pages say
+  which assignments are official.
 
 ## Source research (2026-10-04)
 
