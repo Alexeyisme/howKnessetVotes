@@ -24,9 +24,9 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
     { id: "outcome", title: "Passed or not", body: <>
       <p>For votes up to July 2021 the result comes from official Knesset data. Later official results are not published in the open data, so the site derives them from the roll-call records: passed if &ldquo;for&rdquo; exceeds &ldquo;against&rdquo;; a tie does not pass; a no-confidence motion needs at least 61 votes for. Such results are labelled &ldquo;counted from roll-call records&rdquo;.</p>
       <p>The plenum has no quorum, so a law can pass with a handful of votes when nobody objects. See the {link("/about/glossary#quorum", "glossary")}.</p>
-      <p className="small muted">Up to 2021 the roll call matches the official result in 95% of votes. The remaining differences are explained or logged for review. No numbers are adjusted to fit.</p></> },
+      <p className="small muted">Up to 2021 the roll call matches the official result exactly in 96.5% of votes, and to within two votes in 99.9%. The remaining differences are explained or logged for review. No numbers are adjusted to fit.</p></> },
     { id: "faction", title: "Faction on the day of the vote", body:
-      <p>Each vote is attributed to the faction the member belonged to <strong>on the day of the vote</strong>. If the member switched factions that day, the vote is marked ambiguous. Votes whose faction cannot be determined (11 of 1.2 million) are shown separately.</p> },
+      <p>Each vote is attributed to the faction the member belonged to <strong>on the day of the vote</strong>. If the member switched factions that day, the vote is marked ambiguous. Votes whose faction cannot be determined (11 of 2 million) are shown separately.</p> },
     { id: "metrics", title: "Measures", body:
       <dl className="glossary">
         <div className="glossary-item"><dt><strong>Roll-call participation</strong></dt>
@@ -74,9 +74,9 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
     { id: "outcome", title: "أُقرّ أم لا", body: <>
       <p>في التصويتات حتى تموز/يوليو 2021 تؤخذ النتيجة من المعطيات الرسمية للكنيست. النتائج اللاحقة لا تُنشر في المعطيات المفتوحة، لذا يحسبها الموقع من السجلات الاسمية: يُقرّ إذا زاد عدد «مع» على «ضد»؛ التعادل لا يُقرّ؛ اقتراح حجب الثقة يحتاج إلى 61 صوتًا مؤيدًا على الأقل. تُعلَّم هذه النتيجة بعبارة «محسوبة من السجلات الاسمية».</p>
       <p>لا يوجد نصاب في الهيئة العامة، لذا قد يُقرّ قانون بأصوات قليلة حين لا يعترض أحد. انظر {link("/about/glossary#quorum", "قاموس المصطلحات")}.</p>
-      <p className="small muted">حتى 2021 تطابق القائمة الاسمية النتيجة الرسمية في 95% من التصويتات. الفروق الباقية مفسّرة أو مسجّلة للمراجعة. لا توجد أرقام معدّلة لتتطابق.</p></> },
+      <p className="small muted">حتى 2021 تطابق القائمة الاسمية النتيجة الرسمية تمامًا في 96.5% من التصويتات، وبفارق صوتين على الأكثر في 99.9%. الفروق الباقية مفسّرة أو مسجّلة للمراجعة. لا توجد أرقام معدّلة لتتطابق.</p></> },
     { id: "faction", title: "الكتلة يوم التصويت", body:
-      <p>يُنسب كل صوت إلى الكتلة التي انتمى إليها العضو <strong>يوم التصويت</strong>. إذا انتقل العضو إلى كتلة أخرى في اليوم نفسه، يُعلَّم الصوت بأنه غير محسوم. الأصوات التي لا يمكن تحديد كتلتها (11 من أصل 1.2 مليون) معروضة بشكل منفصل.</p> },
+      <p>يُنسب كل صوت إلى الكتلة التي انتمى إليها العضو <strong>يوم التصويت</strong>. إذا انتقل العضو إلى كتلة أخرى في اليوم نفسه، يُعلَّم الصوت بأنه غير محسوم. الأصوات التي لا يمكن تحديد كتلتها (11 من أصل مليونين) معروضة بشكل منفصل.</p> },
     { id: "metrics", title: "المؤشرات", body:
       <dl className="glossary">
         <div className="glossary-item"><dt><strong>المشاركة في التصويت بالأسماء</strong></dt>
@@ -124,9 +124,9 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
     { id: "outcome", title: "התקבל או לא", body: <>
       <p>בהצבעות עד יולי 2021 התוצאה נלקחת מהנתונים הרשמיים של הכנסת. תוצאות מאוחרות יותר אינן מתפרסמות במידע הפתוח, ולכן האתר מחשב אותן מהרישומים השמיים: התקבל אם ״בעד״ גדול מ״נגד״; תיקו אינו מתקבל; הצעת אי-אמון דורשת לפחות 61 קולות בעד. תוצאה כזו מסומנת ״לפי הרישומים השמיים״.</p>
       <p>במליאה אין מניין חוקי, ולכן חוק יכול לעבור בקולות מעטים כשאין מתנגדים. ראו {link("/about/glossary#quorum", "במילון המונחים")}.</p>
-      <p className="small muted">עד 2021 הרשימה השמית תואמת את התוצאה הרשמית ב-95% מההצבעות. שאר הפערים מוסברים או נרשמו לבדיקה. אין מספרים מותאמים.</p></> },
+      <p className="small muted">עד 2021 הרשימה השמית תואמת את התוצאה הרשמית במדויק ב-96.5% מההצבעות, ובהפרש של עד שני קולות ב-99.9%. שאר הפערים מוסברים או נרשמו לבדיקה. אין מספרים מותאמים.</p></> },
     { id: "faction", title: "הסיעה ביום ההצבעה", body:
-      <p>כל קול משויך לסיעה שחבר הכנסת השתייך אליה <strong>ביום ההצבעה</strong>. אם עבר סיעה באותו יום, הקול מסומן כלא חד-משמעי. קולות שלא ניתן לקבוע את סיעתם (11 מתוך 1.2 מיליון) מוצגים בנפרד.</p> },
+      <p>כל קול משויך לסיעה שחבר הכנסת השתייך אליה <strong>ביום ההצבעה</strong>. אם עבר סיעה באותו יום, הקול מסומן כלא חד-משמעי. קולות שלא ניתן לקבוע את סיעתם (11 מתוך 2 מיליון) מוצגים בנפרד.</p> },
     { id: "metrics", title: "מדדים", body:
       <dl className="glossary">
         <div className="glossary-item"><dt><strong>השתתפות בהצבעות שמיות</strong></dt>
@@ -174,9 +174,9 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
     { id: "outcome", title: "Принято или нет", body: <>
       <p>Для голосований до июля 2021 года итог берётся из официальных данных Кнессета. Для более поздних официальный итог в открытых данных не публикуется. Тогда сайт считает его по поимённым записям: принято, если «за» больше, чем «против»; при равенстве не принято; вотум недоверия требует не меньше 61 голоса «за». Такой итог помечен «подсчёт по поимённым записям».</p>
       <p>Кворума в пленуме нет, поэтому закон, против которого никто не возражает, может пройти несколькими голосами. Подробнее — в {link("/about/glossary#quorum", "словаре")}.</p>
-      <p className="small muted">До 2021 года поимённый список совпадает с официальным итогом в 95% голосований. Остальные расхождения объяснены или зарегистрированы для проверки. Подогнанных цифр нет.</p></> },
+      <p className="small muted">До 2021 года поимённый список точно совпадает с официальным итогом в 96,5% голосований, а с расхождением не больше двух голосов — в 99,9%. Остальные расхождения объяснены или зарегистрированы для проверки. Подогнанных цифр нет.</p></> },
     { id: "faction", title: "Фракция на дату голосования", body:
-      <p>Каждый голос относится к фракции, в которой депутат состоял <strong>в день голосования</strong>. Если депутат перешёл в другую фракцию в тот же день, голос помечен как неоднозначный. Голоса, для которых фракцию определить нельзя (11 из 1,2 млн), показаны отдельно.</p> },
+      <p>Каждый голос относится к фракции, в которой депутат состоял <strong>в день голосования</strong>. Если депутат перешёл в другую фракцию в тот же день, голос помечен как неоднозначный. Голоса, для которых фракцию определить нельзя (11 из 2 млн), показаны отдельно.</p> },
     { id: "metrics", title: "Показатели", body:
       <dl className="glossary">
         <div className="glossary-item"><dt><strong>Участие в голосованиях</strong></dt>

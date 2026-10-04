@@ -60,11 +60,13 @@ sudo systemd-run --unit=hkv-coalition --uid=deploy --gid=deploy --working-direct
 - `hkv topics --official` reloads the official law classification (~3 min). Bills voted in the update window are refreshed automatically.
 - `hkv coalition` reloads government posts and re-derives governments, coalition/opposition per faction and the per-vote blocs (~1 min). Every update does this too; run it after editing `src/hkv/coalition/overrides.toml` and deploying.
 
-Loading a historical period (as for D1, 2003–2016; ~2 h for 13 years with 4 workers). Logs go to the `raw` volume:
+Loading a historical period (as for D1, 2003–2016, done 2026-10-05). With 4 workers the Knesset WAF starts throttling (HTTP 481) after
+~1.5 h; `odata.py` retries with backoff, but use `--workers 1` for multi-hour loads (~1.3 s per page, ~15 min per quarter). The load is
+resumable: rerunning skips finished quarters. Logs go to the `raw` volume:
 
 ```sh
 sudo systemd-run --unit=hkv-history --uid=deploy --gid=deploy --working-directory=/srv/hkv sh -c "P=scripts/prod.sh; \
-  \$P run --rm updater hkv backfill --from 2003-10-01 --to 2016-10-30 --workers 4 --months 3 --log /data/raw/logs/backfill-history.log && \
+  \$P run --rm updater hkv backfill --from 2003-10-01 --to 2016-10-30 --workers 1 --months 3 --log /data/raw/logs/backfill-history.log && \
   \$P run --rm updater hkv legacy --from 2003-10-01 --to 2016-10-30 --log /data/raw/logs/legacy-history.log && \
   \$P run --rm updater hkv initiators && \$P run --rm updater hkv topics --official && \$P run --rm updater hkv names && \
   \$P run --rm updater hkv coalition"
