@@ -13,8 +13,8 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>Knesset open data (OData v4)</strong>: plenum votes, roll-call records, bills, sponsors, members, factions and membership. The main source.</li>
         <li><strong>The old Knesset votes service (Votes.svc)</strong>, data up to July 2021: official results and votes missing from the main source, plus flags for votes not counted in the official result.</li>
-        <li><strong>The Knesset website</strong>: official member names and faction names in English and Russian, and member photos.</li>
-        <li><strong>Wikidata</strong>: English and Russian names for members not covered by the website, and spelling variants for search.</li>
+        <li><strong>The Knesset website</strong>: official member names and faction names in English, Russian and Arabic, and member photos.</li>
+        <li><strong>Wikidata</strong>: English, Russian and Arabic names for members not covered by the website, and spelling variants for search.</li>
         <li><strong>{OK}</strong> (the Hasadna public knowledge workshop): a member ID mapping table. Used with attribution.</li>
       </ul>
       <p className="small muted">Every vote links to its page on the Knesset website. Raw source responses are stored unchanged, so any number can be rechecked.</p></> },
@@ -45,18 +45,76 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <p>A few known exceptions are corrected by hand and marked as such: a party that supported the coalition without a ministry (Ra&apos;am, 2021–2022), a party whose ministers resigned while it stayed in the coalition (Shas, from July 2025), and similar cases. A vote is &ldquo;contested&rdquo; when the coalition majority and the opposition majority voted differently.</p>
       <p>A <strong>party</strong> links the factions it sat as in each Knesset (prepared by hand). A joint list counts for every party in it, so the Joint List&apos;s votes appear under Hadash, Balad, Ta&apos;al and Ra&apos;am.</p></> },
     { id: "names", title: "Names", body:
-      <p>Member names in English and Russian come from the Knesset website; where it has none, from Wikidata. Russian and English names of factions from earlier Knessets were prepared by hand. The official Hebrew name is always shown. Bill titles are shown in Hebrew, as published by the Knesset. Member photos are linked from the Knesset website.</p> },
+      <p>Member names in English, Russian and Arabic come from the Knesset website; where it has none, from Wikidata. Names of factions from earlier Knessets in Russian, English and Arabic were prepared by hand. The official Hebrew name is always shown. Bill titles are shown in Hebrew, as published by the Knesset. Member photos are linked from the Knesset website.</p> },
+    { id: "translation", title: "Translation", body: <>
+      <p>The site was written in Russian first; the English, Hebrew and Arabic versions are translations. All the site&apos;s own text — menus, explanations, this page and the glossary, the Russian original included — was written and translated with an AI model (Claude, by Anthropic) under the direction of the site&apos;s author.</p>
+      <ul>
+        <li><strong>Not translated:</strong> official Knesset texts. Bill titles and the questions put to a vote are shown in Hebrew exactly as the Knesset publishes them, and the official Hebrew name of every member and faction is shown on their pages.</li>
+        <li><strong>Members&apos; names</strong> in English, Russian and Arabic are the Knesset website&apos;s official spellings (Wikidata where the website has none).</li>
+        <li><strong>Names of factions</strong> in earlier Knessets <strong>and of parties</strong> were prepared by hand from the names used in the media; for the current Knesset the website&apos;s official names are used. <strong>Topic names</strong> are ours.</li>
+        <li><strong>The Arabic version is a beta.</strong> It has not yet been reviewed by a native Arabic speaker, so some Knesset terms may be imprecise. The glossary gives the Hebrew term next to each one.</li>
+      </ul></> },
     { id: "updates", title: "Updates", body: <>
       <p>Data is updated automatically: every night, and every two hours on plenum days (Monday–Wednesday). Each update rereads the last 30 days of votes to pick up source corrections. The date of the latest update is at the bottom of every page.</p>
       <p className="small muted">Terms are explained in the {link("/about/glossary", "glossary")}.</p></> },
+  ];
+  if (locale === "ar") return [
+    { id: "sources", title: "المصادر", body: <>
+      <ul>
+        <li><strong>المعطيات المفتوحة للكنيست (OData v4)</strong>: تصويتات الهيئة العامة، السجلات الاسمية، اقتراحات القوانين، المبادرون، أعضاء الكنيست، الكتل والعضوية فيها. المصدر الرئيسي.</li>
+        <li><strong>خدمة التصويتات القديمة للكنيست (Votes.svc)</strong>، معطيات حتى تموز/يوليو 2021: النتائج الرسمية وتصويتات غير موجودة في المصدر الرئيسي، وإشارات إلى أصوات لم تُحتسب في النتيجة الرسمية.</li>
+        <li><strong>موقع الكنيست</strong>: الأسماء الرسمية لأعضاء الكنيست وللكتل بالإنجليزية والروسية والعربية، وصور أعضاء الكنيست.</li>
+        <li><strong>ويكي بيانات</strong>: أسماء بالإنجليزية والروسية والعربية لأعضاء كنيست لا يغطيهم الموقع، وصيغ كتابة بديلة للبحث.</li>
+        <li><strong>{OK}</strong> (ورشة المعرفة العامة «هسدنا»): جدول مطابقة لمعرّفات أعضاء الكنيست. يُستخدم مع ذكر المصدر.</li>
+      </ul>
+      <p className="small muted">لكل تصويت رابط إلى صفحته في موقع الكنيست. تُحفظ ردود المصادر الأصلية دون تغيير، بحيث يمكن التحقق من أي رقم من جديد.</p></> },
+    { id: "records", title: "السجلات الاسمية و«الغياب»", body: <>
+      <p>تذكر المعطيات المفتوحة فقط أعضاء الكنيست <strong>الذين لهم سجل</strong>: مع، ضد، امتنع أو «حاضر، لم يصوّت». عندما لا يوجد سجل، <strong>لا يعتبر الموقع العضو غائبًا</strong>: المصدر لا يقول ذلك.</p>
+      <p>لـ89 تصويتًا لا توجد سجلات اسمية إطلاقًا. هذه تصويتات برفع الأيدي وتصويتات سرية. يُعرض لها فقط ما نُشر.</p></> },
+    { id: "outcome", title: "أُقرّ أم لا", body: <>
+      <p>في التصويتات حتى تموز/يوليو 2021 تؤخذ النتيجة من المعطيات الرسمية للكنيست. النتائج اللاحقة لا تُنشر في المعطيات المفتوحة، لذا يحسبها الموقع من السجلات الاسمية: يُقرّ إذا زاد عدد «مع» على «ضد»؛ التعادل لا يُقرّ؛ اقتراح حجب الثقة يحتاج إلى 61 صوتًا مؤيدًا على الأقل. تُعلَّم هذه النتيجة بعبارة «محسوبة من السجلات الاسمية».</p>
+      <p>لا يوجد نصاب في الهيئة العامة، لذا قد يُقرّ قانون بأصوات قليلة حين لا يعترض أحد. انظر {link("/about/glossary#quorum", "قاموس المصطلحات")}.</p>
+      <p className="small muted">حتى 2021 تطابق القائمة الاسمية النتيجة الرسمية في 95% من التصويتات. الفروق الباقية مفسّرة أو مسجّلة للمراجعة. لا توجد أرقام معدّلة لتتطابق.</p></> },
+    { id: "faction", title: "الكتلة يوم التصويت", body:
+      <p>يُنسب كل صوت إلى الكتلة التي انتمى إليها العضو <strong>يوم التصويت</strong>. إذا انتقل العضو إلى كتلة أخرى في اليوم نفسه، يُعلَّم الصوت بأنه غير محسوم. الأصوات التي لا يمكن تحديد كتلتها (11 من أصل 1.2 مليون) معروضة بشكل منفصل.</p> },
+    { id: "metrics", title: "المؤشرات", body:
+      <dl className="glossary">
+        <div className="glossary-item"><dt><strong>المشاركة في التصويت بالأسماء</strong></dt>
+          <dd>أصوات مع وضد وامتنع، مقسومة على عدد التصويتات بالأسماء خلال فترة العضوية. هذه <strong>ليست نسبة حضور</strong>: قد يكون العضو في الكنيست ولم يصوّت.</dd></div>
+        <div className="glossary-item"><dt><strong>التصويت خلافًا لأغلبية الحزب</strong></dt>
+          <dd>صوت العضو يختلف عن خيار الأغلبية المطلقة من أعضاء كتلته <em>الآخرين</em> الذين صوّتوا (اثنان على الأقل). المقام هو التصويتات التي وُجدت فيها مثل هذه الأغلبية. هذا <strong>لا يثبت خرق الانضباط الحزبي</strong>: ربما سمحت الكتلة بتصويت حر.</dd></div>
+        <div className="glossary-item"><dt><strong>تماسك الحزب</strong></dt>
+          <dd>نسبة أصوات أعضاء الكتلة التي طابقت الخيار الأكثر شيوعًا في الكتلة في التصويت نفسه، على مجمل التصويتات.</dd></div>
+        <div className="glossary-item"><dt><strong>كيف صوّتت الأحزاب حسب الموضوع</strong></dt>
+          <dd>تُحتسب فقط التصويتات على اقتراح القانون كاملًا (افتراضيًا في القراءة الثالثة). التحفّظات والتصويتات الإجرائية مستثناة. «أغلبية مع» تعني أن أكثر من نصف أعضاء الكتلة المصوّتين اختاروا «مع».</dd></div>
+      </dl> },
+    { id: "topics", title: "المواضيع", body:
+      <p>تأتي المواضيع من مصدرين. الأول هو <strong>التصنيف الرسمي لقوانين الكنيست</strong> (51 فئة): يحصل اقتراح القانون على فئات القانون الذي يسنّه أو يعدّله، إذا ورد اسم ذلك القانون في عنوانه. الثاني هو <strong>كلمات مفتاحية</strong> في العنوان العبري لاقتراح القانون. إذا كانت هناك أكثر من ثلاث فئات رسمية (مثلًا في قانون التسويات) فلا تُستخدم. حيث يوجد المصدران، يتفقان في 91% من اقتراحات القوانين. لم يراجع محرّر المواضيع بعد، لذا قد توجد أخطاء. تُظهر صفحة اقتراح القانون مصدر كل موضوع. يرث التصويت كل مواضيع اقتراح القانون، حتى لو تعلّق ببند واحد.</p> },
+    { id: "coalition", title: "الائتلاف والمعارضة والأحزاب", body: <>
+      <p>الانتماء إلى الائتلاف <strong>مستخلص من معطيات رسمية</strong>: تنشر الكنيست قائمة كل الوزراء ونواب الوزراء مع رقم الحكومة والتواريخ. تكون الكتلة في الائتلاف في تاريخ يشغل فيه أحد أعضائها منصبًا في حكومة ذلك اليوم، وإلا فهي في المعارضة. بين الانتخابات وأداء الحكومة التالية اليمين لا يوجد ائتلاف، والموقع يذكر ذلك. الوزير الذي تنازل عن مقعده وفق «القانون النرويجي» يبقى محسوبًا على كتلته.</p>
+      <p>صُحّحت بعض الاستثناءات المعروفة يدويًا ووُسمت بذلك: حزب دعم الائتلاف دون حقيبة وزارية (الموحدة، 2021–2022)، حزب استقال وزراؤه وبقي في الائتلاف (شاس، منذ تموز/يوليو 2025)، وحالات مشابهة. يكون التصويت «خلافيًا» عندما تصوّت أغلبية الائتلاف وأغلبية المعارضة بشكل مختلف.</p>
+      <p><strong>الحزب</strong> يربط الكتل التي مثّلته في كل دورة كنيست (أُعدّ يدويًا). القائمة المشتركة تُحتسب لكل حزب فيها، لذا تظهر تصويتات القائمة المشتركة تحت الجبهة والتجمع والعربية للتغيير والموحدة.</p></> },
+    { id: "names", title: "الأسماء", body:
+      <p>أسماء أعضاء الكنيست بالعربية والإنجليزية والروسية مأخوذة من موقع الكنيست؛ وحيث لا توجد، من ويكي بيانات. أسماء كتل الدورات السابقة بالعربية أُعدّت يدويًا وفق الأسماء المتداولة في وسائل الإعلام العربية في البلاد. الاسم العبري الرسمي معروض دائمًا. عناوين اقتراحات القوانين بالعبرية، كما تنشرها الكنيست. صور أعضاء الكنيست مرتبطة من موقع الكنيست.</p> },
+    { id: "translation", title: "الترجمة", body: <>
+      <p><strong>النسخة العربية تجريبية (بيتا).</strong> لم يراجعها بعد متحدث أصلي بالعربية، لذا قد تكون بعض مصطلحات الكنيست غير دقيقة. يورد قاموس المصطلحات المصطلح العبري بجانب كل مصطلح.</p>
+      <p>كُتب الموقع أولًا بالروسية؛ النسخ العربية والعبرية والإنجليزية ترجمات. كل نصوص الموقع نفسه — القوائم والشروح وهذه الصفحة وقاموس المصطلحات، بما فيها الأصل الروسي — كُتبت وتُرجمت بمساعدة نموذج ذكاء اصطناعي (Claude من شركة Anthropic) بتوجيه من مؤلف الموقع.</p>
+      <ul>
+        <li><strong>ما لا يُترجم:</strong> النصوص الرسمية للكنيست. عناوين اقتراحات القوانين والمسائل المطروحة للتصويت معروضة بالعبرية كما تنشرها الكنيست، والاسم العبري الرسمي لكل عضو كنيست وكتلة موجود في صفحته.</li>
+        <li><strong>أسماء أعضاء الكنيست</strong> بالعربية هي الكتابة الرسمية في موقع الكنيست (ويكي بيانات حيث لا توجد في الموقع).</li>
+        <li><strong>أسماء الكتل</strong> في الدورات السابقة <strong>وأسماء الأحزاب</strong> أُعدّت يدويًا وفق الأسماء المتداولة في الإعلام؛ للكنيست الحالية تُستخدم الأسماء الرسمية من موقع الكنيست. <strong>أسماء المواضيع</strong> من وضعنا.</li>
+      </ul></> },
+    { id: "updates", title: "التحديث", body: <>
+      <p>تُحدَّث المعطيات تلقائيًا: كل ليلة، وكل ساعتين في أيام جلسات الهيئة العامة (الاثنين–الأربعاء). في كل تحديث تُقرأ من جديد تصويتات آخر 30 يومًا لالتقاط تصحيحات المصدر. تاريخ آخر تحديث مذكور أسفل كل صفحة.</p>
+      <p className="small muted">المصطلحات مشروحة في {link("/about/glossary", "قاموس المصطلحات")}.</p></> },
   ];
   if (locale === "he") return [
     { id: "sources", title: "מקורות", body: <>
       <ul>
         <li><strong>המידע הפתוח של הכנסת (OData v4)</strong>: הצבעות במליאה, רישומים שמיים, הצעות חוק, יוזמים, חברי כנסת, סיעות וחברות בהן. המקור העיקרי.</li>
         <li><strong>שירות ההצבעות הישן של הכנסת (Votes.svc)</strong>, נתונים עד יולי 2021: תוצאות רשמיות והצבעות שחסרות במקור העיקרי, וסימון קולות שלא נכללו בתוצאה הרשמית.</li>
-        <li><strong>אתר הכנסת</strong>: השמות הרשמיים של חברי הכנסת ושל הסיעות באנגלית וברוסית, ותמונות חברי הכנסת.</li>
-        <li><strong>ויקינתונים</strong>: שמות באנגלית וברוסית לחברי כנסת שאינם באתר, וגרסאות כתיב לחיפוש.</li>
+        <li><strong>אתר הכנסת</strong>: השמות הרשמיים של חברי הכנסת ושל הסיעות באנגלית, ברוסית ובערבית, ותמונות חברי הכנסת.</li>
+        <li><strong>ויקינתונים</strong>: שמות באנגלית, ברוסית ובערבית לחברי כנסת שאינם באתר, וגרסאות כתיב לחיפוש.</li>
         <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">כנסת פתוחה</a></strong> (הסדנא לידע ציבורי): טבלת התאמה של מזהי חברי הכנסת. בשימוש עם ציון המקור.</li>
       </ul>
       <p className="small muted">לכל הצבעה יש קישור לדף שלה באתר הכנסת. התשובות הגולמיות של המקורות נשמרות ללא שינוי, כך שאפשר לבדוק מחדש כל מספר.</p></> },
@@ -87,7 +145,15 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <p>כמה חריגים ידועים תוקנו ידנית ומסומנים ככאלה: מפלגה שתמכה בקואליציה בלי משרד (רע״ם, 2021–2022), מפלגה ששריה התפטרו אך נשארה בקואליציה (ש״ס, מיולי 2025) ומקרים דומים. הצבעה ״שנויה במחלוקת״ כשרוב הקואליציה ורוב האופוזיציה הצביעו אחרת.</p>
       <p><strong>מפלגה</strong> מקשרת את הסיעות שבהן ישבה בכל כנסת (הוכן ידנית). רשימה משותפת נספרת לכל המפלגות שבה, ולכן הצבעות הרשימה המשותפת מופיעות תחת חד״ש, בל״ד, תע״ל ורע״ם.</p></> },
     { id: "names", title: "שמות", body:
-      <p>שמות חברי הכנסת באנגלית וברוסית לקוחים מאתר הכנסת; היכן שאין — מוויקינתונים. שמות הסיעות של כנסות קודמות ברוסית ובאנגלית הוכנו ידנית. השם הרשמי בעברית מוצג תמיד. תמונות חברי הכנסת מקושרות מאתר הכנסת.</p> },
+      <p>שמות חברי הכנסת באנגלית, ברוסית ובערבית לקוחים מאתר הכנסת; היכן שאין — מוויקינתונים. שמות הסיעות של כנסות קודמות ברוסית, באנגלית ובערבית הוכנו ידנית. השם הרשמי בעברית מוצג תמיד. תמונות חברי הכנסת מקושרות מאתר הכנסת.</p> },
+    { id: "translation", title: "תרגום", body: <>
+      <p>האתר נכתב תחילה ברוסית; הגרסאות בעברית, באנגלית ובערבית הן תרגומים. כל הטקסט של האתר עצמו — תפריטים, הסברים, דף זה ומילון המונחים, כולל המקור הרוסי — נכתב ותורגם בעזרת מודל בינה מלאכותית (Claude של Anthropic) בהנחיית מחבר האתר.</p>
+      <ul>
+        <li><strong>מה לא מתורגם:</strong> הטקסטים הרשמיים של הכנסת. שמות הצעות החוק והשאלות שהועמדו להצבעה מוצגים כפי שהכנסת מפרסמת אותם, והשם העברי הרשמי של כל חבר כנסת וסיעה מוצג בדף שלהם.</li>
+        <li><strong>שמות חברי הכנסת</strong> באנגלית, ברוסית ובערבית הם האיות הרשמי של אתר הכנסת (ויקינתונים היכן שאין באתר).</li>
+        <li><strong>שמות הסיעות</strong> בכנסות קודמות <strong>ושמות המפלגות</strong> הוכנו ידנית לפי השמות המקובלים בתקשורת; בכנסת הנוכחית משמשים השמות הרשמיים מאתר הכנסת. <strong>שמות הנושאים</strong> הם שלנו.</li>
+        <li><strong>הגרסה הערבית היא גרסת בטא.</strong> מי שהערבית שפת אמו עוד לא בדק אותה, ולכן ייתכן שחלק ממונחי הכנסת אינם מדויקים. במילון המונחים מופיע המונח העברי לצד כל מונח.</li>
+      </ul></> },
     { id: "updates", title: "עדכון", body: <>
       <p>הנתונים מתעדכנים אוטומטית: בכל לילה, וכל שעתיים בימי מליאה (שני–רביעי). בכל עדכון נקראות מחדש ההצבעות של 30 הימים האחרונים, כדי לקלוט תיקונים במקור. תאריך העדכון האחרון מופיע בתחתית כל דף.</p>
       <p className="small muted">המונחים מוסברים {link("/about/glossary", "במילון המונחים")}.</p></> },
@@ -97,8 +163,8 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>Открытые данные Кнессета (OData v4)</strong>: голосования в пленуме, поимённые записи, законопроекты, инициаторы, депутаты, фракции и членство в них. Основной источник.</li>
         <li><strong>Старый сервис голосований Кнессета (Votes.svc)</strong>, данные до июля 2021 года: официальные итоги и голосования, которых нет в основном источнике, а также пометки о голосах, не вошедших в официальный итог.</li>
-        <li><strong>Сайт Кнессета</strong>: официальные имена депутатов и названия фракций на русском и английском языках, фотографии депутатов.</li>
-        <li><strong>Викиданные</strong>: английские и русские имена для депутатов, которых нет в материалах сайта, а также варианты написания для поиска.</li>
+        <li><strong>Сайт Кнессета</strong>: официальные имена депутатов и названия фракций на русском, английском и арабском языках, фотографии депутатов.</li>
+        <li><strong>Викиданные</strong>: английские, русские и арабские имена для депутатов, которых нет в материалах сайта, а также варианты написания для поиска.</li>
         <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">«Открытый Кнессет»</a></strong> (проект «Сикуй Хасадна» / Hasadna): таблица соответствия идентификаторов депутатов. Используется с указанием источника.</li>
       </ul>
       <p className="small muted">У каждого голосования есть ссылка на его карточку на сайте Кнессета. Исходные ответы источников сохраняются без изменений, чтобы любую цифру можно было перепроверить.</p></> },
@@ -129,7 +195,15 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <p>Несколько известных исключений исправлены вручную и помечены: партия, поддерживавшая коалицию без министерских постов (РААМ, 2021–2022), партия, чьи министры ушли в отставку, но которая осталась в коалиции (ШАС, с июля 2025 года), и похожие случаи. Голосование «спорное», если большинство коалиции и большинство оппозиции голосовали по-разному.</p>
       <p><strong>Партия</strong> связывает фракции, которыми она была представлена в каждом Кнессете (подготовлено вручную). Совместный список относится ко всем входившим в него партиям, поэтому голоса Объединённого списка видны у ХАДАШ, БАЛАД, ТААЛЬ и РААМ.</p></> },
     { id: "names", title: "Имена и названия", body:
-      <p>Имена депутатов на русском и английском взяты с сайта Кнессета. Если там их нет, использованы Викиданные. Названия фракций прежних созывов на русском и английском подготовлены вручную по принятым в русскоязычных СМИ Израиля вариантам. Официальное название на иврите показано всегда. Названия законопроектов — на иврите, как их публикует Кнессет. Фотографии депутатов загружаются с сайта Кнессета.</p> },
+      <p>Имена депутатов на русском, английском и арабском взяты с сайта Кнессета. Если там их нет, использованы Викиданные. Названия фракций прежних созывов на русском, английском и арабском подготовлены вручную по принятым в СМИ Израиля вариантам. Официальное название на иврите показано всегда. Названия законопроектов — на иврите, как их публикует Кнессет. Фотографии депутатов загружаются с сайта Кнессета.</p> },
+    { id: "translation", title: "Перевод", body: <>
+      <p>Сайт написан сначала по-русски; английская, ивритская и арабская версии — переводы. Весь собственный текст сайта — меню, пояснения, эта страница и словарь, включая русский оригинал, — написан и переведён с помощью модели искусственного интеллекта (Claude, компания Anthropic) под руководством автора сайта.</p>
+      <ul>
+        <li><strong>Не переводится:</strong> официальные тексты Кнессета. Названия законопроектов и вопросы, поставленные на голосование, показаны на иврите так, как их публикует Кнессет, а официальное ивритское имя каждого депутата и фракции есть на их страницах.</li>
+        <li><strong>Имена депутатов</strong> на русском, английском и арабском — официальное написание сайта Кнессета (Викиданные, если на сайте его нет).</li>
+        <li><strong>Названия фракций</strong> прежних созывов <strong>и партий</strong> подготовлены вручную по вариантам, принятым в СМИ; для текущего Кнессета используются официальные названия с сайта Кнессета. <strong>Названия тем</strong> — наши.</li>
+        <li><strong>Арабская версия — бета.</strong> Её ещё не проверял носитель арабского языка, поэтому некоторые термины Кнессета могут быть неточны. В словаре рядом с каждым термином дан ивритский оригинал.</li>
+      </ul></> },
     { id: "updates", title: "Обновление", body: <>
       <p>Данные обновляются автоматически: каждую ночь и каждые два часа в дни заседаний пленума (понедельник–среда). При каждом обновлении перечитываются голосования за последние 30 дней, чтобы подхватить исправления источника. Дата последнего обновления указана внизу каждой страницы.</p>
       <p className="small muted">Термины объяснены в {link("/about/glossary", "словаре")}.</p></> },

@@ -132,6 +132,40 @@ TOPICS_EN: dict[str, tuple[str, tuple[str, ...]]] = {
     "emergency": ("Emergency, war and COVID", ("war", "emergency", "state of emergency", "coronavirus", "covid", "epidemic")),
 }
 
+# Arabic labels and search aliases, by slug (docs/roadmap.md L10). Terms as used in Israeli Arabic-language media.
+TOPICS_AR: dict[str, tuple[str, tuple[str, ...]]] = {
+    "budget": ("ميزانية الدولة", ("ميزانية", "الميزانية العامة", "قانون الميزانية", "قانون التسويات", "الخطة الاقتصادية")),
+    "taxes": ("الضرائب", ("ضريبة", "ضرائب", "ضريبة القيمة المضافة", "ضريبة الدخل", "الجمارك", "الأرنونا")),
+    "labor": ("العمل والأجور", ("عمل", "أجور", "رواتب", "الحد الأدنى للأجور", "عمال", "تقاعد", "نقابات")),
+    "welfare": ("الرفاه والتأمين الوطني", ("رفاه", "التأمين الوطني", "مخصصات", "إعاقة", "ذوي الإعاقة", "المسنين", "الناجين من المحرقة")),
+    "health": ("الصحة", ("صحة", "مستشفيات", "صناديق المرضى", "أدوية", "أطباء", "الصحة النفسية")),
+    "education": ("التعليم", ("تعليم", "مدارس", "جامعات", "طلاب", "رياض الأطفال", "معلمين")),
+    "housing": ("السكن والأراضي والبناء", ("سكن", "إسكان", "شقق", "إيجار", "عقارات", "بناء", "رهن عقاري", "أراضي", "التخطيط والبناء", "هدم البيوت")),
+    "transport": ("المواصلات", ("مواصلات", "حافلات", "قطار", "سكك الحديد", "شوارع", "رخصة سياقة", "طيران", "المواصلات العامة")),
+    "defense": ("الجيش والأمن", ("جيش", "الجيش الإسرائيلي", "أمن", "جنود", "احتياط", "تجنيد", "حرب", "السيوف الحديدية")),
+    "police": ("الشرطة والأمن الداخلي", ("شرطة", "الشاباك", "إرهاب", "سجون", "سلاح", "أسلحة", "الجريمة")),
+    "justice": ("المحاكم والقانون الجنائي", ("محاكم", "قضاة", "الإصلاح القضائي", "قانون العقوبات", "المستشار القضائي للحكومة", "النيابة العامة", "اعتقال")),
+    "governance": ("نظام الحكم والانتخابات", ("قانون أساس", "انتخابات", "حل الكنيست", "الحكومة", "مراقب الدولة", "أحزاب", "دستور", "قانون القومية")),
+    "religion": ("الدين والدولة", ("دين", "السبت", "الكشروت", "الحاخامية", "التهود", "زواج", "طلاق", "المحاكم الشرعية", "المدارس الدينية")),
+    "immigration": ("الهجرة والمواطنة", ("هجرة", "مهاجرين", "استيعاب", "مواطنة", "المواطنة", "لم الشمل", "قانون العودة", "عمال أجانب")),
+    "environment": ("البيئة والطاقة", ("بيئة", "تلوث", "مياه", "كهرباء", "طاقة", "غاز", "مناخ", "نفايات", "وقود")),
+    "communications": ("الاتصالات والإعلام والتكنولوجيا", ("إعلام", "بث", "البث العام", "اتصالات", "خصوصية", "سايبر", "إنترنت", "معلومات")),
+    "local-government": ("الحكم المحلي", ("الحكم المحلي", "سلطات محلية", "بلديات", "مجالس محلية", "مجالس إقليمية")),
+    "agriculture": ("الزراعة والغذاء", ("زراعة", "مزارعين", "غذاء", "طعام", "حيوانات", "الرفق بالحيوان")),
+    "finance-consumer": ("المال وحماية المستهلك", ("بنوك", "قروض", "ائتمان", "مستهلك", "حماية المستهلك", "تأمين", "سوق المال", "منافسة", "إفلاس")),
+    "family": ("الأسرة والأطفال والمساواة", ("أطفال", "أولاد", "شباب", "أسرة", "عائلة", "نساء", "مساواة", "العنف الأسري", "نفقة", "تبني")),
+    "emergency": ("الطوارئ والحرب وكورونا", ("حرب", "حالة الطوارئ", "طوارئ", "كورونا", "كوفيد", "وباء")),
+}
+
+_HARAKAT = re.compile("[\u064B-\u065F\u0670\u0640]")
+_AR_LETTERS = str.maketrans("أإآٱةىؤئ", "ااااهيوي")
+
+
+def ar_norm(t: str | None) -> str:
+    """Same rules as the SQL function ar_norm (db/migrations/0012): searching ignores hamza forms, ta marbuta and harakat."""
+    s = _HARAKAT.sub("", t or "").translate(_AR_LETTERS)
+    return re.sub(r"\s+", " ", s).strip().lower()
+
 # Real Hebrew prefix sequences only: optional ו or ש, then optional one of ה ב ל מ כ (or מה). "לה" is not a
 # prefix sequence, so להשבת ("restoring") is not the word שבת.
 HE_PREFIX = "(?:[וש]?(?:מה|[הבלמכ])?)"
@@ -224,7 +258,7 @@ def sync(conn: psycopg.Connection) -> dict[str, int]:
             tid = conn.execute(
                 """INSERT INTO topic (slug, sort) VALUES (%s, %s) ON CONFLICT (slug) DO UPDATE SET sort = EXCLUDED.sort RETURNING id""",
                 (t.slug, i)).fetchone()[0]
-            for lang, label in (("ru", t.ru), ("he", t.he), ("en", TOPICS_EN[t.slug][0])):
+            for lang, label in (("ru", t.ru), ("he", t.he), ("en", TOPICS_EN[t.slug][0]), ("ar", TOPICS_AR[t.slug][0])):
                 conn.execute(
                     """INSERT INTO topic_label (topic_id, language, label, description) VALUES (%s, %s, %s, %s)
                        ON CONFLICT (topic_id, language) DO UPDATE SET label = EXCLUDED.label, description = EXCLUDED.description""",
@@ -234,6 +268,8 @@ def sync(conn: psycopg.Connection) -> dict[str, int]:
                 conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'ru', %s) ON CONFLICT DO NOTHING", (tid, alias))
             for alias in (*TOPICS_EN[t.slug][1], TOPICS_EN[t.slug][0]):
                 conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'en', %s) ON CONFLICT DO NOTHING", (tid, alias))
+            for alias in (*TOPICS_AR[t.slug][1], TOPICS_AR[t.slug][0]):
+                conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'ar', %s) ON CONFLICT DO NOTHING", (tid, alias))
             for kw in t.keywords:
                 conn.execute("INSERT INTO topic_alias (topic_id, language, alias) VALUES (%s, 'he', %s) ON CONFLICT DO NOTHING", (tid, kw))
         topic_ids = dict(conn.execute("SELECT slug, id FROM topic").fetchall())

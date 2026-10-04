@@ -1,8 +1,8 @@
-"""English and Russian names for members, factions and topics, attached to response models after the main query.
+"""English, Russian and Arabic names for members, factions and topics, attached to response models after the main query.
 
 Models that carry a member, faction or topic mix in PersonNames / FactionNames / TopicLabels and say which attribute
 holds the key. `fill_names(conn, payload, lang)` walks the response, looks all keys up in one query per kind and sets
-the fields. Hebrew names stay in the endpoint queries; en/ru come from person_name (0006), faction_label and
+the fields. Hebrew names stay in the endpoint queries; en/ru/ar come from person_name (0006), faction_label and
 topic_label. The display fields (`name`, `short`, `faction_name`, `label`) carry the name in the `?lang=` language,
 falling back to Hebrew (docs/roadmap.md L8).
 """
@@ -16,7 +16,7 @@ from typing import Any, ClassVar, Literal
 from fastapi import Query
 from pydantic import BaseModel
 
-Lang = Literal["he", "en", "ru"]
+Lang = Literal["he", "en", "ru", "ar"]
 
 
 class PersonNames(BaseModel):
@@ -24,6 +24,7 @@ class PersonNames(BaseModel):
     name: str | None = None          # in the requested language (?lang=), else Hebrew
     name_en: str | None = None
     name_ru: str | None = None
+    name_ar: str | None = None
 
 
 class FactionNames(BaseModel):
@@ -36,6 +37,8 @@ class FactionNames(BaseModel):
     short_ru: str | None = None
     name_en: str | None = None
     short_en: str | None = None
+    name_ar: str | None = None
+    short_ar: str | None = None
     short_he: str | None = None      # only where the official Hebrew name is a long list name
 
 
@@ -48,6 +51,8 @@ class BallotFactionNames(BaseModel):
     faction_short_ru: str | None = None
     faction_name_en: str | None = None
     faction_short_en: str | None = None
+    faction_name_ar: str | None = None
+    faction_short_ar: str | None = None
     faction_short_he: str | None = None
 
 
@@ -55,6 +60,7 @@ class TopicLabels(BaseModel):
     _topic_key: ClassVar[str] = "slug"
     label: str | None = None         # in the requested language (?lang=)
     label_en: str | None = None
+    label_ar: str | None = None
 
 
 def _walk(obj: Any, out: list[BaseModel]) -> None:
@@ -80,20 +86,21 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
     fids = {getattr(m, m._faction_key) for m in factions} - {None}
     if pids:
         found = {r["id"]: r for r in conn.execute(
-            """SELECT p.knesset_person_id AS id, n.en, n.ru FROM person p JOIN person_name n ON n.person_id = p.id
+            """SELECT p.knesset_person_id AS id, n.en, n.ru, n.ar FROM person p JOIN person_name n ON n.person_id = p.id
                WHERE p.knesset_person_id = ANY(%s)""", (list(pids),))}
         for m in people:
             r = found.get(getattr(m, m._person_key))
             if r:
-                m.name_en, m.name_ru = r["en"], r["ru"]
+                m.name_en, m.name_ru, m.name_ar = r["en"], r["ru"], r["ar"]
         for m in people:
             m.name = (lang != "he" and getattr(m, f"name_{lang}")) or getattr(m, "name_he", None)
     if fids:
         found = {r["id"]: r for r in conn.execute(
             """SELECT f.knesset_faction_id AS id, ru.name AS ru, ru.short_name AS ru_short, en.name AS en, en.short_name AS en_short,
-                      he.short_name AS he_short
+                      ar.name AS ar, ar.short_name AS ar_short, he.short_name AS he_short
                FROM faction f LEFT JOIN faction_label ru ON ru.faction_id = f.id AND ru.language = 'ru'
                LEFT JOIN faction_label en ON en.faction_id = f.id AND en.language = 'en'
+               LEFT JOIN faction_label ar ON ar.faction_id = f.id AND ar.language = 'ar'
                LEFT JOIN faction_label he ON he.faction_id = f.id AND he.language = 'he'
                WHERE f.knesset_faction_id = ANY(%s)""", (list(fids),))}
         for m in factions:
@@ -104,6 +111,8 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
                 setattr(m, f"{p}short_ru", r["ru_short"] or r["ru"])
                 setattr(m, f"{p}name_en", r["en"])
                 setattr(m, f"{p}short_en", r["en_short"] or r["en"])
+                setattr(m, f"{p}name_ar", r["ar"])
+                setattr(m, f"{p}short_ar", r["ar_short"] or r["ar"])
                 setattr(m, f"{p}short_he", r["he_short"])
         for m in factions:
             p = m._faction_prefix
@@ -121,6 +130,7 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
         for m in topics:
             slug = getattr(m, m._topic_key)
             m.label_en = found.get((slug, "en"))
+            m.label_ar = found.get((slug, "ar"))
             m.label = found.get((slug, lang)) or found.get((slug, "he"))
     return payload
 
@@ -131,7 +141,7 @@ LANG_PARAM = inspect.Parameter(
 
 
 def with_names(fn):
-    """Endpoint decorator: fill en/ru names into the returned payload (the endpoint must take `conn`) and add the
+    """Endpoint decorator: fill en/ru/ar names into the returned payload (the endpoint must take `conn`) and add the
     `?lang=` query parameter. The signature is resolved here so FastAPI does not evaluate string annotations in this
     module."""
     sig = inspect.signature(fn, eval_str=True)

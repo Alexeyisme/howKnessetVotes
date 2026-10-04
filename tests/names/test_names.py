@@ -37,6 +37,7 @@ class FakeSources:
             (90, "ru"): MkDetails("Биньямин  Нетаньяху", "Ликуд"), (90, "en"): MkDetails("Benjamin Netanyahu", "Likud", "https://fs.knesset.gov.il/globaldocs/MK/90/1_90_3_1.jpeg"),
             (1056, "ru"): MkDetails("Итамар Бен-Гвир", "«Оцма Йехудит» во главе с Итамаром Бен-Гвиром"),
             (1056, "en"): MkDetails("Itamar Ben Gvir", "Otzma Yehudit Chaired by Itamar Ben Gvir"),
+            (90, "ar"): MkDetails("بنيامين نتنياهو", "الليكود"), (1056, "ar"): MkDetails("إيتمار بن غفير", "عوتسما يهوديت"),
         }.get((site_id, lang))
 
 
@@ -78,12 +79,13 @@ def test_api_returns_names_and_searches_them(db):
     url, _ = db
     with TestClient(create_app(url)) as c:
         m = c.get(f"/api/v1/members/{BEN_GVIR}").json()["data"]
-        assert (m["name_ru"], m["name_en"]) == ("Итамар Бен-Гвир", "Itamar Ben Gvir")
+        assert (m["name_ru"], m["name_en"], m["name_ar"]) == ("Итамар Бен-Гвир", "Itamar Ben Gvir", "إيتمار بن غفير")
         assert m["last_faction"]["short_ru"] == "Оцма Йехудит"
         vote = c.get("/api/v1/votes/37689/ballots").json()["data"]
         ben_gvir = next(b for b in vote if b["person_id"] == BEN_GVIR)
         assert ben_gvir["name_ru"] == "Итамар Бен-Гвир" and ben_gvir["faction_short_ru"]
-        for q, script in (("бен-гвир", "cyrillic"), ("нетаньяху", "cyrillic"), ("биби", "cyrillic"), ("netanyahu", "latin"), ("bibi", "latin")):
+        for q, script in (("бен-гвир", "cyrillic"), ("нетаньяху", "cyrillic"), ("биби", "cyrillic"), ("netanyahu", "latin"), ("bibi", "latin"),
+                          ("نتنياهو", "arabic"), ("ايتمار بن غفير", "arabic")):  # a bare alef finds إيتمار
             res = c.get("/api/v1/search", params={"q": q}).json()["data"]
             assert res["script"] == script
             assert res["members"] and res["members"][0]["id"] in (BEN_GVIR, NETANYAHU), q
@@ -100,6 +102,8 @@ def test_api_lang_picks_display_names_and_photo(db):
         ballots = c.get("/api/v1/votes/37689/ballots", params={"lang": "ru"}).json()["data"]
         ben_gvir = next(b for b in ballots if b["person_id"] == BEN_GVIR)
         assert (ben_gvir["name"], ben_gvir["faction_name"]) == ("Итамар Бен-Гвир", ben_gvir["faction_short_ru"])
+        ar = c.get(f"/api/v1/members/{NETANYAHU}", params={"lang": "ar"}).json()["data"]
+        assert ar["name"] == "بنيامين نتنياهو" and ar["last_faction"]["short"] == "الليكود"
         assert c.get("/api/v1/members", params={"lang": "fr"}).status_code == 422
         # a long official Hebrew list name gets a curated short form for the Hebrew UI
         otzma = c.get(f"/api/v1/factions/{OTZMA}", params={"lang": "he"}).json()["data"]
@@ -109,5 +113,5 @@ def test_api_lang_picks_display_names_and_photo(db):
 def test_member_list_filters_by_name_in_any_language(db):
     url, _ = db
     with TestClient(create_app(url)) as c:
-        for q in ("Нетаньяху", "netanyahu", "נתניהו"):
+        for q in ("Нетаньяху", "netanyahu", "נתניהו", "نتنياهو"):
             assert [m["id"] for m in c.get("/api/v1/members", params={"q": q}).json()["data"]] == [NETANYAHU], q

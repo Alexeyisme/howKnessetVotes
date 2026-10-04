@@ -3,7 +3,7 @@ from __future__ import annotations
 import psycopg
 import pytest
 
-from hkv.topics import classify_title, faction_ru, he_norm
+from hkv.topics import ar_norm, classify_title, faction_ru, he_norm
 
 
 @pytest.mark.parametrize("raw", ['מע"מ', "מע״מ", "מָע״מ", 'חוק־יסוד: הכנסת (תיקון מס\' 50 – הוראת שעה)', "צה\"ל", "  a  -  b "])
@@ -11,6 +11,13 @@ def test_python_and_sql_normalisation_agree(migrated, raw):
     with psycopg.connect(migrated) as conn:
         assert conn.execute("SELECT he_norm(%s)", (raw,)).fetchone()[0] == he_norm(raw)
 
+
+
+@pytest.mark.parametrize("raw", ["أحمد الطيبي", "إيتمار بن غفير", "أيمن عودة", "مُسْتَشْفَى", "آفي  معوز", "مـسـؤولية", "Ra'am"])
+def test_python_and_sql_arabic_normalisation_agree(migrated, raw):
+    with psycopg.connect(migrated) as conn:
+        assert conn.execute("SELECT ar_norm(%s)", (raw,)).fetchone()[0] == ar_norm(raw)
+    assert ar_norm("أيمن عودة") == ar_norm("ايمن عوده")
 
 def test_amendment_number_is_not_tax():
     assert "taxes" not in classify_title("הצעת חוק הרשות לפיתוח הנגב (תיקון מס' 4), התשפ\"ו-2026")

@@ -28,7 +28,7 @@ export default async function TopicPage({ params, searchParams }: PageProps<"/[l
   const t = await getT();
   const d = t.d.topic;
   const label = t.topic(x);
-  const aliases = (t.locale === "en" ? x.aliases_en : t.locale === "ru" ? x.aliases_ru : []).filter((a) => a.toLowerCase() !== label.toLowerCase());
+  const aliases = (t.locale === "he" ? [] : x[`aliases_${t.locale}`] ?? []).filter((a) => a.toLowerCase() !== label.toLowerCase());
 
   return (
     <div className="stack">

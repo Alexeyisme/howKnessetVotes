@@ -90,6 +90,7 @@ class PartyRef(BaseModel):
     name_he: str
     name_ru: str
     name_en: str
+    name_ar: str | None = None
 
 
 class AlignmentOut(Interval):
@@ -276,9 +277,11 @@ def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Q
     if term:
         where.append("EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.term_number = %(term)s)"); params["term"] = term
     if q:
-        # Hebrew name, or any English/Russian name or variant (person_alias)
+        # Hebrew name, or any English/Russian/Arabic name or variant (person_alias); Arabic without hamza/ta marbuta distinctions
         where.append("""((p.first_name_he || ' ' || p.last_name_he) ILIKE %(q)s
-                        OR EXISTS (SELECT 1 FROM person_alias a WHERE a.person_id = p.id AND a.full_name ILIKE %(q)s))"""); params["q"] = f"%{q}%"
+                        OR EXISTS (SELECT 1 FROM person_alias a WHERE a.person_id = p.id AND (a.full_name ILIKE %(q)s
+                                     OR (a.language = 'ar' AND ar_norm(a.full_name) LIKE '%%' || ar_norm(%(raw)s) || '%%'))))""")
+        params["q"], params["raw"] = f"%{q}%", q
     if faction:
         where.append("""EXISTS (SELECT 1 FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                                WHERE fm.person_id = p.id AND f.knesset_faction_id = %(faction)s)"""); params["faction"] = faction
@@ -396,7 +399,7 @@ FACTION_SELECT = """
            (SELECT fl.name FROM faction_label fl WHERE fl.faction_id = f.id AND fl.language = 'ru') AS name_ru,
            (SELECT count(DISTINCT fm.person_id) FROM faction_membership fm WHERE fm.faction_id = f.id) AS members_ever,
            (SELECT count(*) FROM ballot b WHERE b.faction_id = f.id) AS records,
-           (SELECT coalesce(json_agg(json_build_object('slug', p.slug, 'name_he', p.name_he, 'name_ru', p.name_ru, 'name_en', p.name_en) ORDER BY p.sort), '[]')
+           (SELECT coalesce(json_agg(json_build_object('slug', p.slug, 'name_he', p.name_he, 'name_ru', p.name_ru, 'name_en', p.name_en, 'name_ar', p.name_ar) ORDER BY p.sort), '[]')
               FROM party_faction pf JOIN party p ON p.slug = pf.party_slug WHERE pf.faction_id = f.id) AS parties,
            (SELECT a.role FROM faction_alignment a WHERE a.faction_id = f.id
               AND a.valid @> least(coalesce(upper(f.valid) - 1, current_date), current_date)) AS alignment_last
@@ -591,7 +594,7 @@ def party_summary(conn, p: dict) -> PartySummary:
         f"""{FACTION_SELECT} WHERE EXISTS (SELECT 1 FROM party_faction pf WHERE pf.faction_id = f.id AND pf.party_slug = %s)
               AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id) ORDER BY lower(f.valid), f.knesset_faction_id""", (p["slug"],)).fetchall()
     factions = [faction_summary(r) for r in rows]
-    return PartySummary(slug=p["slug"], name_he=p["name_he"], name_ru=p["name_ru"], name_en=p["name_en"],
+    return PartySummary(slug=p["slug"], name_he=p["name_he"], name_ru=p["name_ru"], name_en=p["name_en"], name_ar=p["name_ar"],
                         terms=sorted({f.term for f in factions}), factions=factions)
 
 

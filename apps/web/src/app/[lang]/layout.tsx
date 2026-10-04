@@ -72,12 +72,19 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <LanguageSwitcher />
           </div>
         </header>
-        <main className="wrap">{children}</main>
+        <main className="wrap">
+          {/* a version whose translation no native speaker has reviewed says so on every page */}
+          {d.translation.beta && (
+            <p className="note beta-note" role="note">{d.translation.beta} <Link href="/about/methodology#translation">{d.translation.more}</Link></p>
+          )}
+          {children}
+        </main>
         <footer className="wrap small muted" style={{ paddingBottom: 32 }}>
           <p><DataAsOf /></p>
           <p style={{ marginTop: 6 }}>
             {d.footer.sources} <a href="https://oknesset.org" target="_blank" rel="noopener">{d.footer.oknesset}</a>.{" "}
             <Link href="/about/methodology">{d.footer.methodology}</Link> · <Link href="/about/glossary">{d.footer.glossary}</Link> ·{" "}
+            <Link href="/about/methodology#translation">{d.footer.translation}</Link> ·{" "}
             {/* /docs is the API's (FastAPI) page, served by Caddy, not a route of this app */}
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/docs">{d.footer.api}</a>

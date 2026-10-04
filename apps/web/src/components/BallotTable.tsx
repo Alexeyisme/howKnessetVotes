@@ -5,6 +5,7 @@
 
 import NextLink from "next/link";
 import { useMemo, useState } from "react";
+import { fold } from "@/lib/labels";
 import styles from "./BallotTable.module.css";
 
 export interface BallotRow {
@@ -12,7 +13,7 @@ export interface BallotRow {
   href: string;
   name: string;
   nameHe: string | null;      // shown as a tooltip when the name is not Hebrew
-  search: string;             // all names, lower case
+  search: string;             // all names, folded (lib/labels fold)
   factionId: number | null;
   faction: string;
   factionHe: string | null;
@@ -36,7 +37,7 @@ export function BallotTable({ rows, factions, labels }: { rows: BallotRow[]; fac
   const [faction, setFaction] = useState("");
   const [deviates, setDeviates] = useState(false);
   const shown = useMemo(() => {
-    const needle = q.trim().toLowerCase();
+    const needle = fold(q.trim());
     return rows.filter((r) => (!needle || r.search.includes(needle)) && (!faction || String(r.factionId) === faction) && (!deviates || r.deviates));
   }, [rows, q, faction, deviates]);
   const anyDeviates = rows.some((r) => r.deviates);

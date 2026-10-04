@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from hkv.api.common import Conn, Meta, Stage
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
-from hkv.topics import HE_PREFIX, RULES_VERSION, he_norm
+from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
 
 router = APIRouter(prefix="/api/v1")
 
@@ -43,6 +43,7 @@ class FactionTopicStats(BaseModel):
 class TopicDetail(TopicSummary):
     aliases_ru: list[str]
     aliases_en: list[str]
+    aliases_ar: list[str]
     term: int
     stage: list[str]
     factions: list[FactionTopicStats]
@@ -59,7 +60,7 @@ class SearchResult(BaseModel):
     bills: list[BillSummary]
     members: list[SearchMember]
     factions: list[FactionRef]
-    script: Literal["hebrew", "cyrillic", "latin", "number", "other"]
+    script: Literal["hebrew", "cyrillic", "latin", "arabic", "number", "other"]
 
 
 TOPIC_SELECT = """
@@ -112,11 +113,11 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
         f"""SELECT * FROM ({BILL_SELECT} WHERE EXISTS (SELECT 1 FROM bill_topic bt WHERE bt.bill_id = b.id AND bt.topic_id = %s AND bt.review_state <> 'rejected')
                AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) x ORDER BY last_vote_on DESC NULLS LAST LIMIT 20""",
         (t["id"],)).fetchall()
-    aliases = {"ru": [], "en": []}
-    for r in conn.execute("SELECT language, alias FROM topic_alias WHERE topic_id = %s AND language IN ('ru', 'en') ORDER BY alias", (t["id"],)):
+    aliases = {"ru": [], "en": [], "ar": []}
+    for r in conn.execute("SELECT language, alias FROM topic_alias WHERE topic_id = %s AND language IN ('ru', 'en', 'ar') ORDER BY alias", (t["id"],)):
         aliases[r["language"]].append(r["alias"])
     detail = TopicDetail(
-        **topic_summary(t).model_dump(), aliases_ru=aliases["ru"], aliases_en=aliases["en"], term=term, stage=stages,
+        **topic_summary(t).model_dump(), aliases_ru=aliases["ru"], aliases_en=aliases["en"], aliases_ar=aliases["ar"], term=term, stage=stages,
         factions=[FactionTopicStats(faction=FactionRef(id=r["knesset_faction_id"], name_he=r["name_he"].strip(), term=r["term_number"]),
                                     faction_ru=r["ru"], votes=r["votes"], majority_for=r["maj_for"], majority_against=r["maj_against"],
                                     other=r["votes"] - r["maj_for"] - r["maj_against"]) for r in rows],
@@ -129,6 +130,7 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
 
 _HEBREW = re.compile(r"[֐-׿]")
 _CYRILLIC = re.compile(r"[Ѐ-ӿ]")
+_ARABIC = re.compile(r"[\u0600-\u06FF]")
 
 
 def detect_script(q: str) -> str:
@@ -138,6 +140,8 @@ def detect_script(q: str) -> str:
         return "hebrew"
     if _CYRILLIC.search(q):
         return "cyrillic"
+    if _ARABIC.search(q):
+        return "arabic"
     if re.search(r"[a-zA-Z]", q):
         return "latin"
     return "other"
@@ -146,31 +150,32 @@ def detect_script(q: str) -> str:
 @router.get("/search", response_model=dict)
 @with_names
 def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
-    """One box for everything. Hebrew: bills, members, factions (normalised, typo-tolerant). Russian: topics by name
-    and synonyms, factions by Russian name. Number: bill, vote or private-bill number."""
+    """One box for everything. Hebrew: bills, members, factions (normalised, typo-tolerant). Russian, English, Arabic:
+    topics by name and synonyms, factions and members by their names in that language. Number: bill, vote or private-bill number."""
     script = detect_script(q)
     topics: list[TopicSummary] = []
     bills: list = []
     members: list = []
     factions: list[FactionRef] = []
-    if script in ("cyrillic", "latin"):
-        ql = q.strip().lower()
-        lang = "ru" if script == "cyrillic" else "en"
+    if script in ("cyrillic", "latin", "arabic"):
+        lang = {"cyrillic": "ru", "latin": "en", "arabic": "ar"}[script]
+        norm = "ar_norm" if lang == "ar" else "lower"       # Arabic: hamza forms, ta marbuta and harakat do not matter
+        ql = ar_norm(q) if lang == "ar" else q.strip().lower()
         topics = [topic_summary(r) for r in conn.execute(
             f"""{TOPIC_SELECT} WHERE EXISTS (SELECT 1 FROM topic_alias a WHERE a.topic_id = t.id AND a.language = %(lang)s
-                   AND (lower(a.alias) LIKE %(like)s OR %(q)s LIKE '%%' || lower(a.alias) || '%%' OR similarity(lower(a.alias), %(q)s) > 0.35))
+                   AND ({norm}(a.alias) LIKE %(like)s OR %(q)s LIKE '%%' || {norm}(a.alias) || '%%' OR similarity({norm}(a.alias), %(q)s) > 0.35))
                 ORDER BY t.sort""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         factions = [FactionRef(**r) for r in conn.execute(
-            """SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, f.term_number AS term
+            f"""SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, f.term_number AS term
                FROM faction_label fl JOIN faction f ON f.id = fl.faction_id
-               WHERE fl.language = %(lang)s AND (lower(fl.name) LIKE %(like)s OR lower(fl.short_name) LIKE %(like)s OR similarity(lower(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
+               WHERE fl.language = %(lang)s AND ({norm}(fl.name) LIKE %(like)s OR {norm}(fl.short_name) LIKE %(like)s OR similarity({norm}(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
-        # members by their Russian/English names and variants (Wikidata alternative labels), typo-tolerant
+        # members by their names in that language and variants (Wikidata alternative labels), typo-tolerant
         members = [dict(r) for r in conn.execute(
-            """SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, lower(a.full_name))) AS score
+            f"""SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, {norm}(a.full_name))) AS score
                FROM person_alias a JOIN person p ON p.id = a.person_id
-               WHERE a.language = %(lang)s AND (lower(a.full_name) LIKE %(like)s OR %(q)s <%% lower(a.full_name))
+               WHERE a.language = %(lang)s AND ({norm}(a.full_name) LIKE %(like)s OR %(q)s <%% {norm}(a.full_name))
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
                GROUP BY 1, 2 ORDER BY score DESC, 2 LIMIT 10""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         for m in members:

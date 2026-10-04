@@ -70,6 +70,9 @@ main.wrap { padding-top: 24px; padding-bottom: 64px; }
 .small { font-size: 0.875rem; }
 .num { font-variant-numeric: tabular-nums; }
 .he { font-family: "Arial Hebrew", "Noto Sans Hebrew", system-ui, sans-serif; }
+/* Arabic UI: the platform's Arabic UI font (Geeza Pro, Segoe UI, Noto Sans Arabic), a little larger for legibility */
+html:lang(ar) body { font: 17px/1.6 "Noto Sans Arabic", "Segoe UI", "Geeza Pro", Tahoma, system-ui, sans-serif; }
+.beta-note { margin-bottom: 20px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
 .card + .card { margin-top: 16px; }
