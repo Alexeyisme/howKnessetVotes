@@ -4,6 +4,8 @@ Source behaviour this client is built around (docs/audit/source-audit.md):
   * v4 pages are capped at 100 rows; follow @odata.nextLink.
   * a server-side timeout returns HTTP 200 with an EMPTY body -> treated as an error.
   * $apply is blocked by the WAF (HTTP 473); only $filter/$orderby/$select/$top are used.
+  * after hours of paging the WAF starts answering some requests with HTTP 481 at random (the same URL
+    alternates 200/481) -> a throttle: back off for long and retry, do not fail the whole period.
 Every page is stored verbatim so parsing can be repeated without refetching.
 """
 
@@ -31,6 +33,9 @@ class SourceError(RuntimeError):
     pass
 
 
+THROTTLED = (429, 481)  # retried after a long backoff (481: see module docstring)
+
+
 @dataclass(frozen=True)
 class Page:
     source: str          # 'knesset_odata_v4' | 'knesset_votes_legacy'
@@ -50,11 +55,12 @@ class PageSource(Protocol):
 
 class ODataClient:
     def __init__(self, base_url: str = V4_URL, source: str = "knesset_odata_v4", raw_dir: Path | None = None,
-                 delay_s: float = 0.4, retries: int = 5, timeout_s: float = 120) -> None:
+                 delay_s: float = 0.4, retries: int = 5, timeout_s: float = 120, throttle_s: float = 15) -> None:
         self.base_url = base_url.rstrip("/")
         self.source = source
         self.raw_dir = raw_dir
         self.delay_s = delay_s
+        self.throttle_s = throttle_s
         self.retries = retries
         self.timeout_s = timeout_s
 
@@ -84,7 +90,13 @@ class ODataClient:
             except urllib.error.HTTPError as e:
                 if e.code in (403, 473):
                     raise SourceError(f"blocked by source ({e.code}): {url}") from e  # do not hammer the WAF
-                if 400 <= e.code < 500 and e.code != 429:
+                if e.code in THROTTLED:
+                    last = e
+                    wait = self.throttle_s * 2 ** attempt
+                    log.warning("retry %d in %.0f s after HTTP %d (throttled): %s", attempt + 1, wait, e.code, url[:200])
+                    time.sleep(wait)
+                    continue
+                if 400 <= e.code < 500:
                     raise SourceError(f"rejected ({e.code}): {url}") from e  # e.g. filter too complex; retrying won't help
                 last = e
                 log.warning("retry %d after HTTP %d: %s", attempt + 1, e.code, url[:200])
