@@ -1,0 +1,9 @@
+[Unit]
+Description=hkv: alert that %i failed
+
+[Service]
+Type=oneshot
+User=deploy
+Group=systemd-journal
+WorkingDirectory=/srv/hkv
+ExecStart=/srv/hkv/scripts/alert.sh %i

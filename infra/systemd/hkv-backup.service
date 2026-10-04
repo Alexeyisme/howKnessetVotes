@@ -2,6 +2,7 @@
 Description=hkv: nightly database dump (scripts/backup.sh)
 After=docker.service
 Requires=docker.service
+OnFailure=hkv-alert@%n.service
 
 [Service]
 Type=oneshot

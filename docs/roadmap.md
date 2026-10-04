@@ -99,6 +99,21 @@ descriptions.
 Phases 1–2 change what every visitor sees. Phase 3 doubles the data and should come before any
 public launch or press, so that early coverage isn't based on a partial history.
 
+## Phase 1 — implementation plan (started 2026-10-04)
+
+| Step | Item | Implementation | Done when |
+|---|---|---|---|
+| 1 | O1 backups | Hetzner server backups on `hkv-1`: 7 daily snapshots, stored separately from the server | `hcloud server describe` shows a backup window |
+| 2 | O2 alerts | `scripts/alert.sh` sends a Telegram message when `TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` are set in `/srv/hkv/.env`, and logs to the journal otherwise. The update and backup units get `OnFailure=hkv-alert@%n` | A forced failure produces an alert (journal until the bot token is added) |
+| 3 | O3 CI | GitHub Actions: Postgres 17 service, `uv run pytest`, `next build` | Green check on `main` |
+| 4 | L1 MK names | Migration 0006: `person_external_id`; `person_alias` gains origins `wikidata`/`curated` and alias type `variant`. Module `hkv.names`: Open Knesset `mk_individual` → site ID; site API `GetMks` and `GetMkdetailsHeader` (en/ru); Wikidata P9770 and labels; `curated/mk_names.toml` for the rest. Raw responses are kept as source snapshots. `hkv names` command, also run inside `hkv update` for new MKs | All 299 MKs who voted have en and ru names; unresolved ones become a `data_issue` |
+| 5 | L2 party names | `curated/factions.toml` keyed by Knesset faction ID: ru/en short and full name, written by hand; current-Knesset names from the site API override with `origin='official'`. Replaces the machine labels and `FACTIONS_RU` | All 101 factions that voted have ru and en labels; none `machine` |
+| 6 | L4 topics en | English label and aliases in `TOPICS` | 21 × 3 labels |
+| 7 | L5 search | Cyrillic and Latin queries match `person_alias` (trigram), so MKs are findable in any language | "нетаньяху", "netanyahu", "ben gvir" find the MK |
+| 8 | API/UI names | Members and factions return `name: {he, en, ru}`; Russian pages show the Russian name with Hebrew underneath | Member list, member, vote and faction pages show Russian names |
+| 9 | U2 + U3 | Vote page header in plain words (what was decided, the result, what the stage means); lists default to "important" votes (final readings and whole-bill votes), with a switch to "all" | — |
+| 10 | U8 | `/about/glossary` and `/about/methodology` pages; numbers link to them | — |
+
 ## Source research (2026-10-04)
 
 - **Knesset site API** (`knesset.gov.il/WebSiteApi/knessetapi/`, undocumented, so responses are

@@ -2,6 +2,7 @@
 Description=hkv: load new Knesset votes (scripts/prod.sh run --rm updater)
 After=docker.service
 Requires=docker.service
+OnFailure=hkv-alert@%n.service
 
 [Service]
 Type=oneshot
