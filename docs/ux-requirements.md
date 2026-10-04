@@ -260,3 +260,14 @@ Measure with method 1 before and after each row.
   bill page: readings first, reservations behind a count; search groups faction hits by party; party page as the hub
   (current list, coalition badge, final-reading majorities, members with photos, history collapsed).
   Not deployed yet (history load running on the server).
+- **2026-10-05, same branch, second batch** — R8 search-as-you-type; R11 Rubik self-hosted for four scripts; R7
+  member page ("voted with the coalition N of M", topic filter, compare link); R2 `/compass` (parties × topics,
+  all / contested only); R14 `/compare` (two parties or two members); R9 share images for votes, parties, members
+  and the site (Hebrew in visual order via bidi-js; Arabic pages use English labels — satori has no Arabic
+  shaping); R6 `/match` ("Who votes like me?", the contested final votes with the most members voting, answers only
+  in the URL); R4 title translations: migration 0013 (`text_translation`, `translation_suggestion`, `title_sha()`),
+  `hkv translate` (Claude API with a glossary and checks; `--stub` for dry runs; runs inside `hkv update` when
+  `ANTHROPIC_API_KEY` is set), `title`/`title_origin`/`title_{en,ru,ar}` on vote and bill responses, bills searchable by
+  translated title, the `Title` component (Hebrew first, translation under it, "automatic translation · suggest a
+  correction"), `/suggest` and `POST /api/v1/suggestions` (honeypot, 20 per address per day, never applied).
+  Still not deployed. First production run: `hkv translate --lang en,ru` on the server once the key is in `.env`.

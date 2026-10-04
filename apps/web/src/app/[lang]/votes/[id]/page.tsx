@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { BallotTable, type BallotRow } from "@/components/BallotTable";
+import { Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Ballot, type Counts, type VoteDetail } from "@/lib/api";
 import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
@@ -25,7 +26,8 @@ async function load(idParam: string) {
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/votes/[id]">): Promise<Metadata> {
   const { vote } = await load((await params).id);
-  return { title: `${vote.title_he} — ${(await getT()).date(vote.occurred_on)}` };
+  const t = await getT();
+  return { title: `${titleText(vote.title_he, vote, t.locale)} — ${t.date(vote.occurred_on)}` };
 }
 
 async function Tally({ c }: { c: Counts }) {
@@ -119,7 +121,7 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <span className="badge">{t.d.methodBadge(t.d.method[vote.method] ?? vote.method)}</span>
           {vote.status !== "valid" && <span className="badge">{d.status(vote.status)}</span>}
         </div>
-        <h1 className={`${styles.title} he`} lang="he" dir="rtl">{vote.title_he}</h1>
+        <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
         {outcome && (
           <div className={styles.verdict} data-accepted={outcome.accepted ? "yes" : "no"}>
@@ -145,7 +147,7 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <p className="small" style={{ marginTop: 10 }}>
             {d.bill}{" "}
             {vote.bills.map((b) => (
-              <Link key={b.id} href={`/bills/${b.id}`} className="he" lang="he" dir="rtl">{b.title_he}</Link>
+              <Link key={b.id} href={`/bills/${b.id}`}><Title he={b.title_he} t={b} compact /></Link>
             ))}
           </p>
         )}

@@ -33,7 +33,7 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
       stands[f.faction_id] = f.majority;
       if (!parties.has(f.faction_id)) parties.set(f.faction_id, { id: f.faction_id, name: t.faction(f), alignment: f.alignment ?? null });
     }
-    return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands };
+    return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands };
   });
   const answers = typeof sp.a === "string" ? sp.a : "";
 

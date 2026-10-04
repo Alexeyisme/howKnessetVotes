@@ -1,6 +1,7 @@
 // Typed client for the hkv REST API (src/hkv/api/app.py). Server-side only.
 
 import { connection } from "next/server";
+import { getLocale } from "@/i18n/server";
 
 const API_URL = process.env.HKV_API_URL ?? "http://127.0.0.1:8000";
 
@@ -25,7 +26,10 @@ export interface BlocCounts { for: number; against: number; abstain: number }
 /** cast votes by coalition / opposition members on the vote date; contested = the two majorities differed */
 export interface Blocs { coalition: BlocCounts; opposition: BlocCounts; contested: boolean }
 
-export interface VoteSummary {
+/** R4: machine or editor translation of a Hebrew title; `title` is in the ?lang= language (null when none) */
+export interface Titled { title?: string | null; title_origin?: "machine" | "editor" | null; title_en?: string | null; title_ru?: string | null; title_ar?: string | null }
+
+export interface VoteSummary extends Titled {
   id: number;
   occurred_on: string;
   occurred_at: string | null;
@@ -37,7 +41,7 @@ export interface VoteSummary {
   stage: Stage | null;
   method: string;
   status: string;
-  bills: { id: number; title_he: string }[];
+  bills: ({ id: number; title_he: string } & Titled)[];
   roll_call: Counts;
   blocs?: Blocs | null;
   source_url: string;
@@ -97,8 +101,12 @@ export class NotFound extends Error {}
 
 async function get<T>(path: string): Promise<T> {
   await connection(); // render at request time, never at build time (the API is not reachable during the image build)
+  // ?lang= fills the display fields (`title`, `name`, `label`) in the page's language; names are also computed here
+  // from the per-language fields, titles are not (R4)
+  const locale = await getLocale().catch(() => "he");
+  const url = `${API_URL}${path}${path.includes("?") ? "&" : "?"}lang=${locale}`;
   // data changes a few times a day (scheduled update); a short cache keeps page views off the database
-  const res = await fetch(`${API_URL}${path}`, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
+  const res = await fetch(url, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
   if (res.status === 404) throw new NotFound(path);
   if (!res.ok) throw new Error(`API ${res.status} for ${path}`);
   return (await res.json()) as T;
@@ -179,7 +187,7 @@ export interface FactionVote {
   majority: Majority;
 }
 
-export interface BillSummary {
+export interface BillSummary extends Titled {
   id: number;
   title_he: string;
   term: number;

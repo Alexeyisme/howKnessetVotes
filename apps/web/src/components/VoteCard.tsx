@@ -1,5 +1,5 @@
 import Link from "./Link";
-import { He } from "./ui";
+import { Title } from "./Title";
 import type { VoteSummary } from "@/lib/api";
 import { missingRollCallText, verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
@@ -32,7 +32,7 @@ export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary
         ) : (
           <span className="small muted">{rc.total_records > 0 ? t.d.rc.line(rc.for, rc.against, rc.abstain) : missingRollCallText(vote.method, t)}</span>
         )}
-        <He className={styles.title}>{vote.title_he}</He>
+        <Title he={vote.title_he} t={vote} compact className={styles.title} />
         {cast > 0 && (
           <>
             <span className={styles.bar} role="img" aria-label={`${t.d.rc.line(rc.for, rc.against, rc.abstain)}; ${t.d.rc.cast120(cast)}`}>

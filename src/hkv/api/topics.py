@@ -173,6 +173,13 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                WHERE fl.language = %(lang)s AND ({norm}(fl.name) LIKE %(like)s OR {norm}(fl.short_name) LIKE %(like)s OR similarity({norm}(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
+        # bills by their translated titles (text_translation, R4): "capital market" finds the bill
+        bills = [bill_summary(r) for r in conn.execute(
+            f"""SELECT * FROM ({BILL_SELECT} WHERE EXISTS (
+                   SELECT 1 FROM text_translation x WHERE x.language = %(lang)s AND x.text ILIKE %(like)s
+                     AND x.source_sha256 = title_sha(b.title_he))
+                   AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) q
+                ORDER BY last_vote_on DESC NULLS LAST LIMIT 20""", {"lang": lang, "like": f"%{q.strip()}%"})]
         # members by their names in that language and variants (Wikidata alternative labels), typo-tolerant
         members = [dict(r) for r in conn.execute(
             f"""SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, {norm}(a.full_name))) AS score

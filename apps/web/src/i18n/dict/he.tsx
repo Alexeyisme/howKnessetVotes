@@ -33,6 +33,7 @@ export const he: Dict = {
     factionUnknown: "סיעה לא ידועה",
     glossaryLink: "מילון מונחים ←",
     sourceKnesset: "מקור:",
+    machine: "תרגום אוטומטי", suggest: "הציעו תיקון",
   },
   stage: {
     preliminary: "קריאה טרומית", first: "קריאה ראשונה", second: "קריאה שנייה", third: "קריאה שלישית",
@@ -307,6 +308,12 @@ export const he: Dict = {
     noAnswers: "דילגתם על כל ההצבעות.",
     again: "מהתחלה", share: "שתפו את התוצאה", copied: "הקישור הועתק",
     yours: "התשובה שלכם", passed: "התוצאה",
+  },
+  suggest: {
+    title: "הצעת תיקון",
+    lead: "שמות החוקים מתורגמים אוטומטית ומסומנים ככאלה. תיקון מגיע לעורך; שום דבר באתר לא משתנה עד שהוא מאשר אותו. בלי הרשמה.",
+    original: "המקור", textLabel: "התרגום המתוקן", noteLabel: "הערה (לא חובה)",
+    send: "שליחה", thanks: "תודה! התיקון הועבר לעורך.", error: "השליחה נכשלה. נסו שוב מאוחר יותר.", back: "חזרה",
   },
   translation: { beta: null, more: "איך האתר תורגם" },
   notFound: { title: "הדף לא נמצא", text: "אין דף כזה.", home: "לדף הבית" },

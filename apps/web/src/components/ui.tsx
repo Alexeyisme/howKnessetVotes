@@ -3,6 +3,7 @@ import type { Alignment, Choice, FactionNames, PersonNames, Rate, VoteSummary } 
 import { getT } from "@/i18n/server";
 import { bidiSafe } from "@/lib/labels";
 import Link from "./Link";
+import { Title } from "./Title";
 import styles from "./ui.module.css";
 
 export function He({ children, as: Tag = "span", className = "" }: { children: ReactNode; as?: "span" | "h1" | "p"; className?: string }) {
@@ -93,7 +94,7 @@ export async function VoteLine({ vote, children }: { vote: VoteSummary; children
           {t.date(vote.occurred_on)} · {vote.stage ? t.d.stage[vote.stage] : "—"}
           {vote.subject_he && <> · <He>{bidiSafe(vote.subject_he)}</He></>}
         </span>
-        <Link href={`/votes/${vote.id}`} className={styles.voteTitle}><He>{vote.title_he}</He></Link>
+        <Link href={`/votes/${vote.id}`} className={styles.voteTitle}><Title he={vote.title_he} t={vote} compact /></Link>
       </div>
       {children && <div className={styles.voteSide}>{children}</div>}
     </li>

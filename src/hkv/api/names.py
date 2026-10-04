@@ -63,6 +63,17 @@ class TopicLabels(BaseModel):
     label_ar: str | None = None
 
 
+class TitleTranslations(BaseModel):
+    """A model with a Hebrew title (`title_he`) gets its machine/editor translations (text_translation, R4).
+    `title` is the translation in the requested language, or None when there is none (the web shows Hebrew then);
+    `title_origin` says whether that translation is 'machine' (shown as automatic) or 'editor'."""
+    title: str | None = None
+    title_origin: str | None = None
+    title_en: str | None = None
+    title_ru: str | None = None
+    title_ar: str | None = None
+
+
 def _walk(obj: Any, out: list[BaseModel]) -> None:
     if isinstance(obj, BaseModel):
         out.append(obj)
@@ -132,6 +143,20 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
             m.label_en = found.get((slug, "en"))
             m.label_ar = found.get((slug, "ar"))
             m.label = found.get((slug, lang)) or found.get((slug, "he"))
+    titled = [m for m in models if isinstance(m, TitleTranslations) and getattr(m, "title_he", None)]
+    if titled:
+        texts = list({getattr(m, "title_he") for m in titled})
+        found: dict[tuple[str, str], tuple[str, str]] = {}
+        for r in conn.execute(
+            """SELECT s.t, x.language, x.text, x.origin FROM unnest(%s::text[]) AS s(t)
+               JOIN text_translation x ON x.source_sha256 = title_sha(s.t)""", (texts,)):
+            found[(r["t"], r["language"])] = (r["text"], r["origin"])
+        for m in titled:
+            he = getattr(m, "title_he")
+            for lg in ("en", "ru", "ar"):
+                setattr(m, f"title_{lg}", found.get((he, lg), (None, None))[0])
+            if lang != "he" and (he, lang) in found:
+                m.title, m.title_origin = found[(he, lang)]
     return payload
 
 

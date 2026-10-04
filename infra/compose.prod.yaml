@@ -66,6 +66,9 @@ services:
     profiles: [jobs]
     environment:
       DATABASE_URL: *db-url
+      # title translations (hkv translate / inside hkv update); empty = skipped
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      HKV_TRANSLATE_LANGS: ${HKV_TRANSLATE_LANGS:-en,ru}
     volumes:
       - raw:/data/raw
     command: hkv update --days 30 --log -

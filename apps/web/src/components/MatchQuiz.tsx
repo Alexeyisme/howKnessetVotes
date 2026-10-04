@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./MatchQuiz.module.css";
 
-export interface MatchVote { id: number; date: string; title_he: string; outcome: string; line: string; stands: Record<number, "for" | "against"> }
+export interface MatchVote { id: number; date: string; title_he: string; title: string | null; outcome: string; line: string; stands: Record<number, "for" | "against"> }
 export interface MatchParty { id: number; name: string; alignment: string | null }
 /** Plain strings only (functions cannot cross into a client component): progress[i] for question i+1, agree[m][n]
  *  for "n of m". Both are bounded by the number of questions, so the server precomputes them. */
@@ -65,6 +65,7 @@ export function MatchQuiz({ votes, parties, initial, locale, labels }:
         <div className={styles.progress} aria-hidden><span style={{ width: `${(100 * i) / votes.length}%` }} /></div>
         <h2 className={styles.question}>{labels.question}</h2>
         <p className={`he ${styles.title}`} lang="he" dir="rtl">{current.title_he}</p>
+        {current.title && <p className={styles.translation} dir="auto">{current.title}</p>}
         <div className={styles.buttons}>
           <button type="button" className={styles.yes} onClick={() => setAnswers([...answers, "f"])}>{labels.yes}</button>
           <button type="button" className={styles.no} onClick={() => setAnswers([...answers, "a"])}>{labels.no}</button>

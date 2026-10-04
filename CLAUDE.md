@@ -24,8 +24,9 @@ The owner writes in Russian or English — answer in the language of the message
 | `src/hkv/ingest/` | `loader`/`mapping` (v4 → DB), `backfill` (parallel history), `legacy` (old Votes.svc: official totals ≤ 2021-07), `update` (daily job), `verify` |
 | `src/hkv/names/` + `curated/*.toml` | MK/faction names in he/en/ru/ar, photos, parties (`parties.toml`), faction short names (`factions.toml`) |
 | `src/hkv/topics/` | topic taxonomy, rule-based + official law classification |
+| `src/hkv/translate/` | machine translation of bill/vote titles (Claude API, glossary, checks); `text_translation` keyed by SHA-256 of the Hebrew |
 | `src/hkv/coalition/` + `overrides.toml` | governments and coalition/opposition per faction derived from government posts; `vote_bloc` |
-| `src/hkv/api/` | FastAPI: `app.py` (votes), `entities.py` (members, factions, parties, governments, bills), `topics.py`, `names.py` (`?lang=` display names), `common.py` |
+| `src/hkv/api/` | FastAPI: `app.py` (votes), `entities.py` (members, factions, parties, governments, bills, compare), `topics.py`, `names.py` (`?lang=` display names and titles), `suggestions.py` (visitor corrections), `common.py` |
 | `src/hkv/cli.py` | `hkv` command: ingest, backfill, legacy, update, initiators, topics, names, coalition, verify, status |
 | `apps/web/` | Next.js 16 site (see below); has its own `CLAUDE.md`/`AGENTS.md` |
 | `tests/` | pytest; each test gets a fresh migrated throwaway database |

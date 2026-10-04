@@ -9,7 +9,7 @@ from fastapi import Depends, Request
 from psycopg import Connection
 from pydantic import BaseModel, ConfigDict, Field
 
-from hkv.api.names import BallotFactionNames, FactionNames, PersonNames
+from hkv.api.names import BallotFactionNames, FactionNames, PersonNames, TitleTranslations
 
 DEFAULT_DB = "postgresql://knesset:knesset@localhost:5433/knesset"
 VOTE_CARD = "https://main.knesset.gov.il/Activity/plenum/Votes/Pages/vote.aspx?voteId={}"
@@ -42,7 +42,7 @@ class OfficialTotals(BaseModel):
     source: str
 
 
-class BillRef(BaseModel):
+class BillRef(TitleTranslations):
     id: int
     title_he: str
 
@@ -61,7 +61,7 @@ class Blocs(BaseModel):
     contested: bool  # both blocs had a strict majority, and they differed
 
 
-class VoteSummary(BaseModel):
+class VoteSummary(TitleTranslations):
     id: int
     occurred_on: dt.date
     occurred_at: dt.datetime | None

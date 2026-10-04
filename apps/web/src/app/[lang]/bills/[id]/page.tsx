@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
+import { Title, titleText } from "@/components/Title";
 import { He, PersonName, VoteLine, VoteList } from "@/components/ui";
 import { getBill, type MotionType, NotFound } from "@/lib/api";
 import { MAIN_MOTIONS, verdict } from "@/lib/labels";
@@ -18,7 +19,8 @@ async function load(idParam: string) {
 }
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/bills/[id]">): Promise<Metadata> {
-  return { title: (await load((await params).id)).title_he };
+  const bill = await load((await params).id);
+  return { title: titleText(bill.title_he, bill, (await getT()).locale) };
 }
 
 export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]">) {
@@ -37,7 +39,7 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
           {d.kicker(bill.origin ? t.d.origin[bill.origin] ?? bill.origin : "", bill.term)}
           {bill.published_on && d.published(t.date(bill.published_on))}
         </p>
-        <He as="h1">{bill.title_he}</He>
+        <Title as="h1" he={bill.title_he} t={bill} page={`/bills/${bill.id}`} />
         {bill.status_he && <p style={{ marginTop: 8 }}><span className="badge">{d.status} <He>{bill.status_he}</He></span></p>}
         {bill.topics.length > 0 && (
           <p className="small" style={{ marginTop: 8 }}>

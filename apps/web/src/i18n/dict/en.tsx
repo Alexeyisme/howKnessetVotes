@@ -37,6 +37,7 @@ export const en: Dict = {
     factionUnknown: "party unknown",
     glossaryLink: "Glossary →",
     sourceKnesset: "Source:",
+    machine: "automatic translation", suggest: "suggest a correction",
   },
   stage: {
     preliminary: "Preliminary reading", first: "First reading", second: "Second reading", third: "Third reading",
@@ -311,6 +312,12 @@ export const en: Dict = {
     noAnswers: "You skipped every vote.",
     again: "Start over", share: "Share your result", copied: "Link copied",
     yours: "Your answer", passed: "Outcome",
+  },
+  suggest: {
+    title: "Suggest a correction",
+    lead: "Law titles are translated automatically and marked as such. A correction goes to an editor; nothing changes on the site until they accept it. No account needed.",
+    original: "Original", textLabel: "Corrected translation", noteLabel: "Note (optional)",
+    send: "Send", thanks: "Thank you! The correction has been passed to an editor.", error: "Could not send. Please try again later.", back: "Back",
   },
   translation: { beta: null, more: "How the site is translated" },
   notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },

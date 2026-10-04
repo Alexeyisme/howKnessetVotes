@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/Link";
-import { AlignmentBadge, FactionName, He, PersonName } from "@/components/ui";
+import { Title } from "@/components/Title";
+import { AlignmentBadge, FactionName, PersonName } from "@/components/ui";
 import { listParties, search, type PartySummary } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
@@ -67,7 +68,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/[lang]/se
         <section className="card"><h2 className="section-title">{d.bills}</h2>
           {r.bills.map((b) => (
             <p key={b.id} style={{ padding: "4px 0" }}>
-              <Link href={`/bills/${b.id}`} style={{ display: "block", textAlign: "right" }}><He>{b.title_he}</He></Link>
+              <Link href={`/bills/${b.id}`} style={{ display: "block" }}><Title he={b.title_he} t={b} compact /></Link>
               <span className="small muted">{t.d.common.term(b.term)} · {t.d.common.votesCount(b.votes)}{b.passed_third_reading && ` · ${t.d.common.passed}`}</span>
             </p>
           ))}

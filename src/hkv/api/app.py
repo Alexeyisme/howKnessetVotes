@@ -21,6 +21,7 @@ from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT,
                             MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, counts, majority, vote_summary)
 from hkv.api.entities import router
 from hkv.api.names import with_names
+from hkv.api.suggestions import router as suggestions_router
 from hkv.api.topics import router as topics_router
 
 
@@ -164,6 +165,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     app.include_router(router)
     app.include_router(topics_router)
+    app.include_router(suggestions_router)
 
     @app.get("/api/v1/status")
 
