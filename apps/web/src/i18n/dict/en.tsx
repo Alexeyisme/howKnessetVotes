@@ -15,6 +15,7 @@ export const en: Dict = {
   nav: {
     label: "Sections", votes: "Votes", topics: "Topics", bills: "Bills", members: "Members", factions: "Parties",
     searchLabel: "Search", searchPh: "Search: topic, bill, member", language: "Language",
+    match: "Who votes like me",
     compass: "Compass", compare: "Compare",
   },
   footer: {
@@ -110,6 +111,7 @@ export const en: Dict = {
     latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [
+      { href: "/match", title: "Who votes like me?", text: "12 contested laws: answer, and see which party voted the way you would" },
       { href: "/compass", title: "Compass", text: "Every party on every topic, on one screen" },
       { href: "/compare", title: "Compare", text: "Two parties or two members: how often they vote the same way" },
       { href: "/members", title: "Members", text: "How each member voted, and when they broke with their party" },
@@ -298,6 +300,17 @@ export const en: Dict = {
     parties: "Parties", members: "Members", pick: "Choose two to compare.",
     agreement: "Voted the same way", agreementUnit: "shared votes",
     differences: (n) => `Votes where they differed (${n})`,
+  },
+  match: {
+    title: "Who votes like me?",
+    lead: (n, term) => `The ${n} final votes of the ${ord(term)} Knesset where the coalition and opposition split, with the most members voting. Say how you would have voted and see which party voted the same way. Nothing is stored.`,
+    question: "Would you have passed this law?", yes: "For", no: "Against", skip: "Skip",
+    progress: (i, n) => `${i} of ${n}`,
+    resultTitle: "Parties that voted like you",
+    agree: (n, m) => `agrees with you on ${n} of ${m}`,
+    noAnswers: "You skipped every vote.",
+    again: "Start over", share: "Share your result", copied: "Link copied",
+    yours: "Your answer", passed: "Outcome",
   },
   translation: { beta: null, more: "How the site is translated" },
   notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },

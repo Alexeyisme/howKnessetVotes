@@ -11,6 +11,7 @@ export const he: Dict = {
   nav: {
     label: "מדורים", votes: "הצבעות", topics: "נושאים", bills: "הצעות חוק", members: "חברי כנסת", factions: "מפלגות",
     searchLabel: "חיפוש", searchPh: "חיפוש: נושא, חוק, חבר כנסת", language: "שפה",
+    match: "מי מצביע כמוני",
     compass: "מצפן", compare: "השוואה",
   },
   footer: {
@@ -106,6 +107,7 @@ export const he: Dict = {
     latestVote: (d) => `הצבעה אחרונה ${d}`,
     browse: "מדורים",
     tiles: [
+      { href: "/match", title: "מי מצביע כמוני?", text: "12 חוקים שנויים במחלוקת: ענו וראו איזו מפלגה הצביעה כמוכם" },
       { href: "/compass", title: "מצפן", text: "כל המפלגות בכל הנושאים במסך אחד" },
       { href: "/compare", title: "השוואה", text: "שתי מפלגות או שני חברי כנסת: באיזו תדירות הם מצביעים אותו דבר" },
       { href: "/members", title: "חברי כנסת", text: "איך הצביע כל חבר כנסת ומתי הצביע נגד סיעתו" },
@@ -294,6 +296,17 @@ export const he: Dict = {
     parties: "מפלגות", members: "חברי כנסת", pick: "בחרו שניים להשוואה.",
     agreement: "הצביעו אותו דבר", agreementUnit: "הצבעות משותפות",
     differences: (n) => `הצבעות שבהן נחלקו (${n})`,
+  },
+  match: {
+    title: "מי מצביע כמוני?",
+    lead: (n, term) => `${n} ההצבעות הסופיות ב${kn(term)} שבהן הקואליציה והאופוזיציה נחלקו, עם הכי הרבה מצביעים. אמרו איך הייתם מצביעים וראו איזו מפלגה הצביעה כמוכם. שום דבר לא נשמר.`,
+    question: "הייתם מעבירים את החוק הזה?", yes: "בעד", no: "נגד", skip: "דלג",
+    progress: (i, n) => `${i} מתוך ${n}`,
+    resultTitle: "מפלגות שהצביעו כמוכם",
+    agree: (n, m) => `מסכימה איתכם ב-${n} מתוך ${m}`,
+    noAnswers: "דילגתם על כל ההצבעות.",
+    again: "מהתחלה", share: "שתפו את התוצאה", copied: "הקישור הועתק",
+    yours: "התשובה שלכם", passed: "התוצאה",
   },
   translation: { beta: null, more: "איך האתר תורגם" },
   notFound: { title: "הדף לא נמצא", text: "אין דף כזה.", home: "לדף הבית" },
