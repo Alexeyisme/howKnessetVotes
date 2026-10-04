@@ -120,8 +120,8 @@ Law for the Encouragement of Activity in the Capital Market (Legislative Amendme
 ```
 
 - **Scope**: distinct Hebrew title strings of bills (3,647) and votes (17,319, mostly the bill title plus a stage, so
-  far fewer distinct strings), plus `subject_he` on vote pages. Languages: en, ru, ar (Arabic rides on the same
-  table when L10 lands). Hebrew UI shows nothing extra.
+  far fewer distinct strings), plus `subject_he` on vote pages. Languages: en, ru, ar (`/ar` exists since
+  `8ce7d2b`; Arabic needs the same glossary work, reviewed by a native speaker). Hebrew UI shows nothing extra.
 - **Storage**: one table `text_translation(source_sha256, lang, text, origin, model, reviewed_at, created_at)` keyed
   by the hash of the Hebrew source, so the same title translated once serves every vote that carries it and a
   source correction (new hash) automatically re-queues the translation — this is the roadmap's "machine text is
@@ -234,6 +234,10 @@ U7 as designed: two parties or two MKs, agreement rate on shared final votes, th
 |---|---|---|
 | Next two weeks (before elections) | R3 vote card, R10 nav/mobile, R12 recess banner, R1 party hub, R2 matrix, R5 key votes (curation starts day 1), R9 share cards, R8 typeahead | A voter can answer "how did my party vote" in two taps and share it as a picture |
 | Right after, still in the campaign window | R6 VoteMatch, R7 member page, R4 interim labels, R11 identity | The catchy piece; the site has a face |
-| After elections | L6/L7 (the real fix for R4), R14 compare, R13 budget in CI, Arabic (L10), methods 2–3 repeated on the new site | Sustained |
+| After elections | L7 descriptions, R14 compare, R13 budget in CI, methods 2–3 repeated on the new site, Arabic screenshot round once `/ar` is deployed | Sustained |
+
+Note (2026-10-05): the Arabic site (`/ar`, beta) is in `main` (commit `8ce7d2b`) but not deployed yet — a history
+load is running on the server. Everything above applies to four locales; the header language row (R10) now holds
+four entries, which strengthens the case for a compact language menu.
 
 Measure with method 1 before and after each row.

@@ -12,7 +12,7 @@ const pages = {
   topic: "/topics/justice", search: "/search?q=likud",
 };
 const viewports = [["m", 390, 844], ["d", 1280, 900]];
-const locales = ["ru", "en", "he"];
+const locales = ["ru", "en", "he", "ar"];
 
 mkdirSync(out, { recursive: true });
 const browser = await chromium.launch();
