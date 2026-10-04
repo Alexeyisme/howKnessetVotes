@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     up = sub.add_parser("update", help="daily incremental update: reference data + trailing window of votes")
     up.add_argument("--days", type=int, default=30, help="re-read votes of the last N days (catches corrections)")
     up.add_argument("--skip-reference", action="store_true")
-    up.add_argument("--log", type=Path, default=Path("logs/update.log"))
+    up.add_argument("--log", type=Path, default=Path("logs/update.log"), help="log file, or - for stderr")
     up.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     ini = sub.add_parser("initiators", help="load KNS_BillInitiator for all bills in the database")
     ini.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -74,8 +74,12 @@ def main(argv: list[str] | None = None) -> int:
         import logging
 
         from hkv.ingest.update import update
-        args.log.parent.mkdir(parents=True, exist_ok=True)
-        logging.basicConfig(filename=args.log, level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        fmt = "%(asctime)s %(levelname)-7s %(name)s %(message)s"
+        if str(args.log) == "-":  # stderr, e.g. into journald on the server
+            logging.basicConfig(level=logging.INFO, format=fmt)
+        else:
+            args.log.parent.mkdir(parents=True, exist_ok=True)
+            logging.basicConfig(filename=args.log, level=logging.INFO, format=fmt)
         with psycopg.connect(args.db) as conn:
             print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference))
         return 0

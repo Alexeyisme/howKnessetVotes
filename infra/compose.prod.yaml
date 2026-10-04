@@ -68,7 +68,7 @@ services:
       DATABASE_URL: *db-url
     volumes:
       - raw:/data/raw
-    command: hkv update --days 30
+    command: hkv update --days 30 --log -
     depends_on:
       db: { condition: service_healthy }
 
