@@ -56,6 +56,10 @@ sudo systemd-run --unit=hkv-topics --uid=deploy --gid=deploy --working-directory
 
 Web pages cache API responses for 10 minutes, so an update appears on the site within 10 minutes.
 
+## Alerts
+
+A failing update or backup triggers `hkv-alert@<unit>` ([scripts/alert.sh](../scripts/alert.sh)). It logs to the journal and sends the last log lines to Telegram via @knessetvotes_bot (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `/srv/hkv/.env`). Tested end to end on 2026-10-04.
+
 ## Restore
 
 ```sh
@@ -64,6 +68,4 @@ scripts/prod.sh exec -T db pg_restore -U knesset -d knesset --clean --if-exists 
 
 ## Still to do
 
-- **Telegram alerts:** a failing update or backup triggers `hkv-alert@`, which logs to the journal. To also
-  get a Telegram message, add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to `/srv/hkv/.env`.
 - **Deploy only from green CI:** tests run on every push (GitHub Actions); `scripts/deploy.sh` does not check the result yet.

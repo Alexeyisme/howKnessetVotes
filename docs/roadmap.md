@@ -119,7 +119,7 @@ public launch or press, so that early coverage isn't based on a partial history.
 | Item | State | Result |
 |---|---|---|
 | O1 backups | done | Hetzner daily server backups (7 kept, window 06–10 UTC), plus the nightly `pg_dump` |
-| O2 alerts | done, Telegram pending | `hkv-alert@` runs on failure of the update or backup; it logs to the journal and sends to Telegram once the bot token and chat ID are in `/srv/hkv/.env` |
+| O2 alerts | done | `hkv-alert@` runs on failure of the update or backup: journal plus a Telegram message from @knessetvotes_bot (tested) |
 | O3 CI | done | GitHub Actions: 81 Python tests on Postgres 17; web lint, type check and build |
 | L1 MK names | done | **All 299 MKs: official en/ru names from the Knesset website.** Website ID via `KNS_MkSiteCode` (128), the current and replaced MK lists (100), Wikidata P9770 (63), curated (8). All 171 name-based matches were verified against the website's Hebrew names. 370 search variants from Wikidata |
 | L2 party names | done | Curated ru/en full and short names for all 101 factions that voted; official names for the current Knesset (full name official, short name curated so a party reads the same across Knessets). Fixed machine labels (e.g. the Joint List was labelled as Ra'am's name) |
