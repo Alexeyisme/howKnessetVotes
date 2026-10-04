@@ -55,7 +55,7 @@ export default async function PartyPage({ params }: PageProps<"/[lang]/parties/[
 
       {faction && (
         <Stats>
-          <Stat label={t.d.faction.members(faction.members_ever)} value={t.num(membersNow.length)} />
+          <Stat label={d.members} value={t.num(membersNow.length)} detail={t.d.faction.members(faction.members_ever)} />
           <RateStat label={t.d.faction.cohesion} rate={faction.stats.cohesion} unit={t.d.faction.cohesionUnit} />
           <Stat label={t.d.faction.votesWithMembers} value={t.num(faction.stats.votes_with_members)} />
         </Stats>
@@ -84,7 +84,7 @@ export default async function PartyPage({ params }: PageProps<"/[lang]/parties/[
 
       {membersNow.length > 0 && (
         <section>
-          <h2 className="section-title">{t.d.faction.members(faction!.members_ever)}</h2>
+          <h2 className="section-title">{d.members} <span className="muted small">· {t.d.faction.members(faction!.members_ever)}</span></h2>
           <MemberGrid>
             {membersNow.map((m) => <MemberChip key={m.id} m={m} />)}
           </MemberGrid>

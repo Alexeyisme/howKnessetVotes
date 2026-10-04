@@ -144,6 +144,14 @@ Law for the Encouragement of Activity in the Capital Market (Legislative Amendme
   an icon-sized "auto" tag so it never takes a line of its own. Metadata `title` of the page uses the translation
   (the browser tab and share preview stop being Hebrew for en/ru readers).
 - **Review**: L9's small review screen marks a translation `editor` and removes the tag; not needed to ship this.
+- **Corrections from visitors** (owner's question, 2026-10-05): a "suggest a correction" affordance next to the
+  "automatic translation" marker — not a select-text popover, which is undiscoverable and fiddly on phones and in
+  RTL. Tap → inline form prefilled with the current text, optional note, no account; honeypot and a per-IP-hash rate
+  limit. Stored in `translation_suggestion(source_sha256, lang, suggested_text, note, created_at, status)`, keyed like
+  `text_translation` so a suggestion follows the Hebrew source string. Never applied automatically: it feeds the L9
+  review queue, and an editor's acceptance is what turns the row into `origin = editor`. The same mechanism serves
+  topic assignments ("this bill is not about housing") and, with a null hash and the page URL, a footer "report a
+  mistake" link. UI dictionary strings are editor-written and are fixed in git, not here.
 - **Order**: this moves ahead of L10 Arabic UI strings and L7 descriptions; the interim idea of hand-written lines for
   key votes only (R5) stays for the summaries, which are not titles.
 
