@@ -4,7 +4,7 @@ import { FactionName, PersonName } from "@/components/ui";
 import { notFound } from "next/navigation";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Counts } from "@/lib/api";
-import { ballotLabel, formatDate, formatTime, METHOD, bidiSafe, missingRollCallText, MOTION, MOTION_HINT, plural, STAGE } from "@/lib/labels";
+import { ballotLabel, formatDate, formatTime, METHOD, bidiSafe, missingRollCallText, MOTION, MOTION_HINT, plural, STAGE, STAGE_HINT, verdict } from "@/lib/labels";
 import styles from "./vote.module.css";
 
 async function load(idParam: string) {
@@ -49,6 +49,8 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
   const hint = vote.motion_type ? MOTION_HINT[vote.motion_type] : undefined;
   const rc = vote.roll_call;
   const hasRollCall = rc.total_records > 0;
+  const outcome = verdict(vote);
+  const stageHint = vote.stage ? STAGE_HINT[vote.stage] : undefined;
 
   return (
     <article>
@@ -64,6 +66,15 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
         </div>
         <h1 className={`${styles.title} he`} lang="he" dir="rtl">{vote.title_he}</h1>
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
+        {outcome && (
+          <p className={styles.verdict} data-accepted={outcome.accepted ? "yes" : "no"}>
+            <strong>{outcome.text}</strong>
+            <span className="num">: {rc.for} за, {rc.against} против{rc.abstain ? `, ${rc.abstain} воздержались` : ""}</span>
+            {outcome.derived
+              ? <span className="small muted"> — подсчёт по поимённым записям (официальный итог не публикуется)</span>
+              : <span className="small muted"> — по официальному итогу Кнессета</span>}
+          </p>
+        )}
       </header>
 
       <section className="card" aria-labelledby="q">
@@ -72,6 +83,7 @@ export default async function VotePage({ params }: PageProps<"/votes/[id]">) {
           <p className={`${styles.question} he`} lang="he" dir="rtl">«{vote.question_he}»</p>
         )}
         {hint && <p className="note" style={{ marginTop: 10 }}>{hint}</p>}
+        {stageHint && <p className="small muted" style={{ marginTop: 10 }}><strong>{STAGE[vote.stage!]}:</strong> {stageHint} <Link href="/about/glossary">Словарь →</Link></p>}
         {vote.bills.length > 0 && (
           <p className="small" style={{ marginTop: 10 }}>
             Законопроект:{" "}

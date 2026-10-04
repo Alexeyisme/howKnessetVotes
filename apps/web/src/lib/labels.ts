@@ -1,4 +1,4 @@
-import type { Choice, Majority, MotionType, Stage } from "./api";
+import type { Choice, Majority, MotionType, Stage, VoteDetail } from "./api";
 
 export const STAGE: Record<Stage, string> = {
   preliminary: "Предварительное чтение",
@@ -105,4 +105,44 @@ export const INITIATOR_ROLE: Record<string, string> = { initiator: "инициа
  *  a hyphen-minus between digits is a European separator and keeps the order. */
 export function bidiSafe(s: string): string {
   return s.replace(/(\d)\s*[–—־]\s*(\d)/g, "$1-$2");
+}
+
+// What each stage means, in one plain sentence (vote page, glossary).
+export const STAGE_HINT: Partial<Record<Stage, string>> = {
+  preliminary: "Первое голосование по законопроекту депутата: Кнессет решает, стоит ли вообще его рассматривать. После него текст готовит комиссия.",
+  first: "Голосование по законопроекту после подготовки в комиссии (или по правительственному законопроекту сразу). Если принят — возвращается в комиссию на доработку.",
+  second: "Голосование по статьям окончательного текста и по оговоркам (поправкам) к ним. Обычно проходит в тот же день, что и третье чтение.",
+  third: "Окончательное голосование. Если законопроект принят в третьем чтении, он становится законом.",
+};
+
+// Only votes on a bill as a whole and no-confidence motions: what most readers mean by "how did they vote".
+export const MAIN_MOTIONS: MotionType[] = ["adopt_bill", "no_confidence"];
+
+/** One-line outcome in plain words. Official result when published (votes up to 2021-07), otherwise derived from the
+ *  roll call: simple majority of for over against (a tie is not adopted); no-confidence needs 61 votes for. */
+export function verdict(v: VoteDetail): { text: string; accepted: boolean | null; derived: boolean } | null {
+  const rc = v.roll_call;
+  let accepted: boolean | null = v.official_totals?.is_accepted ?? null;
+  const derived = accepted == null;
+  if (derived) {
+    if (rc.total_records === 0 || rc.for + rc.against === 0) return null;
+    accepted = v.motion_type === "no_confidence" ? rc.for >= 61 : rc.for > rc.against;
+  }
+  const yes = accepted;
+  const stage = v.stage;
+  const text = (() => {
+    switch (v.motion_type) {
+      case "adopt_bill":
+        if (stage === "third") return yes ? "Закон принят" : "Закон не принят";
+        if (stage === "first") return yes ? "Законопроект прошёл первое чтение" : "Законопроект не прошёл первое чтение";
+        if (stage === "preliminary") return yes ? "Законопроект прошёл предварительное чтение" : "Законопроект не прошёл предварительное чтение";
+        return yes ? "Законопроект одобрен" : "Законопроект не одобрен";
+      case "reservation": return yes ? "Оговорка принята" : "Оговорка отклонена";
+      case "adopt_section": return yes ? "Статьи приняты" : "Статьи отклонены";
+      case "no_confidence": return yes ? "Вотум недоверия принят" : "Вотум недоверия не прошёл";
+      case "reject_bill": return yes ? "Законопроект снят с повестки" : "Законопроект не снят с повестки";
+      default: return yes ? "Предложение принято" : "Предложение отклонено";
+    }
+  })();
+  return { text, accepted, derived };
 }

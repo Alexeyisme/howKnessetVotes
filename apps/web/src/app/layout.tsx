@@ -40,7 +40,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </header>
         <main className="wrap">{children}</main>
         <footer className="wrap small muted" style={{ paddingBottom: 32 }}>
-          <DataAsOf /> Источник: открытые данные Кнессета (OData).
+          <p><DataAsOf /></p>
+          <p style={{ marginTop: 6 }}>
+            Источники: открытые данные Кнессета, сайт Кнессета, Викиданные, <a href="https://oknesset.org" target="_blank" rel="noopener">«Открытый Кнессет»</a>.{" "}
+            <Link href="/about/methodology">Методология</Link> · <Link href="/about/glossary">Словарь</Link> · <a href="/docs">API</a>
+          </p>
         </footer>
       </body>
     </html>
