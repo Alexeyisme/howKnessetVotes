@@ -62,7 +62,9 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
             );
           })}
         </ul>
-        <p className="small" style={{ marginTop: 8 }}><Link href="/votes?view=final">{d.finalAll}</Link></p>
+        <p className="small" style={{ marginTop: 8 }}>
+          <Link href="/votes?view=contested">{t.d.votes.filters.contested} →</Link> · <Link href="/votes?view=final">{d.finalAll}</Link>
+        </p>
       </section>
 
       <section>

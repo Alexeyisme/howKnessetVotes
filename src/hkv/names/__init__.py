@@ -149,6 +149,28 @@ def load_curated() -> tuple[dict[int, dict], dict[int, dict]]:
     return ({int(k): v for k, v in mks.get("mk", {}).items()}, {int(k): v for k, v in factions.get("faction", {}).items()})
 
 
+def sync_parties(conn: psycopg.Connection) -> dict[str, int]:
+    """Parties across Knessets from curated/parties.toml (D2): replaces party and party_faction."""
+    parties = tomllib.loads((CURATED / "parties.toml").read_text())["party"]
+    ids = {kid: fid for fid, kid in conn.execute("SELECT id, knesset_faction_id FROM faction")}
+    counts: Counter[str] = Counter()
+    with conn.transaction():
+        conn.execute("DELETE FROM party_faction")
+        conn.execute("DELETE FROM party WHERE slug <> ALL(%s)", (list(parties),))
+        for sort, (slug, p) in enumerate(parties.items()):
+            conn.execute("""INSERT INTO party (slug, name_he, name_ru, name_en, sort) VALUES (%s, %s, %s, %s, %s)
+                            ON CONFLICT (slug) DO UPDATE SET name_he = EXCLUDED.name_he, name_ru = EXCLUDED.name_ru,
+                              name_en = EXCLUDED.name_en, sort = EXCLUDED.sort""", (slug, p["he"], p["ru"], p["en"], sort))
+            for kid in p["factions"]:
+                if kid not in ids:
+                    counts["unknown_faction"] += 1
+                    continue
+                counts["links"] += conn.execute("INSERT INTO party_faction VALUES (%s, %s) ON CONFLICT DO NOTHING", (slug, ids[kid])).rowcount
+            counts["parties"] += 1
+    log.info("parties: %s", dict(counts))
+    return dict(counts)
+
+
 def match_by_name(name_he: str, candidates: dict[int, str]) -> int | None:
     """Unique candidate whose normalised name equals ours; otherwise a unique one whose tokens are a subset of ours
     (or ours of theirs) with at least two tokens in common, e.g. 'מירי מרים רגב' ~ 'מירי רגב'."""

@@ -20,6 +20,11 @@ export interface Counts {
   total_records: number;
 }
 
+export type Alignment = "coalition" | "opposition" | "external_support" | "unknown";
+export interface BlocCounts { for: number; against: number; abstain: number }
+/** cast votes by coalition / opposition members on the vote date; contested = the two majorities differed */
+export interface Blocs { coalition: BlocCounts; opposition: BlocCounts; contested: boolean }
+
 export interface VoteSummary {
   id: number;
   occurred_on: string;
@@ -34,6 +39,7 @@ export interface VoteSummary {
   status: string;
   bills: { id: number; title_he: string }[];
   roll_call: Counts;
+  blocs?: Blocs | null;
   source_url: string;
 }
 
@@ -47,6 +53,7 @@ export interface FactionBreakdown extends FactionNames {
   counts: Counts;
   majority: Majority;
   ambiguous_records: number;
+  alignment?: Alignment | null;
 }
 
 export interface VoteDetail extends VoteSummary {
@@ -139,18 +146,26 @@ export interface MemberVote {
   deviates: boolean | null;
 }
 
+export interface PartyRef { slug: string; name_he: string; name_ru: string; name_en: string }
+
 export interface FactionSummary extends FactionNames {
   id: number;
   term: number;
   valid: Interval;
   members_ever: number;
   roll_call_records: number;
+  parties: PartyRef[];
+  alignment_last: Alignment | null;
 }
 
 export interface FactionDetail extends FactionSummary {
   members: (Interval & PersonNames & { person_id: number; faction: FactionRef })[];
   stats: { votes_with_members: number; cohesion: Rate; unanimous_votes: Rate };
+  alignment: (Interval & { government: number; role: Alignment; origin: "derived" | "curated"; evidence: string })[];
 }
+
+export interface PartySummary extends PartyRef { terms: number[]; factions: FactionSummary[] }
+export interface Government { number: number; term: number | null; valid: Interval; prime_minister: (PersonNames & { id: number }) | null }
 
 export interface FactionVote {
   vote: VoteSummary;
@@ -198,6 +213,9 @@ export const getMemberVotes = (id: number, p: Params) => get<PageOf<MemberVote>>
 export const listFactions = (p: Params) => get<PageOf<FactionSummary>>(`/api/v1/factions${qs(p)}`);
 export const getFaction = (id: number) => get<{ data: FactionDetail; meta: Meta }>(`/api/v1/factions/${id}`);
 export const getFactionVotes = (id: number, p: Params) => get<PageOf<FactionVote>>(`/api/v1/factions/${id}/votes${qs(p)}`);
+export const listParties = () => get<PageOf<PartySummary>>(`/api/v1/parties`);
+export const getParty = (slug: string) => get<{ data: PartySummary; meta: Meta }>(`/api/v1/parties/${encodeURIComponent(slug)}`);
+export const listGovernments = () => get<PageOf<Government>>(`/api/v1/governments`);
 export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills${qs(p)}`);
 export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
 export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);

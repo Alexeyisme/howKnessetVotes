@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { TermSelect } from "@/components/TermSelect";
-import { FactionName } from "@/components/ui";
+import { AlignmentBadge, FactionName } from "@/components/ui";
 import { listFactions } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
@@ -24,14 +24,15 @@ export default async function FactionsPage({ searchParams }: PageProps<"/[lang]/
         <TermSelect value={shown} />
         <button type="submit">{t.d.common.show}</button>
       </form>
-      <p className="small muted">{d.lead}</p>
+      <p className="small muted">{d.lead} <Link href="/parties">{t.d.parties.title} →</Link></p>
       <div className="card table-scroll">
         <table>
           <thead><tr><th>{d.faction}</th><th>{d.period}</th><th className="num">{d.membersEver}</th><th className="num">{d.records}</th></tr></thead>
           <tbody>
             {data.map((f) => (
               <tr key={f.id}>
-                <td><Link href={`/factions/${f.id}`}><FactionName f={f} he="inline" /></Link></td>
+                <td><Link href={`/factions/${f.id}`}><FactionName f={f} he="inline" /></Link>
+                  {f.alignment_last && f.alignment_last !== "unknown" && <> <AlignmentBadge role={f.alignment_last} /></>}</td>
                 <td className="small">{t.period(f.valid.valid_from, f.valid.valid_to)}</td>
                 <td className="num">{f.members_ever}</td>
                 <td className="num">{t.num(f.roll_call_records)}</td>

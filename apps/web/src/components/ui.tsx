@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Choice, FactionNames, PersonNames, Rate, VoteSummary } from "@/lib/api";
+import type { Alignment, Choice, FactionNames, PersonNames, Rate, VoteSummary } from "@/lib/api";
 import { getT } from "@/i18n/server";
 import { bidiSafe } from "@/lib/labels";
 import Link from "./Link";
@@ -98,4 +98,10 @@ export function withParams(path: string, params: Record<string, string | undefin
   const q = new URLSearchParams(Object.entries(params).filter((e): e is [string, string] => !!e[1]));
   const s = q.toString();
   return s ? `${path}?${s}` : path;
+}
+
+/** Coalition / opposition label; the colour is a neutral outline so it never competes with the for/against colours. */
+export async function AlignmentBadge({ role }: { role: Alignment }) {
+  const t = await getT();
+  return <span className={`${styles.align} ${styles[`align_${role}`] ?? ""}`}>{t.d.alignment[role]}</span>;
 }

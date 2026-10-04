@@ -5,6 +5,370 @@
 # he_short = a short Hebrew name where the official one is a long list name (the full Hebrew name is always official).
 # Conventions: Russian names as used in Israeli Russian-language media; English as on the Knesset website.
 
+# --- 16th Knesset (2003–2006) ---
+[faction.24]
+ru = "Ликуд"
+en = "Likud"
+[faction.42]
+ru = "Авода–Меймад"
+ru_short = "Авода"
+en = "Labor–Meimad"
+en_short = "Labor"
+he_short = "העבודה-מימד"
+[faction.43]
+ru = "Шинуй"
+en = "Shinui"
+he_short = "שינוי"
+[faction.44]
+ru = "ШАС"
+en = "Shas"
+he_short = "ש\"ס"
+[faction.45]
+ru = "Национальное единство – Наш дом Израиль"
+ru_short = "Национальное единство"
+en = "National Union – Yisrael Beytenu"
+en_short = "National Union"
+he_short = "האיחוד הלאומי"
+[faction.46]
+ru = "Мерец"
+en = "Meretz"
+he_short = "מרצ"
+[faction.47]
+ru = "Ам Эхад"
+en = "One Nation"
+he_short = "עם אחד"
+[faction.48]
+ru = "Яадут ха-Тора"
+en = "United Torah Judaism"
+he_short = "יהדות התורה"
+[faction.49]
+ru = "МАФДАЛ (Национально-религиозная партия)"
+ru_short = "МАФДАЛ"
+en = "National Religious Party"
+en_short = "NRP"
+he_short = "מפד\"ל"
+[faction.50]
+ru = "ХАДАШ–ТААЛЬ"
+en = "Hadash–Ta'al"
+[faction.51]
+ru = "БАЛАД"
+en = "Balad"
+he_short = "בל\"ד"
+[faction.52]
+ru = "Объединённый арабский список (РААМ)"
+ru_short = "РААМ"
+en = "United Arab List (Ra'am)"
+en_short = "Ra'am"
+he_short = "רע\"ם"
+[faction.53]
+ru = "Исраэль ба-Алия"
+en = "Yisrael BaAliyah"
+he_short = "ישראל בעלייה"
+[faction.62]
+ru = "Яхад"
+en = "Yachad"
+he_short = "יחד"
+[faction.422]
+ru = "Дегель ха-Тора"
+en = "Degel HaTorah"
+[faction.424]
+ru = "Агудат Исраэль"
+en = "Agudat Yisrael"
+[faction.442]
+ru = "Хитхабрут"
+en = "Hithabrut"
+[faction.444]
+ru = "Обновлённый религиозный сионизм"
+en = "Renewed Religious Zionism"
+[faction.462]
+ru = "Цалаш"
+en = "Tzalash"
+he_short = "צל\"ש"
+[faction.482]
+ru = "Ной"
+en = "Noy"
+[faction.502]
+ru = "Авода–Меймад–Ам Эхад"
+ru_short = "Авода"
+en = "Labor–Meimad–One Nation"
+en_short = "Labor"
+he_short = "העבודה"
+[faction.522]
+ru = "Мерец–Яхад"
+en = "Meretz–Yachad"
+he_short = "מרצ-יחד"
+[faction.542]
+ru = "Национальная ответственность"
+en = "National Responsibility"
+[faction.562]
+ru = "Кадима"
+en = "Kadima"
+[faction.564]
+ru = "Светская фракция"
+en = "Secular Faction"
+[faction.582]
+ru = "Михаэль Нудельман"
+en = "Michael Nudelman"
+he_short = "מיכאל נודלמן"
+[faction.584]
+ru = "Национальное единство"
+en = "National Union"
+he_short = "האיחוד הלאומי"
+[faction.586]
+ru = "Национальный дом"
+en = "National Home"
+[faction.588]
+ru = "Ха-Олим"
+en = "HaOlim"
+[faction.590]
+ru = "Наш дом Израиль"
+en = "Yisrael Beytenu"
+[faction.602]
+ru = "ТААЛЬ"
+en = "Ta'al"
+he_short = "תע\"ל"
+[faction.604]
+ru = "ХАДАШ"
+en = "Hadash"
+he_short = "חד\"ש"
+[faction.1038]
+ru = "Шинуй"
+en = "Shinui"
+he_short = "שינוי"
+[faction.1078]
+ru = "Шинуй"
+en = "Shinui"
+
+# --- 17th Knesset (2006–2009) ---
+[faction.622]
+ru = "Кадима"
+en = "Kadima"
+he_short = "קדימה"
+[faction.624]
+ru = "Авода–Меймад"
+ru_short = "Авода"
+en = "Labor–Meimad"
+en_short = "Labor"
+he_short = "העבודה-מימד"
+[faction.626]
+ru = "БАЛАД"
+en = "Balad"
+he_short = "בל\"ד"
+[faction.628]
+ru = "ШАС"
+en = "Shas"
+he_short = "ש\"ס"
+[faction.630]
+ru = "ХАДАШ"
+en = "Hadash"
+he_short = "חד\"ש"
+[faction.632]
+ru = "Яадут ха-Тора"
+en = "United Torah Judaism"
+he_short = "יהדות התורה"
+[faction.634]
+ru = "Гиль (Партия пенсионеров)"
+ru_short = "Гиль"
+en = "Gil (Pensioners' Party)"
+en_short = "Gil"
+he_short = "גיל"
+[faction.636]
+ru = "РААМ–ТААЛЬ"
+en = "Ra'am–Ta'al"
+he_short = "רע\"ם-תע\"ל"
+[faction.638]
+ru = "Наш дом Израиль"
+en = "Yisrael Beytenu"
+he_short = "ישראל ביתנו"
+[faction.640]
+ru = "Мерец"
+en = "Meretz"
+he_short = "מרצ"
+[faction.642]
+ru = "Национальное единство – МАФДАЛ"
+ru_short = "Национальное единство–МАФДАЛ"
+en = "National Union – NRP"
+en_short = "National Union–NRP"
+he_short = "האיחוד הלאומי-מפד\"ל"
+[faction.690]
+ru = "Ликуд"
+en = "Likud"
+he_short = "הליכוד"
+[faction.702]
+ru = "Справедливость для пожилых"
+en = "Justice for the Elderly"
+[faction.722]
+ru = "Ха-Дерех ха-Това"
+en = "HaDerekh HaTova"
+[faction.1039]
+ru = "Агудат Исраэль"
+en = "Agudat Yisrael"
+[faction.1040]
+ru = "АХИ"
+en = "Ahi"
+he_short = "אח\"י"
+[faction.1041]
+ru = "Дегель ха-Тора"
+en = "Degel HaTorah"
+[faction.1042]
+ru = "Еврейский дом"
+en = "Jewish Home"
+he_short = "הבית היהודי"
+[faction.1043]
+ru = "Еврейский дом"
+en = "Jewish Home"
+he_short = "הבית היהודי"
+[faction.1044]
+ru = "Авода"
+en = "Labor"
+he_short = "העבודה"
+[faction.1045]
+ru = "Национальное единство"
+en = "National Union"
+he_short = "האיחוד הלאומי"
+[faction.1046]
+ru = "Меймад"
+en = "Meimad"
+
+# --- 18th Knesset (2009–2013) ---
+[faction.742]
+ru = "Национальное единство"
+en = "National Union"
+he_short = "האיחוד הלאומי"
+[faction.743]
+ru = "Еврейский дом"
+en = "Jewish Home"
+he_short = "הבית היהודי"
+[faction.744]
+ru = "БАЛАД"
+en = "Balad"
+he_short = "בל\"ד"
+[faction.745]
+ru = "ХАДАШ"
+en = "Hadash"
+he_short = "חד\"ש"
+[faction.746]
+ru = "Яадут ха-Тора"
+en = "United Torah Judaism"
+he_short = "יהדות התורה"
+[faction.747]
+ru = "Наш дом Израиль"
+en = "Yisrael Beytenu"
+he_short = "ישראל ביתנו"
+[faction.748]
+ru = "Ликуд"
+en = "Likud"
+he_short = "הליכוד"
+[faction.749]
+ru = "Мерец"
+en = "Meretz"
+he_short = "מרצ"
+[faction.750]
+ru = "Авода"
+en = "Labor"
+[faction.751]
+ru = "Кадима"
+en = "Kadima"
+he_short = "קדימה"
+[faction.752]
+ru = "РААМ–ТААЛЬ"
+en = "Ra'am–Ta'al"
+he_short = "רע\"ם-תע\"ל"
+[faction.753]
+ru = "ШАС"
+en = "Shas"
+he_short = "ש\"ס"
+[faction.762]
+ru = "Ацмаут"
+en = "Independence"
+[faction.1047]
+ru = "Авода"
+en = "Labor"
+he_short = "העבודה"
+[faction.1048]
+ru = "Ха-Тнуа"
+en = "Hatnua"
+he_short = "התנועה"
+[faction.1049]
+ru = "Хаим Амсалем"
+en = "Haim Amsalem"
+he_short = "חיים אמסלם"
+[faction.1050]
+ru = "Арабская демократическая партия"
+en = "Arab Democratic Party"
+he_short = "מד\"ע"
+[faction.1051]
+ru = "Оцма ле-Исраэль"
+en = "Otzma LeYisrael"
+
+# --- 19th Knesset (2013–2015) ---
+[faction.802]
+ru = "БАЛАД"
+en = "Balad"
+he_short = "בל\"ד"
+[faction.803]
+ru = "Еврейский дом"
+en = "Jewish Home"
+he_short = "הבית היהודי"
+[faction.804]
+ru = "Ликуд – Наш дом Израиль"
+en = "Likud Yisrael Beytenu"
+he_short = "הליכוד-ישראל ביתנו"
+[faction.805]
+ru = "Авода"
+en = "Labor"
+he_short = "העבודה"
+[faction.806]
+ru = "ХАДАШ"
+en = "Hadash"
+he_short = "חד\"ש"
+[faction.807]
+ru = "Яадут ха-Тора"
+en = "United Torah Judaism"
+he_short = "יהדות התורה"
+[faction.808]
+ru = "Мерец"
+en = "Meretz"
+he_short = "מרצ"
+[faction.809]
+ru = "Кадима"
+en = "Kadima"
+he_short = "קדימה"
+[faction.810]
+ru = "РААМ–ТААЛЬ"
+en = "Ra'am–Ta'al"
+he_short = "רע\"ם-תע\"ל"
+[faction.811]
+ru = "ШАС"
+en = "Shas"
+he_short = "ש\"ס"
+[faction.812]
+ru = "Еш Атид"
+en = "Yesh Atid"
+he_short = "יש עתיד"
+[faction.813]
+ru = "Ха-Тнуа"
+en = "Hatnua"
+he_short = "התנועה"
+[faction.842]
+ru = "Ликуд"
+en = "Likud"
+he_short = "הליכוד"
+[faction.843]
+ru = "Наш дом Израиль"
+en = "Yisrael Beytenu"
+[faction.1052]
+ru = "РААМ–ТААЛЬ"
+en = "Ra'am–Ta'al"
+[faction.1053]
+ru = "РААМ"
+en = "Ra'am"
+he_short = "רע\"ם"
+[faction.1054]
+ru = "ТААЛЬ"
+en = "Ta'al"
+he_short = "תע\"ל"
+
 # --- 20th Knesset (2015–2019) ---
 [faction.882]
 ru = "Ликуд"

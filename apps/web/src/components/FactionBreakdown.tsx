@@ -1,5 +1,5 @@
 import Link from "./Link";
-import { PersonName } from "./ui";
+import { AlignmentBadge, PersonName } from "./ui";
 import type { Ballot, Choice, FactionBreakdown as Row } from "@/lib/api";
 import { getT } from "@/i18n/server";
 import styles from "./FactionBreakdown.module.css";
@@ -44,6 +44,7 @@ export async function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots
               <span className={styles.name}>
                 {name !== r.name_he && <span className={styles.nameRu}>{name}</span>}
                 <span className="he" lang="he" dir="rtl">{r.name_he}</span>
+                {r.alignment && r.alignment !== "unknown" && <span><AlignmentBadge role={r.alignment} /></span>}
               </span>
               <span className={styles.bar} role="img" aria-label={`${name}: ${d.counts(r.counts)}`}>
                 {SEGMENTS.map((s) => {

@@ -114,10 +114,11 @@ export const en: Dict = {
   votes: {
     title: "Plenum votes",
     filtersLabel: "Which votes to show",
-    filters: { main: "Main", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
+    filters: { main: "Main", contested: "Contested", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
     lead: {
       main: "Votes on bills as a whole and no-confidence motions. Reservations, sections and procedural votes are under “All votes”.",
       final: "Votes after which a bill becomes law (or does not).",
+      contested: "Final votes where the coalition majority and the opposition majority voted differently, with at least 60 members voting: the laws that were fought over.",
       all: "All votes, including reservations (amendments), individual sections and procedural decisions.",
     },
   },
@@ -143,6 +144,7 @@ export const en: Dict = {
     unresolved: (n) => `${n} ${s(n, "record has", "records have")} no known party on this date.`,
     table: (n) => `Roll call (${n})`,
     sourceLink: "vote page on the Knesset website ↗",
+  
     notFound: "Vote not found", notFoundText: "It may not be loaded yet.", backToList: "Back to votes",
   },
   breakdown: {
@@ -182,14 +184,14 @@ export const en: Dict = {
     participation: "Roll-call participation", participationUnit: "votes during the mandate",
     deviation: "Voted differently from party majority", deviationUnit: "comparable votes",
     bills: "Bills that reached a vote", billsDetail: (n) => `as sponsor; joined ${n} more`,
-    note: "Statistics cover votes since 27 September 2016. Participation is the share of roll-call votes during the mandate in which the member voted for, against or abstained. It is not attendance. The party majority is computed from the other members of the party who voted that time (at least two); voting differently does not mean breaking party discipline.",
+    note: "Statistics cover votes since 20 October 2003. Participation is the share of roll-call votes during the mandate in which the member voted for, against or abstained. It is not attendance. The party majority is computed from the other members of the party who voted that time (at least two); voting differently does not mean breaking party discipline.",
     factions: "Parties", faction: "Party", term: "Knesset", period: "Period",
     votes: "Votes", tabFinal: "Final votes", tabAll: "All", tabDeviated: "Against party majority",
     finalHint: "Third-reading votes on bills as a whole: after these, a bill becomes law.",
     noVotes: "No votes.",
   },
   factions: {
-    title: "Parties",
+    title: "Factions by Knesset",
     lead: "A faction is a group of members in a given Knesset; one faction can include several parties. Votes are attributed to the faction on the day of the vote.",
     faction: "Party", period: "Period", membersEver: "Members (all time)", records: "Roll-call records",
   },
@@ -201,6 +203,8 @@ export const en: Dict = {
     unanimous: "Voted unanimously", unanimousUnit: "votes (with two or more voting)",
     members: (n) => `Members (${n} all time)`, former: (n) => `Former members (${n})`,
     votes: "Votes", tabAll: "All", tabSplit: "Party split",
+    party: "Party:", allKnessets: "all Knessets →",
+    coalitionTitle: "Coalition and opposition", government: (n) => `Government ${n}`, curated: "corrected by hand",
   },
   bills: {
     title: "Bills", searchPh: "A word from the Hebrew title, or a number", onlyPassed: "only passed in third reading",
@@ -250,5 +254,19 @@ export const en: Dict = {
     title: "Methodology and sources",
     description: "Where the data comes from, how the numbers are computed and what they do not mean.",
   },
-  notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },
+  alignment: { coalition: "coalition", opposition: "opposition", external_support: "outside support", unknown: "no government yet" },
+  blocs: {
+    title: "Coalition and opposition",
+    line: (c, o) => `Coalition: ${c.for} for, ${c.against} against · Opposition: ${o.for} for, ${o.against} against`,
+    contested: "Coalition and opposition voted differently",
+    note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
+  },
+  parties: {
+    title: "Parties",
+    lead: "Each party across Knessets: the list it ran as each time, how many members it had, and whether it was in the coalition. A joint list counts for every party in it.",
+    knessets: (n) => `${n} ${n === 1 ? "Knesset" : "Knessets"}`,
+    byTerm: "Factions by Knesset →",
+    faction: "Faction", term: "Knesset", period: "Period", members: "Members", role: "Coalition / opposition",
+    kicker: "Party across Knessets",
+  },  notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },
 };

@@ -1,0 +1,52 @@
+# Curated corrections to the coalition roles derived from government posts (src/hkv/coalition/__init__.py).
+# Each entry replaces the derived role of one faction (KNS_Faction.Id) for [from, to) - `to` empty = open.
+# role: coalition | opposition | external_support | unknown. evidence: what the correction is based on.
+
+[[override]]
+faction = 948          # Yamina, 23rd Knesset
+from = "2020-05-17"
+to = "2020-07-14"
+role = "opposition"
+evidence = "Yamina went into opposition when the 35th government was formed; only Rafi Peretz took a post, and his Jewish Home split from the faction on 2020-07-14"
+
+[[override]]
+faction = 973          # Ra'am (United Arab List), 24th Knesset
+from = "2021-06-13"
+to = "2022-11-15"
+role = "coalition"
+evidence = "Ra'am signed the coalition agreement of the 36th government without taking a ministry"
+
+[[override]]
+faction = 1095         # Shas, 25th Knesset
+from = "2025-07-22"
+to = ""
+role = "coalition"
+evidence = "Shas ministers resigned in July 2025 but the party stated it remained in the coalition and kept voting with it"
+
+[[override]]
+faction = 1066         # Degel HaTorah, 22nd Knesset (after the UTJ split)
+from = "2019-12-30"
+to = "2020-03-16"
+role = "coalition"
+evidence = "Degel HaTorah stayed in the caretaker coalition with Agudat Yisrael after UTJ split into two factions; its MKs held committee posts, not ministries"
+
+[[override]]
+faction = 1072         # Degel HaTorah, 23rd Knesset (after the UTJ split)
+from = "2020-12-28"
+to = "2021-04-06"
+role = "coalition"
+evidence = "Degel HaTorah stayed in the 35th government's coalition with Agudat Yisrael after UTJ split into two factions"
+
+[[override]]
+faction = 424          # Agudat Yisrael, 16th Knesset (UTJ split on 2005-01-12)
+from = "2005-01-12"
+to = "2005-03-30"
+role = "coalition"
+evidence = "UTJ joined the 30th government's coalition with Labor in January 2005; its deputy-minister posts start on 2005-03-30"
+
+[[override]]
+faction = 422          # Degel HaTorah, 16th Knesset
+from = "2005-01-12"
+to = "2005-03-30"
+role = "coalition"
+evidence = "UTJ joined the 30th government's coalition with Labor in January 2005; its deputy-minister posts start on 2005-03-30"

@@ -55,6 +55,8 @@ def main(argv: list[str] | None = None) -> int:
     nm.add_argument("--refresh", action="store_true", help="re-fetch members who already have official names")
     nm.add_argument("--no-official-factions", action="store_true", help="skip current-Knesset faction names from the website")
     nm.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    co = sub.add_parser("coalition", help="government posts from OData, then governments and coalition/opposition per faction")
+    co.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -73,13 +75,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "names":
         import logging
 
-        from hkv.names import LiveSources, sync_factions, sync_members, sync_photos
+        from hkv.names import LiveSources, sync_factions, sync_members, sync_parties, sync_photos
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
         src = LiveSources(RAW_DIR)
         with psycopg.connect(args.db, autocommit=True) as conn:
             print(sync_members(conn, src, refresh=args.refresh))
             print(sync_photos(conn, src))
             print(sync_factions(conn, None if args.no_official_factions else src))
+            print(sync_parties(conn))
+        return 0
+    if args.cmd == "coalition":
+        import logging
+
+        from hkv.coalition import derive, load_positions
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        with psycopg.connect(args.db, autocommit=True) as conn:
+            print(load_positions(conn, ODataClient(raw_dir=RAW_DIR)))
+            print(derive(conn))
         return 0
     if args.cmd == "topics":
         from hkv.topics import sync

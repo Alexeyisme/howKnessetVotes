@@ -47,6 +47,20 @@ class BillRef(BaseModel):
     title_he: str
 
 
+class BlocCounts(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    for_: int = Field(alias="for")
+    against: int
+    abstain: int
+
+
+class Blocs(BaseModel):
+    """Cast votes by members of coalition and opposition factions on the vote date (derived from government posts)."""
+    coalition: BlocCounts
+    opposition: BlocCounts
+    contested: bool  # both blocs had a strict majority, and they differed
+
+
 class VoteSummary(BaseModel):
     id: int
     occurred_on: dt.date
@@ -61,6 +75,7 @@ class VoteSummary(BaseModel):
     status: str
     bills: list[BillRef]
     roll_call: Counts
+    blocs: Blocs | None = None
     source_url: str
 
 
@@ -71,6 +86,7 @@ class FactionBreakdown(FactionNames):
     counts: Counts
     majority: Literal["for", "against", "abstain", "mixed", "none"]
     ambiguous_records: int
+    alignment: Literal["coalition", "opposition", "external_support", "unknown"] | None = None  # on the vote date
 
 
 class VoteDetail(VoteSummary):
@@ -144,9 +160,11 @@ VOTE_SELECT = f"""
            coalesce(k.motion_type, v.motion_type) AS motion_type, coalesce(k.stage, v.stage) AS stage, v.method, v.status,
            coalesce((SELECT json_agg(json_build_object('id', b.knesset_bill_id, 'title_he', b.title_he) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
-           c.*
+           c.*, vb.coalition_for, vb.coalition_against, vb.coalition_abstain, vb.opposition_for, vb.opposition_against,
+           vb.opposition_abstain, vb.contested
     FROM vote v
     LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+    LEFT JOIN vote_bloc vb ON vb.vote_id = v.id
     CROSS JOIN LATERAL (SELECT {COUNT_COLUMNS} FROM ballot b WHERE b.vote_id = v.id) c"""
 
 
@@ -170,4 +188,12 @@ def vote_summary(r: dict) -> VoteSummary:
     return VoteSummary(id=r["id"], occurred_on=r["occurred_on"], occurred_at=r["occurred_at"], term=r["term_number"],
                        title_he=r["title_he"], subject_he=r["subject_he"], question_he=r["for_option_he"],
                        motion_type=r["motion_type"], stage=r["stage"], method=r["method"], status=r["status"],
-                       bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), source_url=VOTE_CARD.format(r["id"]))
+                       bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), blocs=blocs(r), source_url=VOTE_CARD.format(r["id"]))
+
+
+def blocs(r: dict) -> Blocs | None:
+    if r.get("contested") is None:
+        return None
+    return Blocs(coalition=BlocCounts(for_=r["coalition_for"], against=r["coalition_against"], abstain=r["coalition_abstain"]),
+                 opposition=BlocCounts(for_=r["opposition_for"], against=r["opposition_against"], abstain=r["opposition_abstain"]),
+                 contested=r["contested"])

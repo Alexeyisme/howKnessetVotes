@@ -49,11 +49,15 @@ def create_app(database_url: str | None = None) -> FastAPI:
         person: Annotated[list[int] | None, Query(description="Knesset person ID: votes with a roll-call record of the person")] = None,
         q: Annotated[str | None, Query(min_length=2, description="Substring of the Hebrew title")] = None,
         topic: Annotated[list[str] | None, Query(description="Topic slug (rule-based, inherited from the bill)")] = None,
+        contested: Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")] = False,
+        min_cast: Annotated[int | None, Query(ge=0, le=120, description="at least this many for/against/abstain records")] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
     ):
         filters = {k: v for k, v in dict(date_from=date_from, date_to=date_to, stage=stage, motion_type=motion_type, bill=bill,
-                                         faction=faction, person=person, q=q, topic=topic).items() if v is not None}
+                                         faction=faction, person=person, q=q, topic=topic, min_cast=min_cast).items() if v is not None}
+        if contested:
+            filters["contested"] = True
         where, params = ["true"], {}
         if date_from:
             where.append("v.occurred_on >= %(date_from)s"); params["date_from"] = date_from
@@ -78,6 +82,10 @@ def create_app(database_url: str | None = None) -> FastAPI:
             where.append("""EXISTS (SELECT 1 FROM vote_subject s JOIN bill_topic bt ON bt.bill_id = s.bill_id JOIN topic t ON t.id = bt.topic_id
                                     WHERE s.vote_id = v.id AND t.slug = ANY(%(topic)s) AND bt.review_state <> 'rejected')""")
             params["topic"] = topic
+        if contested:
+            where.append("vb.contested")
+        if min_cast is not None:
+            where.append("c.n_for + c.n_against + c.n_abstain >= %(min_cast)s"); params["min_cast"] = min_cast
         if cursor:
             try:
                 c_on, c_id = json.loads(base64.urlsafe_b64decode(cursor))
@@ -105,9 +113,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
         official = OfficialTotals(for_=off["for_count"], against=off["against_count"], abstain=off["abstain_count"],
                                   is_accepted=off["is_accepted"], source=off["source"]) if off else None
         factions = conn.execute(
-            f"""SELECT f.knesset_faction_id, f.name_he, fl.name AS name_ru, {COUNT_COLUMNS}, count(*) FILTER (WHERE b.faction_ambiguous) AS ambiguous
+            f"""SELECT f.knesset_faction_id, f.name_he, a.role AS alignment, {COUNT_COLUMNS}, count(*) FILTER (WHERE b.faction_ambiguous) AS ambiguous
                 FROM ballot b JOIN vote v ON v.id = b.vote_id JOIN faction f ON f.id = b.faction_id
-                LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
+                LEFT JOIN faction_alignment a ON a.faction_id = f.id AND a.valid @> v.occurred_on
                 WHERE v.knesset_vote_id = %s GROUP BY 1, 2, 3 ORDER BY count(*) DESC, 2""", (vote_id,)).fetchall()
         unresolved = conn.execute(
             "SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = %s AND b.faction_id IS NULL",
@@ -127,7 +135,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
                     """SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id
                        WHERE v.knesset_vote_id = %s AND b.counted_in_official_total IS FALSE""", (vote_id,)).fetchone()["n"],
                 by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), counts=counts(f),
-                                             majority=majority(counts(f)), ambiguous_records=f["ambiguous"]) for f in factions],
+                                             majority=majority(counts(f)), ambiguous_records=f["ambiguous"],
+                                             alignment=f["alignment"]) for f in factions],
                 unresolved_faction_records=unresolved,
             ),
             "meta": Meta(filters={"id": vote_id}, note=COUNTS_NOTE),

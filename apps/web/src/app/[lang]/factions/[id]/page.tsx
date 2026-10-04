@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
-import { He, NextPage, PersonName, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
+import { AlignmentBadge, He, NextPage, PersonName, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
 import { getFaction, getFactionVotes, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
@@ -43,6 +43,12 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
         {full !== faction.name_he ? <h1>{full}</h1> : <He as="h1">{faction.name_he}</He>}
         {english && <p className="muted">{faction.name_en}</p>}
         {full !== faction.name_he && <He as="p">{faction.name_he}</He>}
+        {faction.parties.length > 0 && (
+          <p className="small" style={{ marginTop: 6 }}>{d.party}{" "}
+            {faction.parties.map((p, n) => <span key={p.slug}>{n > 0 && " + "}<Link href={`/parties/${p.slug}`}>{t.party(p)}</Link></span>)}
+            {" "}<span className="muted">({d.allKnessets.replace(" →", "").replace(" ←", "")})</span>
+          </p>
+        )}
       </header>
 
       <Stats>
@@ -50,6 +56,25 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
         <RateStat label={d.cohesion} rate={faction.stats.cohesion} unit={d.cohesionUnit} />
         <RateStat label={d.unanimous} rate={faction.stats.unanimous_votes} unit={d.unanimousUnit} />
       </Stats>
+
+      {faction.alignment.some((a) => a.role !== "unknown") && (
+        <section className="card">
+          <h2 className="section-title">{d.coalitionTitle}</h2>
+          <table>
+            <tbody>
+              {faction.alignment.filter((a) => a.role !== "unknown").map((a) => (
+                <tr key={`${a.government}-${a.valid_from}`}>
+                  <td><AlignmentBadge role={a.role} /></td>
+                  <td className="small">{d.government(a.government)}</td>
+                  <td className="small">{t.period(a.valid_from, a.valid_to)}</td>
+                  <td className="small muted">{a.origin === "curated" && <span title={a.evidence}>{d.curated}</span>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="small muted" style={{ marginTop: 8 }}>{t.d.blocs.note}</p>
+        </section>
+      )}
 
       <section className="card">
         <h2 className="section-title">{d.members(faction.members_ever)}</h2>

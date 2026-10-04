@@ -148,6 +148,12 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
       {hasRollCall && (
         <section className="card" aria-labelledby="fx">
           <h2 id="fx" className="section-title">{d.byFaction}</h2>
+          {vote.blocs && (
+            <p className="small" style={{ marginBottom: 10 }}>
+              {vote.blocs.contested && <><strong>{t.d.blocs.contested}.</strong> </>}
+              <span className="num">{t.d.blocs.line(vote.blocs.coalition, vote.blocs.opposition)}</span>
+            </p>
+          )}
           <Legend />
           <FactionBreakdown rows={vote.by_faction} ballots={ballots} />
           {vote.unresolved_faction_records > 0 && (

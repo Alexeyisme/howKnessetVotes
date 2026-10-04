@@ -39,6 +39,7 @@ export function makeT(locale: Locale) {
       const [name, short] = locale === "ru" ? [f.name_ru, f.short_ru] : locale === "en" ? [f.name_en, f.short_en] : [null, f.short_he];
       return (full ? name ?? short : short ?? name) ?? f.name_he;
     },
+    party: (p: { name_he: string; name_ru: string; name_en: string }) => (locale === "ru" ? p.name_ru : locale === "en" ? p.name_en : p.name_he),
     topic: (x: { label_ru: string; label_he: string; label_en?: string | null }) =>
       locale === "ru" ? x.label_ru : locale === "en" ? x.label_en ?? x.label_ru : x.label_he,
     ballot: (choice: "for" | "against" | "abstain" | null, participation: string) =>

@@ -64,7 +64,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
               <Link href="/topics">{d.nav.topics}</Link>
               <Link href="/bills">{d.nav.bills}</Link>
               <Link href="/members">{d.nav.members}</Link>
-              <Link href="/factions">{d.nav.factions}</Link>
+              <Link href="/parties">{d.nav.factions}</Link>
             </nav>
             <form action={t.href("/search")} className="header-search" role="search">
               <input name="q" placeholder={d.nav.searchPh} aria-label={d.nav.searchLabel} dir="auto" />

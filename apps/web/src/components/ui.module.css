@@ -26,3 +26,7 @@
   .voteLine { flex-direction: column; align-items: stretch; gap: 6px; }
   .voteSide { justify-items: start; text-align: start; }
 }
+
+.align { display: inline-block; border: 1px solid var(--border); border-radius: 999px; padding: 0 8px; font-size: 0.75rem; color: var(--ink-2); white-space: nowrap; vertical-align: 1px; }
+.align_coalition { border-color: var(--ink-2); color: var(--ink); font-weight: 600; }
+.align_unknown { border-style: dashed; }

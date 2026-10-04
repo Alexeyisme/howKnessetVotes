@@ -15,7 +15,8 @@ from importlib.metadata import version
 import psycopg
 
 from hkv.ingest.loader import Loader
-from hkv.names import LiveSources, NameSources, sync_factions, sync_members
+from hkv.coalition import derive as derive_coalitions, load_positions as load_gov_positions
+from hkv.names import LiveSources, NameSources, sync_factions, sync_members, sync_parties
 from hkv.sources.odata import ODataClient, PageSource
 from hkv.topics import sync as sync_topics
 from hkv.topics.official import load as load_official
@@ -32,6 +33,7 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     if reference:
         log.info("reference data")
         loader.load_reference()
+        load_gov_positions(conn, v4)
     log.info("votes %s..%s", date_from, today)
     ids = loader.load_votes(date_from, today, label=f"update {date_from}..{today}")
     loader.resolve_affiliations(ids)
@@ -59,6 +61,8 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
         except Exception:  # a name source being down must not fail the vote update
             log.exception("member names failed; votes are loaded")
     sync_factions(conn)
+    sync_parties(conn)
+    derive_coalitions(conn)  # memberships and posts may have changed
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")
     log.info("done: %d votes in window, release %s", len(ids), summary["id"])
     return {"votes": len(ids), "release": str(summary["id"])}

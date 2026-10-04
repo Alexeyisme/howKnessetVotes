@@ -9,6 +9,7 @@ import styles from "./list.module.css";
 // (most of the rows) are one click away under "all votes".
 const FILTERS: { key: string; params: Record<string, string | string[]> }[] = [
   { key: "main", params: { motion_type: MAIN_MOTIONS } },
+  { key: "contested", params: { stage: "third", motion_type: "adopt_bill", contested: "true", min_cast: "60" } },
   { key: "final", params: { stage: "third", motion_type: "adopt_bill" } },
   { key: "first", params: { stage: "first", motion_type: "adopt_bill" } },
   { key: "preliminary", params: { stage: "preliminary", motion_type: "adopt_bill" } },
@@ -46,6 +47,7 @@ export default async function VotesPage({ searchParams }: PageProps<"/[lang]/vot
               <span className="small num">
                 {v.roll_call.total_records > 0 ? t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain) : missingRollCallText(v.method, t)}
               </span>
+              {view.key === "contested" && v.blocs && <span className="small muted num">{t.d.blocs.line(v.blocs.coalition, v.blocs.opposition)}</span>}
             </Link>
           </li>
         ))}

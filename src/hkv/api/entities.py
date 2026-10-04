@@ -85,6 +85,20 @@ class MemberVote(BaseModel):
     deviates: bool | None  # None when there is no comparable faction majority
 
 
+class PartyRef(BaseModel):
+    slug: str
+    name_he: str
+    name_ru: str
+    name_en: str
+
+
+class AlignmentOut(Interval):
+    government: int
+    role: Literal["coalition", "opposition", "external_support", "unknown"]
+    origin: Literal["derived", "curated"]
+    evidence: str
+
+
 class FactionSummary(FactionNames):
     id: int
     name_he: str
@@ -92,6 +106,9 @@ class FactionSummary(FactionNames):
     valid: Interval
     members_ever: int
     roll_call_records: int
+    parties: list[PartyRef] = []
+    # role on the faction's last day (today for a current faction); None before a government was formed
+    alignment_last: Literal["coalition", "opposition", "external_support", "unknown"] | None = None
 
 
 class FactionStats(BaseModel):
@@ -109,6 +126,24 @@ class FactionMember(MembershipOut, PersonNames):
 class FactionDetail(FactionSummary):
     members: list[FactionMember]
     stats: FactionStats
+    alignment: list[AlignmentOut]
+
+
+class PartySummary(PartyRef):
+    terms: list[int]
+    factions: list[FactionSummary]   # per Knesset, oldest first (joint lists included)
+
+
+class Government(BaseModel):
+    number: int
+    term: int | None
+    valid: Interval
+    prime_minister: "GovernmentPerson | None"
+
+
+class GovernmentPerson(PersonNames):
+    id: int
+    name_he: str
 
 
 class FactionVote(BaseModel):
@@ -360,13 +395,18 @@ FACTION_SELECT = """
     SELECT f.id AS pk, f.knesset_faction_id AS id, f.name_he, f.term_number AS term, lower(f.valid) AS valid_from, upper(f.valid) AS valid_to,
            (SELECT fl.name FROM faction_label fl WHERE fl.faction_id = f.id AND fl.language = 'ru') AS name_ru,
            (SELECT count(DISTINCT fm.person_id) FROM faction_membership fm WHERE fm.faction_id = f.id) AS members_ever,
-           (SELECT count(*) FROM ballot b WHERE b.faction_id = f.id) AS records
+           (SELECT count(*) FROM ballot b WHERE b.faction_id = f.id) AS records,
+           (SELECT coalesce(json_agg(json_build_object('slug', p.slug, 'name_he', p.name_he, 'name_ru', p.name_ru, 'name_en', p.name_en) ORDER BY p.sort), '[]')
+              FROM party_faction pf JOIN party p ON p.slug = pf.party_slug WHERE pf.faction_id = f.id) AS parties,
+           (SELECT a.role FROM faction_alignment a WHERE a.faction_id = f.id
+              AND a.valid @> least(coalesce(upper(f.valid) - 1, current_date), current_date)) AS alignment_last
     FROM faction f"""
 
 
 def faction_summary(r: dict) -> FactionSummary:
     return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
-                          members_ever=r["members_ever"], roll_call_records=r["records"])
+                          members_ever=r["members_ever"], roll_call_records=r["records"],
+                          parties=[PartyRef(**p) for p in r["parties"]], alignment_last=r["alignment_last"])
 
 
 @router.get("/factions", response_model=Page[FactionSummary])
@@ -411,6 +451,9 @@ def get_faction(faction_id: int, conn: Conn):
                                    valid_from=m["valid_from"], valid_to=m["valid_to"]) for m in members],
             stats=FactionStats(votes_with_members=s["votes"], cohesion=rate(s["with_plurality"], s["cast_total"]),
                                unanimous_votes=rate(s["unanimous"], s["multi"])),
+            alignment=[AlignmentOut(**a) for a in conn.execute(
+                """SELECT government_number AS government, role, origin, evidence, lower(valid) AS valid_from, upper(valid) AS valid_to
+                   FROM faction_alignment WHERE faction_id = %s ORDER BY lower(valid)""", (r["pk"],))],
         ),
         "meta": Meta(filters={"id": faction_id}, note=(
             "cohesion = members casting the faction's most common choice / members casting, summed over votes. "
@@ -518,3 +561,49 @@ def get_bill(bill_id: int, conn: Conn):
     return {"data": BillDetail(**bill_summary(r).model_dump(), topics=topics, summary_he=r["summary_he"], published_on=r["published_on"],
                                initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline]),
             "meta": Meta(filters={"id": bill_id})}
+
+
+# -- parties and governments --------------------------------------------------------------------------
+
+@router.get("/parties", response_model=Page[PartySummary])
+@with_names
+def list_parties(conn: Conn):
+    """Parties across Knessets (curated): each with its per-term factions, joint lists included."""
+    return {"data": [party_summary(conn, p) for p in conn.execute("SELECT * FROM party ORDER BY sort")],
+            "meta": Meta(filters={}, note=PARTY_NOTE)}
+
+
+@router.get("/parties/{slug}", response_model=One[PartySummary])
+@with_names
+def get_party(slug: str, conn: Conn):
+    p = conn.execute("SELECT * FROM party WHERE slug = %s", (slug,)).fetchone()
+    if p is None:
+        raise HTTPException(404, "party not found")
+    return {"data": party_summary(conn, p), "meta": Meta(filters={"slug": slug}, note=PARTY_NOTE)}
+
+
+PARTY_NOTE = ("A party links the factions it sat as in each Knesset (curated). A joint list belongs to every member party, "
+              "so its votes appear under each of them. Only factions with roll-call records are listed.")
+
+
+def party_summary(conn, p: dict) -> PartySummary:
+    rows = conn.execute(
+        f"""{FACTION_SELECT} WHERE EXISTS (SELECT 1 FROM party_faction pf WHERE pf.faction_id = f.id AND pf.party_slug = %s)
+              AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id) ORDER BY lower(f.valid), f.knesset_faction_id""", (p["slug"],)).fetchall()
+    factions = [faction_summary(r) for r in rows]
+    return PartySummary(slug=p["slug"], name_he=p["name_he"], name_ru=p["name_ru"], name_en=p["name_en"],
+                        terms=sorted({f.term for f in factions}), factions=factions)
+
+
+@router.get("/governments", response_model=Page[Government])
+@with_names
+def list_governments(conn: Conn):
+    """Governments (derived from official government posts), newest first."""
+    rows = conn.execute(
+        """SELECT g.number, g.term_number, lower(g.valid) AS valid_from, upper(g.valid) AS valid_to, p.knesset_person_id,
+                  p.first_name_he || ' ' || p.last_name_he AS pm_he
+           FROM government g LEFT JOIN person p ON p.id = g.prime_minister_person_id ORDER BY g.number DESC""").fetchall()
+    return {"data": [Government(number=r["number"], term=r["term_number"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
+                                prime_minister=GovernmentPerson(id=r["knesset_person_id"], name_he=r["pm_he"]) if r["knesset_person_id"] else None)
+                     for r in rows],
+            "meta": Meta(filters={}, note="Derived from KNS_PersonToPosition: a government runs from its first post to the next government's first post.")}
