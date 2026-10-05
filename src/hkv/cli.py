@@ -44,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     up = sub.add_parser("update", help="daily incremental update: reference data + trailing window of votes")
     up.add_argument("--days", type=int, default=30, help="re-read votes of the last N days (catches corrections)")
     up.add_argument("--skip-reference", action="store_true")
+    up.add_argument("--quick", action="store_true",
+                    help="no reference data, and stop right after the votes if nothing new was found (10-minute runs)")
     up.add_argument("--log", type=Path, default=Path("logs/update.log"), help="log file, or - for stderr")
     up.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     ini = sub.add_parser("initiators", help="load KNS_BillInitiator for all bills in the database")
@@ -127,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
             args.log.parent.mkdir(parents=True, exist_ok=True)
             logging.basicConfig(filename=args.log, level=logging.INFO, format=fmt)
         with psycopg.connect(args.db) as conn:
-            print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference))
+            print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference, quick=args.quick))
         return 0
     if args.cmd == "legacy":
         import logging

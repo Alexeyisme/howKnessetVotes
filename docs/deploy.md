@@ -38,7 +38,10 @@ A deploy does not wait for CI; check the GitHub Actions run first (`gh run list 
 | Timer | When (Asia/Jerusalem) | What |
 |---|---|---|
 | `hkv-update.timer` | daily 05:30; Mon–Wed 14:15–22:15 every 2 h; Tue–Thu 00:15 and 02:15 | `hkv update --days 30` in the `updater` container: reference data, the last 30 days of votes, topics, a `data_release` row |
+| `hkv-update-quick.timer` | every 10 min, Mon–Wed 11:00–23:50 and Tue–Thu 00:00–02:50 | `hkv update --quick --days 1`: today's and yesterday's votes only, no reference data; if no vote, ballot or correction is new it stops (a few seconds), otherwise topics, names, coalition blocs, title translations and a release. A shared lock (`flock /run/lock/hkv-update.lock`) keeps it from overlapping the full update: the quick run is skipped, the full one waits. No failure alert (it would repeat every 10 minutes); the full update alerts |
 | `hkv-backup.timer` | daily 04:30 | `pg_dump -Fc` to `/srv/hkv/backups`, keeping the last 14 (Hetzner server backups copy them off the server daily, 7 kept) |
+
+Installing or changing units (as root): `cp /srv/hkv/infra/systemd/hkv-* /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now hkv-update.timer hkv-update-quick.timer hkv-backup.timer`.
 
 ```sh
 systemctl list-timers 'hkv-*'

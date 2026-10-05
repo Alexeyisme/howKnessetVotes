@@ -8,5 +8,6 @@ OnFailure=hkv-alert@%n.service
 Type=oneshot
 User=deploy
 WorkingDirectory=/srv/hkv
-ExecStart=/srv/hkv/scripts/prod.sh run --rm updater
+# the lock keeps it from overlapping a quick run (hkv-update-quick): it waits for one to finish
+ExecStart=/usr/bin/flock /run/lock/hkv-update.lock /srv/hkv/scripts/prod.sh run --rm updater
 TimeoutStartSec=2h

@@ -1,0 +1,11 @@
+[Unit]
+Description=hkv: quick vote check every 10 minutes during plenum sittings
+
+[Timer]
+# sittings run Mon-Wed from late morning, often past midnight; the full update (hkv-update.timer) keeps its schedule
+OnCalendar=Mon..Wed *-*-* 11..23:00/10
+OnCalendar=Tue..Thu *-*-* 00..02:00/10
+AccuracySec=1min
+
+[Install]
+WantedBy=timers.target

@@ -3,6 +3,10 @@
 Re-reads a trailing window of days rather than trusting LastUpdatedDate: date/LastUpdatedDate
 filters on KNS_PlenumVoteResult time out server-side (docs/audit/source-audit.md), and a window
 also picks up retroactive corrections, which land in row_revision.
+
+Quick mode (every 10 minutes during sittings, hkv-update-quick.timer): votes of the last day only, no reference
+data; if no vote, ballot or revision was added, it stops there (a few seconds, one OData query). Otherwise it runs
+the same follow-up as a full update: topics, names of new MKs, coalition blocs, title translations, a release.
 """
 
 from __future__ import annotations
@@ -26,17 +30,27 @@ log = logging.getLogger("hkv.update")
 METRIC_VERSION = "1"
 
 
+def _fingerprint(conn: psycopg.Connection) -> tuple:
+    """Changes when a vote or ballot is added or a source correction is recorded."""
+    return conn.execute("""SELECT (SELECT count(*) FROM vote), (SELECT count(*) FROM ballot),
+                                  (SELECT coalesce(max(id), 0) FROM row_revision)""").fetchone()
+
+
 def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: dt.date | None = None,
-           reference: bool = True, names: NameSources | None = None) -> dict:
+           reference: bool = True, names: NameSources | None = None, quick: bool = False) -> dict:
     today = today or dt.date.today()
     date_from = today - dt.timedelta(days=days)
     loader = Loader(conn, v4)
-    if reference:
+    before = _fingerprint(conn)
+    if reference and not quick:
         log.info("reference data")
         loader.load_reference()
         load_gov_positions(conn, v4)
     log.info("votes %s..%s", date_from, today)
     ids = loader.load_votes(date_from, today, label=f"update {date_from}..{today}")
+    if quick and _fingerprint(conn) == before:
+        log.info("quick: nothing new in %s..%s (%d votes in window)", date_from, today, len(ids))
+        return {"votes": len(ids), "changed": False}
     loader.resolve_affiliations(ids)
     # memberships may have been corrected retroactively: retry ballots that had no faction anywhere
     stale = [r[0] for r in conn.execute(
@@ -74,7 +88,7 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
             log.exception("title translation failed; votes are loaded")
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")
     log.info("done: %d votes in window, release %s", len(ids), summary["id"])
-    return {"votes": len(ids), "release": str(summary["id"])}
+    return {"votes": len(ids), "changed": True, "release": str(summary["id"])}
 
 
 def release(conn: psycopg.Connection, note: str) -> dict:

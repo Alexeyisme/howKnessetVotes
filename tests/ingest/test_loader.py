@@ -200,3 +200,10 @@ def test_update_rereads_window_and_records_release(new_database):
     assert one(url, "SELECT choice FROM ballot WHERE knesset_ballot_id = %s", row["Id"]) == ("against",)
     assert one(url, "SELECT count(*) FROM row_revision") == (1,)
     assert one(url, "SELECT coverage->>'votes', coverage->>'last_vote_on' FROM data_release") == ("3", "2026-07-28")
+    # quick run with nothing new: stops after the votes, no release; a new correction makes it run the follow-up
+    with psycopg.connect(url) as conn:
+        assert update(conn, FixtureSource(data), days=5, today=dt.date(2026, 7, 30), quick=True) == {"votes": 2, "changed": False}
+        assert one(url, "SELECT count(*) FROM data_release") == (1,)
+        row.update(ResultCode=7, ResultDesc="בעד")
+        assert update(conn, FixtureSource(data), days=5, today=dt.date(2026, 7, 30), quick=True)["changed"] is True
+    assert one(url, "SELECT count(*) FROM data_release") == (2,)

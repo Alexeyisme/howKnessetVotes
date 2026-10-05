@@ -1,0 +1,13 @@
+[Unit]
+Description=hkv: quick check for new Knesset votes (last day only; full follow-up only if something is new)
+After=docker.service
+Requires=docker.service
+# no OnFailure alert: a source hiccup would alert every 10 minutes; the full update (hkv-update) still alerts
+
+[Service]
+Type=oneshot
+User=deploy
+WorkingDirectory=/srv/hkv
+# -n -E 0: if a full update holds the lock, skip this run quietly
+ExecStart=/usr/bin/flock -n -E 0 /run/lock/hkv-update.lock /srv/hkv/scripts/prod.sh run --rm updater hkv update --quick --days 1 --log -
+TimeoutStartSec=30min
