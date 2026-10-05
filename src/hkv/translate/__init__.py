@@ -26,8 +26,11 @@ log = logging.getLogger(__name__)
 
 LANGUAGES = ("en", "ru", "ar")
 BATCH = 20
-# Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it
+# Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it.
+# Arabic gets Sonnet: in a 30-title comparison (2026-10-05) Haiku mistranslated legal terms (התיישנות, מסגרות תקציב)
+# and translated a person's name; Sonnet did not. HKV_TRANSLATE_MODEL_<LANG> overrides per language.
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
+LANGUAGE_MODELS = {"ar": "claude-sonnet-5"}
 
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
@@ -44,7 +47,18 @@ GLOSSARY = {
            ("תקנות", "Правила"), ("הצעת אי-אמון", "вотум недоверия"), ("התשפ\"ו-2026", "2026")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
-           ("תקנות", "أنظمة"), ("הצעת אי-אמון", "اقتراح حجب الثقة"), ("התשפ\"ו-2026", "2026")],
+           ("תקנות", "أنظمة"), ("הצעת אי-אמון", "اقتراح حجب الثقة"), ("התשפ\"ו-2026", "2026"),
+           # from the 2026-10-05 sample: terms the models got wrong or inconsistent with the site's Arabic UI
+           ("יישוב / יישובים (towns, villages; NOT settlements)", "بلدة / بلدات"), ("התנחלות / התנחלויות (West Bank settlements)", "مستوطنة / مستوطنات"),
+           ("תקציב", "ميزانية"), ("התיישנות", "التقادم"), ("העברת הצעת חוק (to a committee)", "إحالة اقتراح قانون"),
+           ("סעיף (of a law or the Knesset rules)", "المادة"), ("תקנון הכנסת", "النظام الداخلي للكنيست"),
+           ("הסתייגות", "تحفظ"), ("הצעה לסדר היום", "اقتراح لجدول الأعمال"), ("מליאה", "الهيئة العامة"),
+           ("ועדת הכנסת", "لجنة الكنيست"), ("ועדת הכספים", "لجنة المالية"), ("ועדת החוקה, חוק ומשפט", "لجنة الدستور والقانون والقضاء"),
+           ("הוועדה המסדרת", "اللجنة المنظمة"), ("בג\"ץ", "المحكمة العليا"), ("בתי דין רבניים", "المحاكم الحاخامية"),
+           ("חרבות ברזל", "السيوف الحديدية"), ("ביטוח לאומי", "التأمين الوطني"), ("מועצה אזורית", "مجلس إقليمي"),
+           ("חד\"ש", "الجبهة"), ("בל\"ד", "التجمع"), ("רע\"ם", "الموحدة"), ("תע\"ל", "العربية للتغيير"),
+           ("הרשימה המשותפת", "القائمة المشتركة"), ("ש\"ס", "شاس"), ("הליכוד", "الليكود"), ("יש עתיד", "يش عتيد"),
+           ("יהדות התורה", "يهدوت هتوراه"), ("ישראל ביתנו", "يسرائيل بيتينو"), ("כחול לבן", "أزرق أبيض")],
 }
 
 
@@ -81,8 +95,21 @@ def system_prompt(lang: str) -> str:
         f"titles in {name}. Keep every number, amendment number and year exactly; drop the Hebrew calendar year and "
         f"keep only the Gregorian one; keep parentheses and their order; do not add, explain or editorialise; do not "
         f"transliterate Hebrew words that have a standard {name} equivalent. Use this glossary consistently:\n{glossary}\n"
+        f"{LANGUAGE_NOTES.get(lang, '')}"
         f"Return only the translations, one per input, in the same order."
     )
+
+
+LANGUAGE_NOTES = {
+    "ar": ("Write Modern Standard Arabic as used on the Knesset website's Arabic pages and in Israeli Arabic-language "
+           "media. Names of people are transliterated, never translated (ישראל as a first name is يسرائيل); party "
+           "abbreviations become the Arabic party names in the glossary, not transliterations. "),
+}
+
+
+def model_for(lang: str) -> str:
+    return (os.environ.get(f"HKV_TRANSLATE_MODEL_{lang.upper()}") or LANGUAGE_MODELS.get(lang)
+            or os.environ.get("HKV_TRANSLATE_MODEL") or DEFAULT_MODEL)
 
 
 class ClaudeTranslator:
@@ -92,12 +119,16 @@ class ClaudeTranslator:
         import anthropic  # imported here so the API and tests do not need the package
 
         self.client = anthropic.Anthropic()
+        self.fixed_model = model  # None: per language (model_for)
         self.model = model or os.environ.get("HKV_TRANSLATE_MODEL", DEFAULT_MODEL)
+
+    def model_for(self, lang: str) -> str:
+        return self.fixed_model or model_for(lang)
 
     def translate(self, titles: Sequence[str], lang: str) -> list[str]:
         payload = json.dumps([{"n": i + 1, "he": t} for i, t in enumerate(titles)], ensure_ascii=False)
         response = self.client.messages.create(
-            model=self.model,
+            model=self.model_for(lang),
             max_tokens=16000,
             system=[{"type": "text", "text": system_prompt(lang), "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": f"Translate these {len(titles)} titles:\n{payload}"}],
@@ -135,9 +166,11 @@ def _is_hebrew_year(source: str, digits: str) -> bool:
     return False
 
 
-def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry_failed: bool = False) -> list[tuple[str, str]]:
+def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry_failed: bool = False,
+            since: str | None = None) -> list[tuple[str, str]]:
     """(sha, hebrew) of distinct bill and vote titles without a translation in `lang`, most recently voted first.
-    Titles with an open failed-check issue in `lang` are left out unless `retry_failed`."""
+    Titles with an open failed-check issue in `lang` are left out unless `retry_failed`; `since` (ISO date) keeps
+    titles last voted on or after that date."""
     rows = conn.execute(
         """WITH src AS (
                SELECT b.title_he AS t, max(v.occurred_on) AS last FROM bill b
@@ -147,10 +180,11 @@ def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry
            SELECT t, title_sha(t) AS h FROM src
            WHERE t IS NOT NULL AND t <> ''
            GROUP BY t HAVING NOT EXISTS (SELECT 1 FROM text_translation x WHERE x.source_sha256 = title_sha(t) AND x.language = %(lang)s)
+              AND (%(since)s::date IS NULL OR max(last) >= %(since)s::date)
               AND (%(retry)s OR NOT EXISTS (SELECT 1 FROM data_issue i WHERE i.issue_type = 'translation_check_failed' AND i.status = 'open'
                                             AND i.external_ref = title_sha(t) AND i.details->>'language' = %(lang)s))
            ORDER BY max(last) DESC NULLS LAST""" + (" LIMIT %(limit)s" if limit else ""),
-        {"lang": lang, "retry": retry_failed, "limit": limit}).fetchall()
+        {"lang": lang, "retry": retry_failed, "limit": limit, "since": since}).fetchall()
     return [(r[1], r[0]) for r in rows]
 
 
@@ -169,20 +203,21 @@ def _translate_batch(translator: Translator, batch: list[tuple[str, str]], lang:
 
 
 def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] = LANGUAGES, limit: int | None = None,
-         retry_failed: bool = False) -> dict:
+         retry_failed: bool = False, since: str | None = None) -> dict:
     """Translate what is missing, store what passes the checks, log the rest as data_issue rows (one open issue per
     title and language; it is resolved once the title gets a translation)."""
     counts: dict[str, int] = {}
     for lang in langs:
         _resolve_translated(conn, lang)
-        todo = pending(conn, lang, limit, retry_failed)
+        todo = pending(conn, lang, limit, retry_failed, since)
+        model = getattr(translator, "model_for", lambda _: translator.model)(lang)
         stored = failed = 0
         for i in range(0, len(todo), BATCH):
             for h, source, target in _translate_batch(translator, todo[i:i + BATCH], lang):
                 why = check(source, target)
                 if why:
                     failed += 1
-                    details = json.dumps({"language": lang, "reason": why, "source": source, "target": target, "model": translator.model})
+                    details = json.dumps({"language": lang, "reason": why, "source": source, "target": target, "model": model})
                     if not conn.execute(
                             """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
                                AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
@@ -192,7 +227,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
                     continue
                 conn.execute(
                     """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
-                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), translator.model))
+                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
                 stored += 1
             _resolve_translated(conn, lang)
             conn.commit()

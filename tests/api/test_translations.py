@@ -81,6 +81,20 @@ class OneTooMany(StubTranslator):
         return out
 
 
+def test_model_per_language(monkeypatch):
+    from hkv.translate import model_for
+    monkeypatch.delenv("HKV_TRANSLATE_MODEL", raising=False)
+    assert model_for("ar") == "claude-sonnet-5" and model_for("en") == "claude-haiku-4-5-20251001"
+    monkeypatch.setenv("HKV_TRANSLATE_MODEL_AR", "x")
+    assert model_for("ar") == "x"
+
+
+def test_since_keeps_recent_titles(url):
+    with psycopg.connect(url) as conn:
+        assert len(pending(conn, "ar", since="2100-01-01")) == 0
+        assert 0 < len(pending(conn, "ar", since="2026-07-01")) <= len(pending(conn, "ar"))
+
+
 def test_failed_batch_is_retried_title_by_title(url):
     with psycopg.connect(url) as conn:
         todo = len(pending(conn, "ar"))
