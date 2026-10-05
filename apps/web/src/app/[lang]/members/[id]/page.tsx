@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { ChoiceMark, FactionName, He, NextPage, RateStat, Stat, Stats, Tabs, VoteLine, VoteList, withParams } from "@/components/ui";
-import { getMember, getMemberVotes, NotFound } from "@/lib/api";
+import { getMember, getMemberVotes, listTopics, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
 import styles from "./member.module.css";
 
@@ -33,8 +33,10 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
   const sp = await searchParams;
   const tab = TABS.find((x) => x === sp.tab) ?? (sp.deviated === "1" ? "deviated" : "final");
   const cursor = typeof sp.cursor === "string" ? sp.cursor : undefined;
+  const topic = typeof sp.topic === "string" && sp.topic ? sp.topic : undefined;
   const filter = tab === "final" ? { stage: "third", motion_type: "adopt_bill" } : tab === "deviated" ? { deviated: "true" } : {};
-  const votes = await getMemberVotes(id, { ...filter, cursor, limit: "30" });
+  const [votes, topics] = await Promise.all([getMemberVotes(id, { ...filter, topic, cursor, limit: "30" }), listTopics()]);
+  const tabParam = tab === "final" ? undefined : tab;
   const s = member.stats;
   const base = `/members/${id}`;
   const name = t.person(member);
@@ -76,10 +78,19 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
       <section>
         <h2 className="section-title">{d.votes}</h2>
         <Tabs items={[
-          { href: base, label: d.tabFinal, current: tab === "final" },
-          { href: withParams(base, { tab: "all" }), label: d.tabAll, current: tab === "all" },
-          { href: withParams(base, { tab: "deviated" }), label: d.tabDeviated, current: tab === "deviated" },
+          { href: withParams(base, { topic }), label: d.tabFinal, current: tab === "final" },
+          { href: withParams(base, { tab: "all", topic }), label: d.tabAll, current: tab === "all" },
+          { href: withParams(base, { tab: "deviated", topic }), label: `${d.tabDeviated} · ${s.deviation_from_faction.numerator}`, current: tab === "deviated" },
         ]} />
+        {/* R7: a topic filter — "how did my MK vote on housing" — as a plain GET form, so the URL is shareable */}
+        <form className="search" action={t.href(base)}>
+          {tabParam && <input type="hidden" name="tab" value={tabParam} />}
+          <select name="topic" defaultValue={topic ?? ""} aria-label={d.topicFilter}>
+            <option value="">{d.topicFilter}: {t.d.common.all}</option>
+            {topics.data.map((x) => <option key={x.slug} value={x.slug}>{t.topic(x)}</option>)}
+          </select>
+          <button type="submit">{t.d.common.show}</button>
+        </form>
         {tab === "final" && <p className="small muted" style={{ marginBottom: 8 }}>{d.finalHint}</p>}
         <VoteList>
           {votes.data.map((v) => (
@@ -92,14 +103,16 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
           ))}
         </VoteList>
         {votes.data.length === 0 && <p className="muted">{d.noVotes}</p>}
-        <NextPage href={votes.next_cursor ? withParams(base, { tab: tab === "final" ? undefined : tab, cursor: votes.next_cursor }) : null} />
+        <NextPage href={votes.next_cursor ? withParams(base, { tab: tabParam, topic, cursor: votes.next_cursor }) : null} />
       </section>
 
       <Stats>
-        <RateStat label={d.participation} rate={s.participation} unit={d.participationUnit} />
+        <RateStat label={d.withCoalition} rate={s.with_coalition} unit={d.withCoalitionUnit} />
         <RateStat label={d.deviation} rate={s.deviation_from_faction} unit={d.deviationUnit} />
+        <RateStat label={d.participation} rate={s.participation} unit={d.participationUnit} />
         <Stat label={d.bills} value={s.bills_initiated} detail={d.billsDetail(s.bills_joined)} />
       </Stats>
+      <p className="small"><Link href={`/compare?kind=members&a=${id}`}>{d.compareLink}</Link></p>
       <p className="note">{d.note}</p>
 
       <section className="card">

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { BallotTable, type BallotRow } from "@/components/BallotTable";
+import { Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getVote, NotFound, type Ballot, type Counts, type VoteDetail } from "@/lib/api";
 import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
@@ -25,7 +26,8 @@ async function load(idParam: string) {
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/votes/[id]">): Promise<Metadata> {
   const { vote } = await load((await params).id);
-  return { title: `${vote.title_he} — ${(await getT()).date(vote.occurred_on)}` };
+  const t = await getT();
+  return { title: `${titleText(vote.title_he, vote, t.locale)} — ${t.date(vote.occurred_on)}` };
 }
 
 async function Tally({ c }: { c: Counts }) {
@@ -45,6 +47,30 @@ async function Tally({ c }: { c: Counts }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+const PLENUM = 120;
+
+/** for | abstain | against on a track of all 120 seats: the empty part is the members with no vote cast. */
+function PlenumBar({ c, label }: { c: Pick<Counts, "for" | "against" | "abstain">; label: string }) {
+  const segs = [[c.for, styles.for], [c.abstain, styles.abstain], [c.against, styles.against]] as const;
+  return (
+    <span className={styles.plenum} role="img" aria-label={label}>
+      {segs.map(([n, cls], i) => n > 0 && <span key={i} className={`${styles.seg} ${cls}`} style={{ width: `${(100 * n) / PLENUM}%` }} />)}
+    </span>
+  );
+}
+
+/** One bloc's cast votes, with its name and the counts next to the bar. */
+async function BlocBar({ label, c }: { label: string; c: { for: number; against: number; abstain: number } }) {
+  const d = (await getT()).d.rc;
+  return (
+    <div className={styles.bloc}>
+      <span className={styles.blocName}>{label}</span>
+      <PlenumBar c={c} label={`${label}: ${d.line(c.for, c.against, c.abstain)}`} />
+      <span className="small num muted">{d.line(c.for, c.against, c.abstain)}</span>
+    </div>
   );
 }
 
@@ -95,14 +121,15 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <span className="badge">{t.d.methodBadge(t.d.method[vote.method] ?? vote.method)}</span>
           {vote.status !== "valid" && <span className="badge">{d.status(vote.status)}</span>}
         </div>
-        <h1 className={`${styles.title} he`} lang="he" dir="rtl">{vote.title_he}</h1>
+        <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
         {outcome && (
-          <p className={styles.verdict} data-accepted={outcome.accepted ? "yes" : "no"}>
-            <strong>{outcome.text}</strong>
-            <span className="num">{d.resultLine(rc.for, rc.against, rc.abstain)}</span>
-            <span className="small muted">{outcome.derived ? d.derived : d.official}</span>
-          </p>
+          <div className={styles.verdict} data-accepted={outcome.accepted ? "yes" : "no"}>
+            <p><strong>{outcome.text}</strong><span className="num">{d.resultLine(rc.for, rc.against, rc.abstain)}</span></p>
+            {/* the whole plenum as the track: 5 for, 0 against reads as a low-turnout vote, not as a landslide */}
+            <PlenumBar c={rc} label={t.d.rc.cast120(cast)} />
+            <p className="small muted">{t.d.rc.cast120(cast)}{outcome.derived ? d.derived : d.official}</p>
+          </div>
         )}
         {outcome && cast > 0 && cast < FEW_VOTES && (
           <p className="small muted" style={{ marginTop: 8 }}>{d.quorum(cast)} <Link href="/about/glossary#quorum">{t.d.common.glossaryLink}</Link></p>
@@ -120,17 +147,50 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <p className="small" style={{ marginTop: 10 }}>
             {d.bill}{" "}
             {vote.bills.map((b) => (
-              <Link key={b.id} href={`/bills/${b.id}`} className="he" lang="he" dir="rtl">{b.title_he}</Link>
+              <Link key={b.id} href={`/bills/${b.id}`}><Title he={b.title_he} t={b} compact /></Link>
             ))}
           </p>
         )}
       </section>
 
-      <section className="card" aria-labelledby="res">
-        <h2 id="res" className="section-title">{d.resultTitle}</h2>
-        {hasRollCall ? <Tally c={rc} /> : (
+      {!hasRollCall && (
+        <section className="card" aria-labelledby="res">
+          <h2 id="res" className="section-title">{d.resultTitle}</h2>
           <p className="note">{d.noRecords(missingRollCallText(vote.method, t))}</p>
-        )}
+        </section>
+      )}
+
+      {hasRollCall && (
+        <section className="card" aria-labelledby="fx">
+          <h2 id="fx" className="section-title">{d.byFaction}</h2>
+          {vote.blocs && (
+            <div className={styles.blocs}>
+              {vote.blocs.contested && <p className="small"><strong>{t.d.blocs.contested}.</strong></p>}
+              <BlocBar label={t.d.alignment.coalition} c={vote.blocs.coalition} />
+              <BlocBar label={t.d.alignment.opposition} c={vote.blocs.opposition} />
+            </div>
+          )}
+          <Legend />
+          <FactionBreakdown rows={vote.by_faction} ballots={ballots} />
+          {vote.unresolved_faction_records > 0 && (
+            <p className="note" style={{ marginTop: 10 }}>{d.unresolved(vote.unresolved_faction_records)}</p>
+          )}
+        </section>
+      )}
+
+      {/* the full list is long (up to 120 rows); closed by default, the count tells what is inside */}
+      {hasRollCall && (
+        <details className={`card ${styles.details}`}>
+          <summary className="section-title">{d.table(ballots.length)}</summary>
+          <BallotTable rows={rows} factions={factionOptions}
+                       labels={{ ...t.d.ballots, shown: t.d.ballots.shown("{n}", String(rows.length)) }} />
+        </details>
+      )}
+
+      {/* the trust layer: raw tallies, official totals and the reconciliation, below the answer */}
+      <details className={`card ${styles.details}`}>
+        <summary className="section-title">{d.numbers}</summary>
+        {hasRollCall && <Tally c={rc} />}
         {vote.official_totals && (
           <p className="small" style={{ marginTop: 12 }}>
             {d.officialTotals(vote.official_totals.for, vote.official_totals.against, vote.official_totals.abstain)}
@@ -144,36 +204,11 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           {d.onlyRecords}
           {!vote.official_totals && d.noOfficial}
         </p>
-      </section>
+        <p className="small muted" style={{ marginTop: 12 }}>
+          {t.d.common.sourceKnesset} <a href={vote.source_url} target="_blank" rel="noopener">{d.sourceLink}</a>
+        </p>
+      </details>
 
-      {hasRollCall && (
-        <section className="card" aria-labelledby="fx">
-          <h2 id="fx" className="section-title">{d.byFaction}</h2>
-          {vote.blocs && (
-            <p className="small" style={{ marginBottom: 10 }}>
-              {vote.blocs.contested && <><strong>{t.d.blocs.contested}.</strong> </>}
-              <span className="num">{t.d.blocs.line(vote.blocs.coalition, vote.blocs.opposition)}</span>
-            </p>
-          )}
-          <Legend />
-          <FactionBreakdown rows={vote.by_faction} ballots={ballots} />
-          {vote.unresolved_faction_records > 0 && (
-            <p className="note" style={{ marginTop: 10 }}>{d.unresolved(vote.unresolved_faction_records)}</p>
-          )}
-        </section>
-      )}
-
-      {hasRollCall && (
-        <section className="card" aria-labelledby="rc">
-          <h2 id="rc" className="section-title">{d.table(ballots.length)}</h2>
-          <BallotTable rows={rows} factions={factionOptions}
-                       labels={{ ...t.d.ballots, shown: t.d.ballots.shown("{n}", String(rows.length)) }} />
-        </section>
-      )}
-
-      <p className="small muted" style={{ marginTop: 16 }}>
-        {t.d.common.sourceKnesset} <a href={vote.source_url} target="_blank" rel="noopener">{d.sourceLink}</a>
-      </p>
     </article>
   );
 }

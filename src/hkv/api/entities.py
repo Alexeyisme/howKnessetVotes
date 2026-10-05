@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
-from hkv.api.names import FactionNames, PersonNames, TopicLabels, with_names
+from hkv.api.names import FactionNames, PersonNames, TitleTranslations, TopicLabels, with_names
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -59,18 +59,19 @@ class MemberSummary(PersonNames):
     terms: list[int]
     last_faction: FactionRef | None
     roll_call_records: int
+    photo_url: str | None = None   # official portrait on the Knesset website (fs.knesset.gov.il)
 
 
 class MemberStats(BaseModel):
     participation: Rate          # cast (for/against/abstain) / roll-call votes held during the member's mandates
     choices: dict[str, int]      # for / against / abstain / present_not_voting / other
     deviation_from_faction: Rate  # cast against the strict majority of other faction members / comparable votes
+    with_coalition: Rate         # cast like the coalition's strict majority / cast votes where the coalition had one (U11)
     bills_initiated: int
     bills_joined: int
 
 
 class MemberDetail(MemberSummary):
-    photo_url: str | None        # official portrait on the Knesset website (fs.knesset.gov.il)
     mandates: list[MandateOut]
     factions: list[MembershipOut]
     stats: MemberStats
@@ -160,7 +161,7 @@ class Initiator(PersonNames):
     role: Literal["initiator", "joined", "withdrew"]
 
 
-class BillSummary(BaseModel):
+class BillSummary(TitleTranslations):
     id: int
     title_he: str
     term: int
@@ -257,7 +258,8 @@ MEMBER_SELECT = """
     SELECT p.id AS pk, p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, p.gender,
            (SELECT array_agg(DISTINCT m.term_number ORDER BY m.term_number) FROM mandate m WHERE m.person_id = p.id) AS terms,
            lf.knesset_faction_id AS lf_id, lf.name_he AS lf_name, lf.term_number AS lf_term,
-           (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records
+           (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records,
+           (SELECT ph.url FROM person_photo ph WHERE ph.person_id = p.id) AS photo_url
     FROM person p
     LEFT JOIN LATERAL (SELECT f.knesset_faction_id, f.name_he, f.term_number FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                        WHERE fm.person_id = p.id ORDER BY lower(fm.valid) DESC LIMIT 1) lf ON true"""
@@ -265,7 +267,8 @@ MEMBER_SELECT = """
 
 def member_summary(r: dict) -> MemberSummary:
     return MemberSummary(id=r["id"], name_he=r["name_he"], gender=r["gender"], terms=r["terms"] or [],
-                         last_faction=faction_ref(r["lf_id"], r["lf_name"], r["lf_term"]), roll_call_records=r["records"])
+                         last_faction=faction_ref(r["lf_id"], r["lf_name"], r["lf_term"]), roll_call_records=r["records"],
+                         photo_url=r["photo_url"])
 
 
 @router.get("/members", response_model=Page[MemberSummary])
@@ -333,17 +336,26 @@ def get_member(member_id: int, conn: Conn):
         SELECT count(*) FILTER (WHERE choice IS NOT NULL AND majority IS NOT NULL) AS comparable,
                count(*) FILTER (WHERE choice IS NOT NULL AND majority IS NOT NULL AND choice <> majority) AS deviated FROM cmp""",
                        {"pid": pid}).fetchone()
+    # "voted with the coalition": the member's choice equals the coalition members' strict majority choice on that vote
+    # (vote_bloc, from the coalition derivation); counted whatever bloc the member's own faction was in
+    coal = conn.execute(
+        """SELECT count(*) FILTER (WHERE m.cm IS NOT NULL) AS comparable, count(*) FILTER (WHERE m.cm IS NOT NULL AND b.choice = m.cm) AS with_c
+           FROM ballot b JOIN vote_bloc vb ON vb.vote_id = b.vote_id
+           CROSS JOIN LATERAL (SELECT CASE WHEN 2 * vb.coalition_for > s THEN 'for' WHEN 2 * vb.coalition_against > s THEN 'against'
+                                           WHEN 2 * vb.coalition_abstain > s THEN 'abstain' END AS cm
+                               FROM (SELECT vb.coalition_for + vb.coalition_against + vb.coalition_abstain AS s) x) m
+           WHERE b.person_id = %s AND b.choice IS NOT NULL""", (pid,)).fetchone()
     bills = dict((x["role"], x["n"]) for x in conn.execute("SELECT role, count(*) AS n FROM bill_initiator WHERE person_id = %s GROUP BY 1", (pid,)))
     base = member_summary(r)
     return {
         "data": MemberDetail(
             **base.model_dump(),
-            photo_url=(ph := conn.execute("SELECT url FROM person_photo WHERE person_id = %s", (pid,)).fetchone()) and ph["url"],
             mandates=mandates,
             factions=[MembershipOut(faction=faction_ref(f["knesset_faction_id"], f["name_he"], f["term_number"]),
                                     valid_from=f["valid_from"], valid_to=f["valid_to"]) for f in factions],
             stats=MemberStats(participation=rate(cast, available), choices=choices,
                               deviation_from_faction=rate(dev["deviated"], dev["comparable"]),
+                              with_coalition=rate(coal["with_c"], coal["comparable"]),
                               bills_initiated=bills.get("initiator", 0), bills_joined=bills.get("joined", 0)),
         ),
         "meta": Meta(filters={"id": member_id}, note=(
@@ -357,9 +369,13 @@ def get_member(member_id: int, conn: Conn):
 @with_names
 def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, date_to: dt.date | None = None,
                  stage: Annotated[list[Stage] | None, Query()] = None, motion_type: Annotated[list[MotionType] | None, Query()] = None,
-                 deviated: bool = False, limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
+                 deviated: bool = False, topic: Annotated[str | None, Query(description="topic slug of a bill the vote is about")] = None,
+                 limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     pid = person_id(conn, member_id)
     where, params = ["true"], {"pid": pid, "limit": limit + 1}
+    if topic:
+        where.append("""EXISTS (SELECT 1 FROM vote_subject s JOIN bill_topic bt ON bt.bill_id = s.bill_id JOIN topic t ON t.id = bt.topic_id
+                                WHERE s.vote_id = v.id AND t.slug = %(topic)s AND bt.review_state <> 'rejected')"""); params["topic"] = topic
     if date_from:
         where.append("v.occurred_on >= %(date_from)s"); params["date_from"] = date_from
     if date_to:
@@ -388,8 +404,90 @@ def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, d
         faction_majority=r["majority"] or ("none" if r["f"] is None or (r["f"] + r["a"] + r["ab"]) < MIN_COLLEAGUES else "mixed"),
         deviates=None if r["choice"] is None or r["majority"] is None else r["choice"] != r["majority"],
     ) for r in rows]
-    return {"data": data, "meta": Meta(filters={"id": member_id, "deviated": deviated, "stage": stage, "motion_type": motion_type}),
+    return {"data": data, "meta": Meta(filters={"id": member_id, "deviated": deviated, "stage": stage, "motion_type": motion_type, "topic": topic}),
             "next_cursor": encode_cursor(rows[-1]["occurred_on"], rows[-1]["vid"]) if more else None}
+
+
+# -- compare (U7) -------------------------------------------------------------------------------------
+
+class CompareSide(BaseModel):
+    """What one side did on a vote where the two differed: a member's choice, or a faction's majority."""
+    choice: str
+
+
+class CompareDiff(BaseModel):
+    vote: VoteSummary
+    a: CompareSide
+    b: CompareSide
+
+
+class Comparison(BaseModel):
+    agreement: Rate              # same choice (members) or same strict majority (factions) / votes where both took a side
+    differences: list[CompareDiff]   # most recent first, capped
+    stage: list[str]
+    motion_type: list[str]
+
+
+DIFF_LIMIT = 100
+
+
+def _compare(conn, rows: list[dict], stage: list[str], motion: list[str]) -> Comparison:
+    """rows: vote id, occurred_on, a, b (choices, None when that side took no side)."""
+    both = [r for r in rows if r["a"] and r["b"]]
+    diffs = [r for r in both if r["a"] != r["b"]][:DIFF_LIMIT]
+    summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([r["vid"] for r in diffs],))} if diffs else {}
+    return Comparison(agreement=rate(len(both) - sum(1 for r in both if r["a"] != r["b"]), len(both)),
+                      differences=[CompareDiff(vote=summaries[r["vid"]], a=CompareSide(choice=r["a"]), b=CompareSide(choice=r["b"])) for r in diffs],
+                      stage=stage, motion_type=motion)
+
+
+@router.get("/compare/members", response_model=One[Comparison])
+@with_names
+def compare_members(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
+                    motion_type: Annotated[list[MotionType] | None, Query()] = None):
+    """Two MKs on the votes both cast: agreement rate and the votes where they chose differently.
+    Default scope: votes on bills as a whole and no-confidence motions, any stage."""
+    pa, pb = person_id(conn, a), person_id(conn, b)
+    stages, motions = stage or [], motion_type or ["adopt_bill", "no_confidence"]
+    rows = conn.execute(
+        """SELECT v.knesset_vote_id AS vid, v.occurred_on, x.choice AS a, y.choice AS b
+           FROM ballot x JOIN ballot y ON y.vote_id = x.vote_id AND y.person_id = %(pb)s JOIN vote v ON v.id = x.vote_id
+           LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+           WHERE x.person_id = %(pa)s AND x.choice IS NOT NULL AND y.choice IS NOT NULL
+             AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
+           ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
+        {"pa": pa, "pb": pb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
+    return {"data": _compare(conn, rows, stages, motions), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+        "agreement = votes where both chose the same of for/against/abstain / votes where both cast a vote."))}
+
+
+@router.get("/compare/factions", response_model=One[Comparison])
+@with_names
+def compare_factions(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
+                     motion_type: Annotated[list[MotionType] | None, Query()] = None):
+    """Two factions on the votes where each had a strict majority among its casting members: agreement rate and the
+    votes where the majorities differed. Default scope: votes on bills as a whole and no-confidence motions."""
+    fa, fb = faction_pk(conn, a)["pk"], faction_pk(conn, b)["pk"]
+    stages, motions = stage or [], motion_type or ["adopt_bill", "no_confidence"]
+    rows = conn.execute(
+        f"""WITH per AS (
+               SELECT vote_id, faction_id, count(*) FILTER (WHERE choice = 'for') f, count(*) FILTER (WHERE choice = 'against') a,
+                      count(*) FILTER (WHERE choice = 'abstain') ab
+               FROM ballot WHERE faction_id IN (%(fa)s, %(fb)s) AND choice IS NOT NULL GROUP BY 1, 2),
+           maj AS (
+               SELECT vote_id, faction_id, CASE WHEN f + a + ab < {MIN_COLLEAGUES} THEN NULL WHEN 2 * f > f + a + ab THEN 'for'
+                                               WHEN 2 * a > f + a + ab THEN 'against' WHEN 2 * ab > f + a + ab THEN 'abstain' END AS m
+               FROM per)
+           SELECT v.knesset_vote_id AS vid, v.occurred_on, x.m AS a, y.m AS b
+           FROM maj x JOIN maj y ON y.vote_id = x.vote_id AND y.faction_id = %(fb)s JOIN vote v ON v.id = x.vote_id
+           LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+           WHERE x.faction_id = %(fa)s AND x.m IS NOT NULL AND y.m IS NOT NULL
+             AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
+           ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
+        {"fa": fa, "fb": fb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
+    return {"data": _compare(conn, rows, stages, motions), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+        f"agreement = votes where both factions' casting members (at least {MIN_COLLEAGUES}) had the same strict majority / "
+        "votes where both had one."))}
 
 
 # -- factions ----------------------------------------------------------------------------------------

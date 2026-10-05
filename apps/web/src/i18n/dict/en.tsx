@@ -15,6 +15,8 @@ export const en: Dict = {
   nav: {
     label: "Sections", votes: "Votes", topics: "Topics", bills: "Bills", members: "Members", factions: "Parties",
     searchLabel: "Search", searchPh: "Search: topic, bill, member", language: "Language",
+    match: "Who votes like me",
+    compass: "Compass", compare: "Compare",
   },
   footer: {
     asOf: (updated, last, votes, ballots) => `Data updated ${updated}; latest vote ${last}. ${votes} votes, ${ballots} roll-call records.`,
@@ -35,6 +37,7 @@ export const en: Dict = {
     factionUnknown: "party unknown",
     glossaryLink: "Glossary →",
     sourceKnesset: "Source:",
+    machine: "automatic translation", suggest: "suggest a correction",
   },
   stage: {
     preliminary: "Preliminary reading", first: "First reading", second: "Second reading", third: "Third reading",
@@ -92,6 +95,7 @@ export const en: Dict = {
     noList: (method) => `no roll call exists: ${method} vote`,
     notLoaded: "roll-call data not loaded yet or missing from the source",
     noRollCall: "no roll call",
+    cast120: (n) => `${n} of 120 voted`,
   },
   home: {
     title: "How the Knesset Votes",
@@ -103,8 +107,14 @@ export const en: Dict = {
     topicsAll: "All topics →",
     finalTitle: "Latest final votes",
     finalAll: "All votes →",
+    contestedTitle: "Laws the coalition and opposition fought over",
+    recess: (d) => `The Knesset is in recess: the 26th Knesset convenes on ${d}.`,
+    latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [
+      { href: "/match", title: "Who votes like me?", text: "12 contested laws: answer, and see which party voted the way you would" },
+      { href: "/compass", title: "Compass", text: "Every party on every topic, on one screen" },
+      { href: "/compare", title: "Compare", text: "Two parties or two members: how often they vote the same way" },
       { href: "/members", title: "Members", text: "How each member voted, and when they broke with their party" },
       { href: "/factions", title: "Parties", text: "Members, cohesion and votes of each party" },
       { href: "/bills", title: "Bills", text: "Every vote on a bill, from preliminary to third reading" },
@@ -144,6 +154,7 @@ export const en: Dict = {
     unresolved: (n) => `${n} ${s(n, "record has", "records have")} no known party on this date.`,
     table: (n) => `Roll call (${n})`,
     sourceLink: "vote page on the Knesset website ↗",
+    numbers: "Numbers and sources",
   
     notFound: "Vote not found", notFoundText: "It may not be loaded yet.", backToList: "Back to votes",
   },
@@ -178,6 +189,8 @@ export const en: Dict = {
     kicker: (terms) => `Member of Knesset · Knessets ${terms}`,
     currentFaction: "Party:", lastFaction: "Latest party:",
     photoCredit: "Photo: Knesset website",
+    withCoalition: "Voted with the coalition", withCoalitionUnit: "votes where the coalition had a majority",
+    compareLink: "Compare with another member →", topicFilter: "Topic",
     summary: (p) => <>Voted in <strong>{p.part}</strong> of roll-call votes held during their mandate ({p.cast} of {p.avail}).
       {" "}Voted differently from their party&apos;s majority <strong>{p.dev} {s(p.dev, "time", "times")}</strong> out of {p.comparable} comparable votes.
       {p.initiated > 0 && <> Sponsored {p.initiated} {s(p.initiated, "bill", "bills")} that reached a plenum vote.</>}</>,
@@ -222,6 +235,8 @@ export const en: Dict = {
     timeline: (n) => `All plenum votes (${n})`,
     timelineHint: "In order. Votes on reservations and individual sections are shown separately from the vote on the bill as a whole.",
     related: "Related bills",
+    milestones: "Readings",
+    otherVotes: (n) => `Reservations, sections and other votes (${n})`,
     sourceLink: "bill page in the Knesset legislation database ↗",
   },
   topics: {
@@ -260,6 +275,7 @@ export const en: Dict = {
     line: (c, o) => `Coalition: ${c.for} for, ${c.against} against · Opposition: ${o.for} for, ${o.against} against`,
     contested: "Coalition and opposition voted differently",
     note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
+    short: (c, o) => `Coalition ${c.for}:${c.against} · Opposition ${o.for}:${o.against}`,
   },
   parties: {
     title: "Parties",
@@ -268,6 +284,40 @@ export const en: Dict = {
     byTerm: "Factions by Knesset →",
     faction: "Faction", term: "Knesset", period: "Period", members: "Members", role: "Coalition / opposition",
     kicker: "Party across Knessets",
+    current: (term) => `In the ${ord(term)} Knesset`,
+    finalVotes: "Final votes: how the list's majority voted",
+    history: "Across Knessets",
+    allVotes: "All votes of the list →",
+  },
+  compass: {
+    title: "Party compass",
+    lead: "Each cell: how the party's majority voted on final readings of bills in that topic — blue for, red against, grey split. Coalition parties vote for government bills, so “contested only” keeps the votes where the coalition and opposition split.",
+    all: "All final votes", contestedOnly: "Contested only", party: "Party", empty: "No votes",
+    cell: (f, a, n) => `${f} for, ${a} against of ${n}`,
+  },
+  compare: {
+    title: "Compare",
+    lead: "Two parties or two members: how often they voted the same way on bills as a whole and no-confidence motions, and the votes where they differed.",
+    parties: "Parties", members: "Members", pick: "Choose two to compare.",
+    agreement: "Voted the same way", agreementUnit: "shared votes",
+    differences: (n) => `Votes where they differed (${n})`,
+  },
+  match: {
+    title: "Who votes like me?",
+    lead: (n, term) => `The ${n} final votes of the ${ord(term)} Knesset where the coalition and opposition split, with the most members voting. Say how you would have voted and see which party voted the same way. Nothing is stored.`,
+    question: "Would you have passed this law?", yes: "For", no: "Against", skip: "Skip",
+    progress: (i, n) => `${i} of ${n}`,
+    resultTitle: "Parties that voted like you",
+    agree: (n, m) => `agrees with you on ${n} of ${m}`,
+    noAnswers: "You skipped every vote.",
+    again: "Start over", share: "Share your result", copied: "Link copied",
+    yours: "Your answer", passed: "Outcome",
+  },
+  suggest: {
+    title: "Suggest a correction",
+    lead: "Law titles are translated automatically and marked as such. A correction goes to an editor; nothing changes on the site until they accept it. No account needed.",
+    original: "Original", textLabel: "Corrected translation", noteLabel: "Note (optional)",
+    send: "Send", thanks: "Thank you! The correction has been passed to an editor.", error: "Could not send. Please try again later.", back: "Back",
   },
   translation: { beta: null, more: "How the site is translated" },
   notFound: { title: "Page not found", text: "This page does not exist.", home: "Home" },

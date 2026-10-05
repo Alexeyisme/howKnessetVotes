@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import os
 from importlib.metadata import version
 
 import psycopg
@@ -63,6 +64,14 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     sync_factions(conn)
     sync_parties(conn)
     derive_coalitions(conn)  # memberships and posts may have changed
+    # titles of new bills and votes get their en/ru (and ar) translations when the server has an API key
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            from hkv.translate import ClaudeTranslator, sync as sync_translations
+            langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru").split(",") if x]
+            log.info("translations: %s", sync_translations(conn, ClaudeTranslator(), langs))
+        except Exception:  # a translation failure must not fail the vote update
+            log.exception("title translation failed; votes are loaded")
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")
     log.info("done: %d votes in window, release %s", len(ids), summary["id"])
     return {"votes": len(ids), "release": str(summary["id"])}

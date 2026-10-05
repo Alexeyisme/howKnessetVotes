@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { TermSelect } from "@/components/TermSelect";
+import { Title } from "@/components/Title";
 import { He, NextPage, withParams } from "@/components/ui";
 import { listBills } from "@/lib/api";
 import { getT } from "@/i18n/server";
@@ -37,7 +38,7 @@ export default async function BillsPage({ searchParams }: PageProps<"/[lang]/bil
       <ul className="card" style={{ listStyle: "none", padding: 0 }}>
         {data.map((b) => (
           <li key={b.id} style={{ padding: "10px 16px", borderBottom: "1px solid var(--hairline)" }}>
-            <Link href={`/bills/${b.id}`} style={{ display: "block", textAlign: "right", fontWeight: 600, color: "var(--ink)" }}><He>{b.title_he}</He></Link>
+            <Link href={`/bills/${b.id}`} style={{ display: "block", fontWeight: 600, color: "var(--ink)" }}><Title he={b.title_he} t={b} compact /></Link>
             <span className="small muted">
               {t.d.common.term(b.term)} · {t.d.common.votesCount(b.votes)}{b.last_vote_on && ` · ${t.d.common.lastVote(t.date(b.last_vote_on))}`}
               {b.passed_third_reading && ` · ${t.d.common.passedThird}`}

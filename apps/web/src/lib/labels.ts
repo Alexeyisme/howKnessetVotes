@@ -16,6 +16,10 @@ export function fold(s: string): string {
     .replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي");
 }
 
+/** The 26th Knesset convenes on this date (Knesset announcement; roadmap O7). Until then the home page explains
+ *  why the latest vote is months old. Update or remove once the new term is sitting. */
+export const RECESS_UNTIL = "2026-11-10";
+
 // Only votes on a bill as a whole and no-confidence motions: what most readers mean by "how did they vote".
 export const MAIN_MOTIONS: MotionType[] = ["adopt_bill", "no_confidence"];
 

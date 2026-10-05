@@ -57,6 +57,11 @@ def main(argv: list[str] | None = None) -> int:
     nm.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     co = sub.add_parser("coalition", help="government posts from OData, then governments and coalition/opposition per faction")
     co.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    tr = sub.add_parser("translate", help="machine translations of bill and vote titles (Claude API; ANTHROPIC_API_KEY)")
+    tr.add_argument("--lang", default="en,ru", help="comma-separated: en, ru, ar")
+    tr.add_argument("--limit", type=int, help="translate at most N pending titles per language (newest first)")
+    tr.add_argument("--stub", action="store_true", help="mark instead of translating (dry run without an API key)")
+    tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -64,6 +69,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "status":
         return status(args.db, args.log)
+    if args.cmd == "translate":
+        import logging
+
+        from hkv.translate import ClaudeTranslator, StubTranslator, sync as sync_translations
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        translator = StubTranslator() if args.stub else ClaudeTranslator()
+        with psycopg.connect(args.db) as conn:
+            print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit))
+        return 0
     if args.cmd == "initiators":
         import logging
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s")

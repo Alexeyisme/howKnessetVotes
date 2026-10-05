@@ -3,6 +3,7 @@ import type { Alignment, Choice, FactionNames, PersonNames, Rate, VoteSummary } 
 import { getT } from "@/i18n/server";
 import { bidiSafe } from "@/lib/labels";
 import Link from "./Link";
+import { Title } from "./Title";
 import styles from "./ui.module.css";
 
 export function He({ children, as: Tag = "span", className = "" }: { children: ReactNode; as?: "span" | "h1" | "p"; className?: string }) {
@@ -26,6 +27,31 @@ export async function FactionName({ f, full = false, he = "title" }: { f: Factio
   if (name === f.name_he) return <He>{f.name_he}</He>;
   if (he === "title") return <span title={f.name_he}>{name}</span>;
   return <>{name} <He className="muted small">{f.name_he}</He></>;
+}
+
+/** A member as a chip: portrait, name, party. Grids of these replace member tables on phones. */
+export async function MemberChip({ m, faction }: { m: PersonNames & { id: number; photo_url?: string | null }; faction?: FactionNames | null }) {
+  const t = await getT();
+  const name = t.person(m);
+  return (
+    <li className={styles.chip}>
+      <Link href={`/members/${m.id}`} className={styles.chipLink}>
+        {m.photo_url ? (
+          // official portrait, linked from the Knesset website rather than copied
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={m.photo_url} alt="" width={40} height={50} loading="lazy" referrerPolicy="no-referrer" className={styles.chipPhoto} />
+        ) : <span className={styles.chipPhoto} aria-hidden />}
+        <span className={styles.chipText}>
+          <span className={styles.chipName} title={name !== m.name_he ? m.name_he : undefined}>{name}</span>
+          {faction && <span className="small muted">{t.faction(faction)}</span>}
+        </span>
+      </Link>
+    </li>
+  );
+}
+
+export function MemberGrid({ children }: { children: ReactNode }) {
+  return <ul className={styles.chips}>{children}</ul>;
 }
 
 export function Stat({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
@@ -68,7 +94,7 @@ export async function VoteLine({ vote, children }: { vote: VoteSummary; children
           {t.date(vote.occurred_on)} · {vote.stage ? t.d.stage[vote.stage] : "—"}
           {vote.subject_he && <> · <He>{bidiSafe(vote.subject_he)}</He></>}
         </span>
-        <Link href={`/votes/${vote.id}`} className={styles.voteTitle}><He>{vote.title_he}</He></Link>
+        <Link href={`/votes/${vote.id}`} className={styles.voteTitle}><Title he={vote.title_he} t={vote} compact /></Link>
       </div>
       {children && <div className={styles.voteSide}>{children}</div>}
     </li>

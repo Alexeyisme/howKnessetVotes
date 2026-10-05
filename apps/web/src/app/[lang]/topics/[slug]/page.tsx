@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { TermSelect } from "@/components/TermSelect";
 import { TopicFactions } from "@/components/TopicFactions";
+import { Title } from "@/components/Title";
 import { He } from "@/components/ui";
 import { getTopic, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
@@ -53,7 +54,7 @@ export default async function TopicPage({ params, searchParams }: PageProps<"/[l
         <ul className="card" style={{ listStyle: "none" }}>
           {x.recent_bills.map((b) => (
             <li key={b.id} style={{ padding: "8px 16px", borderBottom: "1px solid var(--hairline)" }}>
-              <Link href={`/bills/${b.id}`} style={{ display: "block", textAlign: "right", fontWeight: 600, color: "var(--ink)" }}><He>{b.title_he}</He></Link>
+              <Link href={`/bills/${b.id}`} style={{ display: "block", fontWeight: 600, color: "var(--ink)" }}><Title he={b.title_he} t={b} compact /></Link>
               <span className="small muted">{t.d.common.term(b.term)}{b.last_vote_on && d.lastVote(t.date(b.last_vote_on))}{b.passed_third_reading && ` · ${t.d.common.passed}`}</span>
             </li>
           ))}
