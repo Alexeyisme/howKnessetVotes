@@ -10,7 +10,7 @@ One Hetzner Cloud server runs the whole site.
   - `caddy` (HTTPS with automatic Let's Encrypt certificates; `/api/*`, `/docs` and `/openapi.json`
     go to the API, everything else goes to the web app).
 - **Code** lives in `/srv/hkv` and is owned by the `deploy` user.
-- **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title translations — with it set, `hkv update` translates new titles; the backlog is loaded once with `hkv translate --lang en,ru` in the updater container). They are not in git.
+- **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title translations — with it set, every `hkv update` translates the titles that are new since the last run with `HKV_TRANSLATE_MODEL`, default Haiku 4.5, and makes no request when nothing is new; the backlog was loaded once with `hkv translate --lang en,ru` on 2026-10-05; titles that failed the checks are retried only with `hkv translate --retry-failed`). They are not in git.
 
 ## Access
 

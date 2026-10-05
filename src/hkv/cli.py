@@ -61,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--lang", default="en,ru", help="comma-separated: en, ru, ar")
     tr.add_argument("--limit", type=int, help="translate at most N pending titles per language (newest first)")
     tr.add_argument("--stub", action="store_true", help="mark instead of translating (dry run without an API key)")
+    tr.add_argument("--retry-failed", action="store_true", help="also retry titles whose translation failed the checks before")
     tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
@@ -76,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
         translator = StubTranslator() if args.stub else ClaudeTranslator()
         with psycopg.connect(args.db) as conn:
-            print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit))
+            print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit, retry_failed=args.retry_failed))
         return 0
     if args.cmd == "initiators":
         import logging

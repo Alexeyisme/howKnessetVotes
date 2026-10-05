@@ -1,9 +1,13 @@
 """Machine translation of Hebrew titles (docs/ux-requirements.md R4; roadmap L6).
 
 Distinct Hebrew strings (bill and vote titles) are translated once per language and stored by the SHA-256 of the
-source in text_translation. A fixed glossary keeps 3,600 titles consistent; automatic checks reject translations
+source in text_translation. A fixed glossary keeps ~22,000 titles consistent; automatic checks reject translations
 that lose a number or keep Hebrew letters, and log them as data_issue rows instead of storing them. The translator
 is pluggable: ClaudeTranslator in production, StubTranslator in tests.
+
+Every `hkv update` runs `sync` when the server has an API key, so only titles that are new since the last run go to
+the API; when nothing is new, no request is made. A title that failed the checks is not retried automatically (it
+would fail the same way on every run); `hkv translate --retry-failed` tries those again.
 """
 
 from __future__ import annotations
@@ -22,7 +26,8 @@ log = logging.getLogger(__name__)
 
 LANGUAGES = ("en", "ru", "ar")
 BATCH = 20
-DEFAULT_MODEL = "claude-opus-5-5"
+# Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
@@ -130,8 +135,9 @@ def _is_hebrew_year(source: str, digits: str) -> bool:
     return False
 
 
-def pending(conn: psycopg.Connection, lang: str, limit: int | None = None) -> list[tuple[str, str]]:
-    """(sha, hebrew) of distinct bill and vote titles without a translation in `lang`, most recently voted first."""
+def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry_failed: bool = False) -> list[tuple[str, str]]:
+    """(sha, hebrew) of distinct bill and vote titles without a translation in `lang`, most recently voted first.
+    Titles with an open failed-check issue in `lang` are left out unless `retry_failed`."""
     rows = conn.execute(
         """WITH src AS (
                SELECT b.title_he AS t, max(v.occurred_on) AS last FROM bill b
@@ -140,40 +146,65 @@ def pending(conn: psycopg.Connection, lang: str, limit: int | None = None) -> li
                SELECT v.title_he, max(v.occurred_on) FROM vote v GROUP BY 1)
            SELECT t, title_sha(t) AS h FROM src
            WHERE t IS NOT NULL AND t <> ''
-           GROUP BY t HAVING NOT EXISTS (SELECT 1 FROM text_translation x WHERE x.source_sha256 = title_sha(t) AND x.language = %s)
-           ORDER BY max(last) DESC NULLS LAST""" + (" LIMIT %s" if limit else ""),
-        (lang, limit) if limit else (lang,)).fetchall()
+           GROUP BY t HAVING NOT EXISTS (SELECT 1 FROM text_translation x WHERE x.source_sha256 = title_sha(t) AND x.language = %(lang)s)
+              AND (%(retry)s OR NOT EXISTS (SELECT 1 FROM data_issue i WHERE i.issue_type = 'translation_check_failed' AND i.status = 'open'
+                                            AND i.external_ref = title_sha(t) AND i.details->>'language' = %(lang)s))
+           ORDER BY max(last) DESC NULLS LAST""" + (" LIMIT %(limit)s" if limit else ""),
+        {"lang": lang, "retry": retry_failed, "limit": limit}).fetchall()
     return [(r[1], r[0]) for r in rows]
 
 
-def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] = LANGUAGES, limit: int | None = None) -> dict:
-    """Translate what is missing, store what passes the checks, log the rest as data_issue rows."""
+def _translate_batch(translator: Translator, batch: list[tuple[str, str]], lang: str) -> list[tuple[str, str, str]]:
+    """(sha, source, target) for a batch. If the batch fails (e.g. the model returned 21 translations for 20 titles),
+    each title is sent alone, so one odd title costs one retry instead of 20 untranslated titles."""
+    try:
+        out = translator.translate([t for _, t in batch], lang)
+        return [(h, source, target) for (h, source), target in zip(batch, out, strict=True)]
+    except Exception:
+        if len(batch) == 1:
+            log.exception("translation failed (%s): %s", lang, batch[0][1][:120])
+            return []
+        log.warning("translation batch failed (%s, %d titles); retrying one by one", lang, len(batch), exc_info=True)
+        return [row for item in batch for row in _translate_batch(translator, [item], lang)]
+
+
+def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] = LANGUAGES, limit: int | None = None,
+         retry_failed: bool = False) -> dict:
+    """Translate what is missing, store what passes the checks, log the rest as data_issue rows (one open issue per
+    title and language; it is resolved once the title gets a translation)."""
     counts: dict[str, int] = {}
     for lang in langs:
-        todo = pending(conn, lang, limit)
+        _resolve_translated(conn, lang)
+        todo = pending(conn, lang, limit, retry_failed)
         stored = failed = 0
         for i in range(0, len(todo), BATCH):
-            batch = todo[i:i + BATCH]
-            try:
-                out = translator.translate([t for _, t in batch], lang)
-            except Exception:  # one bad batch must not stop the run; the titles stay pending
-                log.exception("translation batch failed (%s, %d titles)", lang, len(batch))
-                continue
-            for (h, source), target in zip(batch, out):
+            for h, source, target in _translate_batch(translator, todo[i:i + BATCH], lang):
                 why = check(source, target)
                 if why:
                     failed += 1
-                    conn.execute(
-                        """INSERT INTO data_issue (external_ref, issue_type, severity, details)
-                           VALUES (%s, 'translation_check_failed', 'warning', %s)""",
-                        (h, json.dumps({"language": lang, "reason": why, "source": source, "target": target, "model": translator.model})))
+                    details = json.dumps({"language": lang, "reason": why, "source": source, "target": target, "model": translator.model})
+                    if not conn.execute(
+                            """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
+                               AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
+                        conn.execute(
+                            """INSERT INTO data_issue (external_ref, issue_type, severity, details)
+                               VALUES (%s, 'translation_check_failed', 'warning', %s)""", (h, details))
                     continue
                 conn.execute(
                     """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
                        ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), translator.model))
                 stored += 1
+            _resolve_translated(conn, lang)
             conn.commit()
         counts[lang] = stored
         counts[f"{lang}_failed"] = failed
         log.info("translate %s: %d stored, %d failed checks, %d were pending", lang, stored, failed, len(todo))
     return counts
+
+
+def _resolve_translated(conn: psycopg.Connection, lang: str) -> None:
+    """Failed-check issues of titles that have a translation now (a later run or an editor) are resolved."""
+    conn.execute(
+        """UPDATE data_issue i SET status = 'resolved', resolved_at = now()
+           WHERE i.issue_type = 'translation_check_failed' AND i.status = 'open' AND i.details->>'language' = %s
+             AND EXISTS (SELECT 1 FROM text_translation x WHERE x.source_sha256 = i.external_ref AND x.language = %s)""", (lang, lang))

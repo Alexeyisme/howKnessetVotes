@@ -59,6 +59,33 @@ def test_sync_stores_and_rejects(url):
         issues = conn.execute("SELECT count(*) FROM data_issue WHERE issue_type = 'translation_check_failed'").fetchone()[0]
         assert counts["ru_failed"] == issues > 0
         assert counts["ru"] + counts["ru_failed"] == before
+        # failed titles are not sent again on the next (scheduled) run, only with retry_failed; no duplicate issues
+        assert pending(conn, "ru") == []
+        assert sync(conn, NumberDropper(), ["ru"])["ru_failed"] == 0
+        assert sync(conn, NumberDropper(), ["ru"], retry_failed=True)["ru_failed"] == issues
+        assert conn.execute("SELECT count(*) FROM data_issue WHERE issue_type = 'translation_check_failed'").fetchone()[0] == issues
+        # a retry that passes stores the translation and resolves the issue
+        counts = sync(conn, StubTranslator(), ["ru"], retry_failed=True)
+        assert counts["ru"] == issues and counts["ru_failed"] == 0
+        assert conn.execute("""SELECT count(*) FROM data_issue WHERE issue_type = 'translation_check_failed'
+                               AND status = 'open'""").fetchone()[0] == 0
+
+
+class OneTooMany(StubTranslator):
+    """Returns an extra item for batches of more than one title, like the model sometimes does."""
+
+    def translate(self, titles, lang):
+        out = super().translate(titles, lang)
+        if len(titles) > 1:
+            raise RuntimeError(f"expected {len(titles)} translations, got {len(out) + 1}")
+        return out
+
+
+def test_failed_batch_is_retried_title_by_title(url):
+    with psycopg.connect(url) as conn:
+        todo = len(pending(conn, "ar"))
+        assert todo >= 2
+        assert sync(conn, OneTooMany(), ["ar"]) == {"ar": todo, "ar_failed": 0}
 
 
 def test_api_title_fields_and_search(client, url):
