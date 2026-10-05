@@ -41,6 +41,8 @@ A deploy does not wait for CI; check the GitHub Actions run first (`gh run list 
 | `hkv-update-quick.timer` | every 10 min, Mon–Wed 11:00–23:50 and Tue–Thu 00:00–02:50 | `hkv update --quick --days 1`: today's and yesterday's votes only, no reference data; if no vote, ballot or correction is new it stops (a few seconds), otherwise topics, names, coalition blocs, title translations and a release. A shared lock (`flock /run/lock/hkv-update.lock`) keeps it from overlapping the full update: the quick run is skipped, the full one waits. No failure alert (it would repeat every 10 minutes); the full update alerts |
 | `hkv-backup.timer` | daily 04:30 | `pg_dump -Fc` to `/srv/hkv/backups`, keeping the last 14 (Hetzner server backups copy them off the server daily, 7 kept) |
 
+**Knesset geo-block (from 2026-10-05):** the Knesset redirects requests from outside Israel to `www.knesset.gov.il/maintenance-page-geo`. The client reports it as `SourceBlocked`: the full update fails and alerts, the quick check logs a warning and exits. `HKV_KNESSET_PROXY=http://host:port` in `/srv/hkv/.env` sends requests to knesset.gov.il (only) through an HTTP proxy in Israel; empty = direct. Check access from the server: `curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.knesset.gov.il/`.
+
 Installing or changing units (as root): `cp /srv/hkv/infra/systemd/hkv-* /etc/systemd/system/ && systemctl daemon-reload && systemctl enable --now hkv-update.timer hkv-update-quick.timer hkv-backup.timer`.
 
 ```sh

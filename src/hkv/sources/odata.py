@@ -6,6 +6,9 @@ Source behaviour this client is built around (docs/audit/source-audit.md):
   * $apply is blocked by the WAF (HTTP 473); only $filter/$orderby/$select/$top are used.
   * after hours of paging the WAF starts answering some requests with HTTP 481 at random (the same URL
     alternates 200/481) -> a throttle: back off for long and retry, do not fail the whole period.
+  * from 2026-10-05 the Knesset redirects requests from outside Israel (our server) to
+    www.knesset.gov.il/maintenance-page-geo -> SourceBlocked, not retried. HKV_KNESSET_PROXY (an HTTP proxy URL)
+    sends requests to knesset.gov.il through a proxy; other hosts (Wikidata) never use it.
 Every page is stored verbatim so parsing can be repeated without refetching.
 """
 
@@ -14,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import random
 import time
 import urllib.error
@@ -33,7 +37,22 @@ class SourceError(RuntimeError):
     pass
 
 
+class SourceBlocked(SourceError):
+    """The source refused us as a whole (geo or maintenance redirect, WAF block): retrying will not help."""
+
+
 THROTTLED = (429, 481)  # retried after a long backoff (481: see module docstring)
+BLOCK_PAGE = "/maintenance-page"   # www.knesset.gov.il/maintenance-page-geo, /maintenance-page
+
+
+def _urlopen(req: urllib.request.Request, timeout: float):
+    """urlopen, through HKV_KNESSET_PROXY for knesset.gov.il hosts when it is set."""
+    proxy = os.environ.get("HKV_KNESSET_PROXY")
+    host = urllib.parse.urlsplit(req.full_url).hostname or ""
+    if proxy and (host == "knesset.gov.il" or host.endswith(".knesset.gov.il")):
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({"http": proxy, "https": proxy}))
+        return opener.open(req, timeout=timeout)
+    return urllib.request.urlopen(req, timeout=timeout)
 
 
 @dataclass(frozen=True)
@@ -85,11 +104,14 @@ class ODataClient:
             time.sleep(self.delay_s * (1 + 3 * attempt) + random.random() * 0.2)
             req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/json"})
             try:
-                with urllib.request.urlopen(req, timeout=self.timeout_s) as resp:
+                with _urlopen(req, timeout=self.timeout_s) as resp:
+                    final = getattr(resp, "geturl", lambda: url)()
                     body = resp.read()
+                if BLOCK_PAGE in final:
+                    raise SourceBlocked(f"redirected to {final} (geo or maintenance block): {url}")
             except urllib.error.HTTPError as e:
                 if e.code in (403, 473):
-                    raise SourceError(f"blocked by source ({e.code}): {url}") from e  # do not hammer the WAF
+                    raise SourceBlocked(f"blocked by source ({e.code}): {url}") from e  # do not hammer the WAF
                 if e.code in THROTTLED:
                     last = e
                     wait = self.throttle_s * 2 ** attempt

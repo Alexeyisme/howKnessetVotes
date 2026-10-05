@@ -128,8 +128,14 @@ def main(argv: list[str] | None = None) -> int:
         else:
             args.log.parent.mkdir(parents=True, exist_ok=True)
             logging.basicConfig(filename=args.log, level=logging.INFO, format=fmt)
+        from hkv.sources.odata import SourceBlocked
         with psycopg.connect(args.db) as conn:
-            print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference, quick=args.quick))
+            try:
+                print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference, quick=args.quick))
+            except SourceBlocked as e:
+                if not args.quick:
+                    raise  # the full update fails, so the alert says the source is blocking us
+                logging.getLogger("hkv.update").warning("quick: source blocks us, skipped: %s", e)  # no failure every 10 min
         return 0
     if args.cmd == "legacy":
         import logging
