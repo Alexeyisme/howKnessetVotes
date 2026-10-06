@@ -1,4 +1,4 @@
-# Roadmap (updated 2026-10-04)
+# Roadmap (updated 2026-10-06)
 
 ## Where we are
 
@@ -7,7 +7,7 @@
 | Area | State |
 |---|---|
 | Data | 37,045 plenum votes (2003-10-20 … 2026-07-28), 2.02M ballots, 491 MKs who voted, 175 factions (16th–25th Knessets). Faction at the vote date for 99.999% of ballots. Official totals cross-checked up to 2021-07 (exact in 96.5%). 37 governments with coalition/opposition per faction (derived from official government posts); 31 parties linked across Knessets. |
-| Updates | Server timers: daily, plus every 2 h on plenum days. Nightly DB dump on the server. |
+| Updates | Server timers: daily, every 2 h on plenum days, and a quick check every 10 minutes during sittings. Since the Knesset's geo-block (2026-10-05) they go through a $4 proxy server in Israel ([knesset-proxy.md](knesset-proxy.md)). Nightly DB dump on the server. |
 | Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew) and an Arabic beta (`/ar`); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all four languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
 | API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in four languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
 | Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and descriptions only in Hebrew (L6, L7). No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
@@ -89,6 +89,7 @@ descriptions.
 | O5 | Raw source pages (366 MB) archived off-server for provenance | S |
 | O6 | Privacy-friendly analytics (self-hosted Umami) to learn what people search for | S |
 | O7 | **26th Knesset readiness** (opens 2026-11-10): curated ru/en/ar names for the new factions in `factions.toml`, their links in `parties.toml`, and `hkv names` for new MKs' names and photos once the website lists them. Open `faction_name_missing` issues show what is left | S |
+| O8 ✅ | **Knesset geo-block** (2026-10-05): updates reach the Knesset through an SSH tunnel to a $4/month proxy server in Israel (Kamatera), which relays only to `knesset.gov.il` ([knesset-proxy.md](knesset-proxy.md)). In a recess the 2-hourly runs skip reference data (about a third of the requests overall) | S |
 
 ## Proposed order
 

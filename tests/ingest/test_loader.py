@@ -207,3 +207,43 @@ def test_update_rereads_window_and_records_release(new_database):
         row.update(ResultCode=7, ResultDesc="בעד")
         assert update(conn, FixtureSource(data), days=5, today=dt.date(2026, 7, 30), quick=True)["changed"] is True
     assert one(url, "SELECT count(*) FROM data_release") == (2,)
+
+
+class CountingSource(FixtureSource):
+    def __init__(self, data: dict[str, list[dict]]) -> None:
+        super().__init__(data)
+        self.asked: list[str] = []
+
+    def pages(self, resource: str, params: dict[str, str]) -> Iterator[Page]:
+        self.asked.append(resource)
+        yield from super().pages(resource, params)
+
+
+def test_update_skips_fresh_reference_in_recess(new_database):
+    from hkv.ingest.update import update
+    url = new_database()
+    ingest(url, SLICE)  # reference data loaded just now; the last vote is on 2026-07-28
+    data = copy.deepcopy(SLICE)
+    with psycopg.connect(url) as conn:
+        src = CountingSource(data)
+        assert update(conn, src, days=30, today=dt.date(2026, 8, 20))["votes"] == 2
+        assert "KNS_Person" not in src.asked
+        # the recess ends with an MK we don't know yet: reference data is loaded and the votes are read again
+        vote = copy.deepcopy(next(v for v in data["KNS_PlenumVote"] if v["Id"] == 46699))
+        vote.update(Id=999002, VoteDateTime="2026-08-19T00:00:00+03:00")
+        data["KNS_PlenumVote"].append(vote)
+        data["KNS_Person"].append({**data["KNS_Person"][0], "Id": 999001, "LastName": "חדש"})
+        data["KNS_PlenumVoteResult"].append({**data["KNS_PlenumVoteResult"][0], "Id": 999003, "MkId": 999001,
+                                             "VoteID": 999002, "VoteDate": vote["VoteDateTime"]})
+        src = CountingSource(data)
+        assert update(conn, src, days=30, today=dt.date(2026, 8, 20))["votes"] == 3
+        assert "KNS_Person" in src.asked
+        # a reference load older than a day is refreshed even in a recess
+        conn.execute("UPDATE ingestion_run SET finished_at = finished_at - interval '21 hours'")
+        conn.commit()
+        src = CountingSource(data)
+        update(conn, src, days=30, today=dt.date(2026, 9, 30))
+        assert "KNS_Person" in src.asked
+    assert one(url, "SELECT count(*) FROM ballot WHERE knesset_ballot_id = 999003") == (1,)
+    assert one(url, "SELECT count(*) FROM data_issue WHERE issue_type = 'ballot_unknown_person' AND status = 'open'") == (0,)
+    assert one(url, "SELECT count(*) FROM data_issue WHERE issue_type = 'ballot_unknown_person' AND status = 'resolved'") == (1,)

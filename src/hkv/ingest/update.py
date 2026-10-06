@@ -28,6 +28,19 @@ from hkv.topics.official import load as load_official
 
 log = logging.getLogger("hkv.update")
 METRIC_VERSION = "1"
+RECESS_DAYS = 14                          # no vote for this long: the Knesset is in recess
+REFERENCE_MAX_AGE = dt.timedelta(hours=20)
+
+
+def _reference_fresh(conn: psycopg.Connection, today: dt.date) -> bool:
+    """In a recess, reference data (MKs, factions, posts: ~120 of a full run's ~130 requests) is reloaded by the
+    daily run only, not by every 2-hourly one. Sitting days always reload it: new MKs must exist before their ballots."""
+    last_vote, loaded = conn.execute(
+        """SELECT (SELECT max(occurred_on) FROM vote),
+                  (SELECT max(finished_at) FROM ingestion_run WHERE resource = 'KNS_PersonToPosition' AND status = 'succeeded')""",
+    ).fetchone()
+    in_recess = last_vote is None or last_vote < today - dt.timedelta(days=RECESS_DAYS)
+    return in_recess and loaded is not None and loaded > dt.datetime.now(dt.timezone.utc) - REFERENCE_MAX_AGE
 
 
 def _fingerprint(conn: psycopg.Connection) -> tuple:
@@ -42,12 +55,28 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     date_from = today - dt.timedelta(days=days)
     loader = Loader(conn, v4)
     before = _fingerprint(conn)
+    skipped = False
     if reference and not quick:
-        log.info("reference data")
-        loader.load_reference()
-        load_gov_positions(conn, v4)
+        if _reference_fresh(conn, today):
+            log.info("reference data: recess and loaded in the last %s, skipped", REFERENCE_MAX_AGE)
+            skipped = True
+        else:
+            log.info("reference data")
+            loader.load_reference()
+            load_gov_positions(conn, v4)
     log.info("votes %s..%s", date_from, today)
     ids = loader.load_votes(date_from, today, label=f"update {date_from}..{today}")
+    if skipped and _fingerprint(conn) != before:
+        # the recess ended: the new votes may have MKs we don't know yet, so reload reference data and read them again
+        log.info("new votes after the recess: reference data, then the votes again")
+        loader.load_reference()
+        load_gov_positions(conn, v4)
+        ids = loader.load_votes(date_from, today, label=f"update {date_from}..{today}")
+    # ballots skipped for an MK unknown at the time (quick runs, the pass above) and loaded since
+    conn.execute("""UPDATE data_issue d SET status = 'resolved', resolved_at = now()
+                    FROM ballot b WHERE d.status = 'open' AND d.issue_type = 'ballot_unknown_person'
+                      AND d.external_ref = 'KNS_PlenumVoteResult:' || b.knesset_ballot_id""")
+    conn.commit()
     if quick and _fingerprint(conn) == before:
         log.info("quick: nothing new in %s..%s (%d votes in window)", date_from, today, len(ids))
         return {"votes": len(ids), "changed": False}

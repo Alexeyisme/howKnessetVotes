@@ -1,0 +1,17 @@
+[Unit]
+Description=SSH tunnel to the Knesset proxy on the Israeli server (docs/knesset-proxy.md)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+# Listens on the gateway of the hkv_default Docker network, reachable by job containers but not the internet.
+# The tunnel user on the Israeli server may only forward to 127.0.0.1:8890 (knesset_proxy.py).
+User=deploy
+ExecStart=/usr/bin/ssh -N -i /home/deploy/.ssh/hkv_il_tunnel \
+  -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
+  -L 172.18.0.1:8890:127.0.0.1:8890 tunnel@<il-proxy address>
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

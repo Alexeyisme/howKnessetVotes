@@ -88,7 +88,8 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
 - **Deploy = `scripts/deploy.sh`** after committing (it rsyncs tracked files only and deletes untracked files in
   the code dirs). Check CI first: `gh run list --limit 1`. Deploying changes the public site — confirm with the
   owner unless they asked for it.
-- `hkv update` runs from a systemd timer (daily + every 2 h on sitting days); failures alert to Telegram.
+- `hkv update` runs from systemd timers (daily + every 2 h on sitting days, plus a 10-minute `--quick` check during
+  sittings; in a recess reference data is reloaded once a day); failures of the full update alert to Telegram.
 - Secrets live only in `/srv/hkv/.env` on the server. Never print them, never ask the owner to paste tokens into
   chat — they enter credentials themselves (e.g. `hcloud context`).
 
@@ -101,3 +102,6 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
   `overrides.toml`. The Norwegian-law extension applies only from 2015-01-01.
 - The plenum has no quorum: low-turnout votes are real, not missing data (the vote page explains this).
 - The Knesset is in recess until the 26th Knesset convenes on 2026-11-10 (roadmap O7: new term readiness).
+- Since 2026-10-05 the Knesset blocks requests from outside Israel (redirect to `maintenance-page-geo`); updates
+  reach it through an SSH tunnel to a $4 proxy server in Israel (Kamatera `hkv-il-proxy`, <il-proxy address>;
+  `HKV_KNESSET_PROXY`, [docs/knesset-proxy.md](docs/knesset-proxy.md)).

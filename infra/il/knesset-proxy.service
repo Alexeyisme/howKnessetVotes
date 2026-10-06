@@ -1,0 +1,17 @@
+[Unit]
+Description=HTTPS proxy to knesset.gov.il only, for knessetvotes.org (listens on 127.0.0.1:8890)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/knesset_proxy.py
+Restart=always
+RestartSec=5
+DynamicUser=yes
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
