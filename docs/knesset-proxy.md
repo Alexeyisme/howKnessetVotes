@@ -106,11 +106,11 @@ All requests go one at a time with a pause between them (at most about 40 a minu
 
 | Run | When | Knesset requests |
 |---|---|---|
-| Full update (`hkv-update`) | daily 05:30; every 2 h on sitting days (Mon–Wed afternoons, Tue–Thu nights) | about 130 with reference data (MKs, factions, government posts), about 10 without |
+| Full update (`hkv-update`) | daily 05:30; every 2 h on sitting days (Mon–Wed afternoons, Tue–Thu nights) | about 130 with reference data (MKs, factions, government posts); without it, 1 if there are no new votes |
 | Quick check (`hkv-update-quick`) | every 10 minutes during sittings | 1 when nothing is new |
 
 In a recess (no vote for 14 days) only the 05:30 run reloads reference data; on sitting days every full run does,
-so new MKs are known before their votes. That is roughly 1,300 requests a week in a recess and 3,900 in a sitting
+so new MKs are known before their votes. That is roughly 1,200 requests a week in a recess and 3,900 in a sitting
 week. The Knesset has only throttled us after hours of non-stop history loading. If it throttles (HTTP 429/481)
 the code backs off and retries; if it blocks us, the code stops at once and does not retry.
 

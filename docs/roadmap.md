@@ -89,7 +89,7 @@ descriptions.
 | O5 | Raw source pages (366 MB) archived off-server for provenance | S |
 | O6 | Privacy-friendly analytics (self-hosted Umami) to learn what people search for | S |
 | O7 | **26th Knesset readiness** (opens 2026-11-10): curated ru/en/ar names for the new factions in `factions.toml`, their links in `parties.toml`, and `hkv names` for new MKs' names and photos once the website lists them. Open `faction_name_missing` issues show what is left | S |
-| O8 ✅ | **Knesset geo-block** (2026-10-05): updates reach the Knesset through an SSH tunnel to a $4/month proxy server in Israel (Kamatera), which relays only to `knesset.gov.il` ([knesset-proxy.md](knesset-proxy.md)). In a recess the 2-hourly runs skip reference data (about a third of the requests overall) | S |
+| O8 ✅ | **Knesset geo-block** (2026-10-05): updates reach the Knesset through an SSH tunnel to a $4/month proxy server in Israel (Kamatera), which relays only to `knesset.gov.il` ([knesset-proxy.md](knesset-proxy.md)). In a recess the 2-hourly runs skip reference data (about 1,200 instead of 3,900 requests a week) | S |
 
 ## Proposed order
 
