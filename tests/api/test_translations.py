@@ -87,6 +87,9 @@ def test_model_per_language(monkeypatch):
     assert model_for("ar") == "claude-sonnet-5" and model_for("en") == "claude-haiku-4-5-20251001"
     monkeypatch.setenv("HKV_TRANSLATE_MODEL_AR", "x")
     assert model_for("ar") == "x"
+    # summaries: Sonnet in every language, whatever the title models are
+    monkeypatch.setenv("HKV_TRANSLATE_MODEL", "haiku")
+    assert model_for("en", "summary") == model_for("ar", "summary") == "claude-sonnet-5"
 
 
 def test_since_keeps_recent_titles(url):

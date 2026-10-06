@@ -35,6 +35,9 @@ BATCH = {"title": 20, "summary": 5}   # a summary averages ~850 Hebrew character
 # and translated a person's name; Sonnet did not. HKV_TRANSLATE_MODEL_<LANG> overrides per language.
 DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 LANGUAGE_MODELS = {"ar": "claude-sonnet-5"}
+# Summaries are prose, where Haiku got the meaning wrong in a 10-summary sample (2026-10-07: אישור מסע אלקטרוני as
+# "electronic passport", המצב הביטחוני as «безопасная ситуация»); Sonnet did not. HKV_TRANSLATE_MODEL_SUMMARY overrides.
+SUMMARY_MODEL = "claude-sonnet-5"
 
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
@@ -105,8 +108,9 @@ def system_prompt(lang: str, kind: str = "title") -> str:
             f"You translate the Knesset's official summaries of laws from Hebrew into {name} for a public "
             f"voting-record website. Each summary is a short paragraph of plain prose. Translate it faithfully and "
             f"completely, in clear neutral {name}: no omissions, no additions, no explanations, no editorialising. "
-            f"Keep every number, amount, percentage and date as digits; give dates in the Gregorian calendar only "
-            f"(drop the Hebrew date when the Gregorian one is also given). Law names follow the register of official "
+            f"Keep every number, amount, percentage and date as digits. Dates: the Hebrew text often gives a "
+            f"Hebrew-calendar date followed by the Gregorian one in parentheses, e.g. 'כ\"ג בשבט התשפ\"ז (31 בינואר 2027)'; "
+            f"write only the Gregorian date ('31 January 2027'), never the Hebrew month, day or year. Law names follow the register of official "
             f"legal titles in {name}. Use this glossary consistently:\n{glossary}\n"
             f"{LANGUAGE_NOTES.get(lang, '')}"
             f"Return only the translations, one per input, in the same order."
@@ -129,7 +133,9 @@ LANGUAGE_NOTES = {
 }
 
 
-def model_for(lang: str) -> str:
+def model_for(lang: str, kind: str = "title") -> str:
+    if kind == "summary":
+        return os.environ.get("HKV_TRANSLATE_MODEL_SUMMARY") or SUMMARY_MODEL
     return (os.environ.get(f"HKV_TRANSLATE_MODEL_{lang.upper()}") or LANGUAGE_MODELS.get(lang)
             or os.environ.get("HKV_TRANSLATE_MODEL") or DEFAULT_MODEL)
 
@@ -144,13 +150,13 @@ class ClaudeTranslator:
         self.fixed_model = model  # None: per language (model_for)
         self.model = model or os.environ.get("HKV_TRANSLATE_MODEL", DEFAULT_MODEL)
 
-    def model_for(self, lang: str) -> str:
-        return self.fixed_model or model_for(lang)
+    def model_for(self, lang: str, kind: str = "title") -> str:
+        return self.fixed_model or model_for(lang, kind)
 
     def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]:
         payload = json.dumps([{"n": i + 1, "he": t} for i, t in enumerate(titles)], ensure_ascii=False)
         response = self.client.messages.create(
-            model=self.model_for(lang),
+            model=self.model_for(lang, kind),
             max_tokens=16000,
             system=[{"type": "text", "text": system_prompt(lang, kind), "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": f"Translate these {len(titles)} {kind}s:\n{payload}"}],
@@ -239,8 +245,8 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
     counts: dict[str, int] = {}
     for lang in langs:
         _resolve_translated(conn, lang)
-        model = getattr(translator, "model_for", lambda _: translator.model)(lang)
         for kind in kinds:
+            model = getattr(translator, "model_for", lambda *_: translator.model)(lang, kind)
             todo = pending(conn, lang, limit, retry_failed, since, kind)
             stored = failed = 0
             for i in range(0, len(todo), BATCH[kind]):
@@ -265,7 +271,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
             key = lang if kind == "title" else f"{lang}_{kind}"
             counts[key] = stored
             counts[f"{key}_failed"] = failed
-            log.info("translate %s %ss: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
+            log.info("translate %s %s: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
     return counts
 
 
