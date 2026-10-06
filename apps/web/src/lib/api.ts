@@ -202,9 +202,11 @@ export interface BillSummary extends Titled {
 export interface BillDetail extends BillSummary {
   topics: { slug: string; label_ru: string; label_he: string; label_en?: string | null; label_ar?: string | null; origin: string; review_state: string; evidence: string | null }[];
   summary_he: string | null;
+  summary?: string | null;
+  summary_origin?: "machine" | "editor" | null;
   published_on: string | null;
   initiators: (PersonNames & { person_id: number; role: "initiator" | "joined" | "withdrew" })[];
-  related: { id: number; title_he: string }[];
+  related: ({ id: number; title_he: string } & Titled)[];
   timeline: VoteSummary[];
 }
 

@@ -1,5 +1,5 @@
-"""Title translations (R4): the sync stores what passes the checks, the API serves them per ?lang=, search finds
-bills by their translated title, and visitors can file a correction (never applied)."""
+"""Title and summary translations (R4, L7): the sync stores what passes the checks, the API serves them per ?lang=,
+search finds bills by their translated title, and visitors can file a correction (never applied)."""
 
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ MARK = StubTranslator.mark(TITLE, "en")
 class NumberDropper(StubTranslator):
     """Drops digits, so every title with a number fails the check."""
 
-    def translate(self, titles, lang):
+    def translate(self, titles, lang, kind="title"):
         return ["".join(ch for ch in self.mark(t, lang) if not ch.isdigit()) for t in titles]
 
 
@@ -74,7 +74,7 @@ def test_sync_stores_and_rejects(url):
 class OneTooMany(StubTranslator):
     """Returns an extra item for batches of more than one title, like the model sometimes does."""
 
-    def translate(self, titles, lang):
+    def translate(self, titles, lang, kind="title"):
         out = super().translate(titles, lang)
         if len(titles) > 1:
             raise RuntimeError(f"expected {len(titles)} translations, got {len(out) + 1}")
@@ -99,7 +99,7 @@ def test_failed_batch_is_retried_title_by_title(url):
     with psycopg.connect(url) as conn:
         todo = len(pending(conn, "ar"))
         assert todo >= 2
-        assert sync(conn, OneTooMany(), ["ar"]) == {"ar": todo, "ar_failed": 0}
+        assert sync(conn, OneTooMany(), ["ar"], kinds=["title"]) == {"ar": todo, "ar_failed": 0}
 
 
 def test_api_title_fields_and_search(client, url):
@@ -124,3 +124,33 @@ def test_suggestions(client, url):
     with psycopg.connect(url) as conn:
         assert conn.execute("SELECT count(*) FROM translation_suggestion").fetchone()[0] == 1
     assert client.post("/api/v1/suggestions", json={**body, "source_sha256": "zz"}).status_code == 422
+
+
+SUMMARY = "החוק מאריך את הוראת השעה בשנה וחצי, עד 31 בדצמבר 2026."
+
+
+class KindRecorder(StubTranslator):
+    """Remembers which kind of text each batch was sent as."""
+
+    def __init__(self):
+        self.kinds = []
+
+    def translate(self, titles, lang, kind="title"):
+        self.kinds.append((kind, len(titles)))
+        return super().translate(titles, lang, kind)
+
+
+def test_summaries(url):
+    with TestClient(create_app(url)) as client, psycopg.connect(url) as conn:
+        conn.execute("UPDATE bill SET summary_he = %s WHERE knesset_bill_id = %s", (SUMMARY, BILL))
+        conn.commit()
+        assert pending(conn, "en", kind="summary") == [(sha256(SUMMARY), SUMMARY)]
+        tr = KindRecorder()
+        counts = sync(conn, tr, ["en"], kinds=["summary"])
+        assert counts == {"en_summary": 1, "en_summary_failed": 0} and tr.kinds == [("summary", 1)]
+        assert pending(conn, "en", kind="summary") == []
+        b = client.get(f"/api/v1/bills/{BILL}", params={"lang": "en"}).json()["data"]
+        assert b["summary_he"] == SUMMARY
+        assert b["summary"] == StubTranslator.mark(SUMMARY, "en") == b["summary_en"] and b["summary_origin"] == "machine"
+        assert client.get(f"/api/v1/bills/{BILL}").json()["data"]["summary"] is None
+        assert client.get(f"/api/v1/bills/{BILL}", params={"lang": "ru"}).json()["data"]["summary"] is None

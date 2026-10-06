@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
-from hkv.api.names import FactionNames, PersonNames, TitleTranslations, TopicLabels, with_names
+from hkv.api.names import FactionNames, PersonNames, SummaryTranslations, TitleTranslations, TopicLabels, with_names
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -182,7 +182,7 @@ class BillTopic(TopicLabels):
     evidence: str | None
 
 
-class BillDetail(BillSummary):
+class BillDetail(BillSummary, SummaryTranslations):
     topics: list[BillTopic]
     summary_he: str | None
     published_on: dt.date | None

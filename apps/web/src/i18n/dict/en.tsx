@@ -38,6 +38,7 @@ export const en: Dict = {
     glossaryLink: "Glossary →",
     sourceKnesset: "Source:",
     machine: "automatic translation", suggest: "suggest a correction",
+    hebrewOriginal: "Hebrew original",
   },
   stage: {
     preliminary: "Preliminary reading", first: "First reading", second: "Second reading", third: "Third reading",
@@ -227,6 +228,7 @@ export const en: Dict = {
     kicker: (origin, term) => `${origin} bill · ${ord(term)} Knesset`,
     published: (d) => ` · published as law ${d}`,
     status: "Status:", topics: "Topics:",
+    summaryTitle: "Official summary of the law (Knesset)",
     officialTitle: (e) => `official classification of the law: ${e}`,
     ruleTitle: (e) => `from the word “${e}” in the title`,
     officialNote: " · * from the Knesset's official law classification",

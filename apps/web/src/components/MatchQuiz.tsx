@@ -102,6 +102,7 @@ export function MatchQuiz({ votes, parties, initial, locale, labels }:
           {votes.map((v, i) => (
             <li key={v.id}>
               <a href={`/${locale}/votes/${v.id}`} className="he" lang="he" dir="rtl">{v.title_he}</a>
+              {v.title && <span className={`${styles.answerTr} small`} dir="auto">{v.title}</span>}
               <span className="small muted"> · {labels.yours}: {answers[i] === "f" ? labels.choice.for : answers[i] === "a" ? labels.choice.against : "—"} · {labels.passed}: {v.outcome} ({v.line})</span>
             </li>
           ))}

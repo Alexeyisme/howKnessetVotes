@@ -42,6 +42,7 @@ export const ru = {
     glossaryLink: "Словарь →",
     sourceKnesset: "Источник:",
     machine: "автоматический перевод", suggest: "предложить исправление",
+    hebrewOriginal: "Оригинал на иврите",
   },
   stage: {
     preliminary: "Предварительное чтение", first: "Первое чтение", second: "Второе чтение", third: "Третье чтение",
@@ -233,6 +234,7 @@ export const ru = {
     kicker: (origin: string, term: number) => `Законопроект ${origin} · ${term}-й созыв`,
     published: (d: string) => ` · опубликован как закон ${d}`,
     status: "Статус:", topics: "Темы:",
+    summaryTitle: "Официальное резюме закона (Кнессет)",
     officialTitle: (e: string) => `официальная классификация закона: ${e}`,
     ruleTitle: (e: string) => `по слову «${e}» в названии`,
     officialNote: " · * по официальной классификации законов Кнессета",

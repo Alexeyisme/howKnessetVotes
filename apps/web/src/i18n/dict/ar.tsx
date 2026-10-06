@@ -40,6 +40,7 @@ export const ar: Dict = {
     glossaryLink: "قاموس المصطلحات ←",
     sourceKnesset: "المصدر:",
     machine: "ترجمة آلية", suggest: "اقترح تصحيحًا",
+    hebrewOriginal: "الأصل بالعبرية",
   },
   stage: {
     preliminary: "القراءة التمهيدية", first: "القراءة الأولى", second: "القراءة الثانية", third: "القراءة الثالثة",
@@ -229,6 +230,7 @@ export const ar: Dict = {
     kicker: (origin, term) => `اقتراح قانون ${origin} · ${kn(term)}`,
     published: (d) => ` · نُشر كقانون في ${d}`,
     status: "الحالة:", topics: "المواضيع:",
+    summaryTitle: "الملخص الرسمي للقانون (الكنيست)",
     officialTitle: (e) => `التصنيف الرسمي للقانون: ${e}`,
     ruleTitle: (e) => `من الكلمة «${e}» في العنوان`,
     officialNote: " · * من التصنيف الرسمي للقوانين في الكنيست",

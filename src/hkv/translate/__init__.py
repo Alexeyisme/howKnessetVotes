@@ -1,9 +1,12 @@
-"""Machine translation of Hebrew titles (docs/ux-requirements.md R4; roadmap L6).
+"""Machine translation of Hebrew titles and official bill summaries (docs/ux-requirements.md R4; roadmap L6, L7).
 
 Distinct Hebrew strings (bill and vote titles) are translated once per language and stored by the SHA-256 of the
 source in text_translation. A fixed glossary keeps ~22,000 titles consistent; automatic checks reject translations
 that lose a number or keep Hebrew letters, and log them as data_issue rows instead of storing them. The translator
 is pluggable: ClaudeTranslator in production, StubTranslator in tests.
+
+Two kinds of text share the table and the checks: "title" (bill and vote titles) and "summary" (the official
+`SummaryLaw` of a bill, a paragraph of plain prose, so it gets its own prompt and smaller batches).
 
 Every `hkv update` runs `sync` when the server has an API key, so only titles that are new since the last run go to
 the API; when nothing is new, no request is made. A title that failed the checks is not retried automatically (it
@@ -25,7 +28,8 @@ import psycopg
 log = logging.getLogger(__name__)
 
 LANGUAGES = ("en", "ru", "ar")
-BATCH = 20
+KINDS = ("title", "summary")
+BATCH = {"title": 20, "summary": 5}   # a summary averages ~850 Hebrew characters, the longest ~6,400
 # Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it.
 # Arabic gets Sonnet: in a 30-title comparison (2026-10-05) Haiku mistranslated legal terms (התיישנות, מסגרות תקציב)
 # and translated a person's name; Sonnet did not. HKV_TRANSLATE_MODEL_<LANG> overrides per language.
@@ -76,7 +80,7 @@ def sha256(text: str) -> str:
 class Translator(Protocol):
     model: str
 
-    def translate(self, titles: Sequence[str], lang: str) -> list[str]: ...
+    def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]: ...
 
 
 class StubTranslator:
@@ -89,13 +93,24 @@ class StubTranslator:
     def mark(text: str, lang: str) -> str:
         return " ".join([f"[{lang}]", sha256(text)[:12], *_DIGITS.findall(text)])
 
-    def translate(self, titles: Sequence[str], lang: str) -> list[str]:
+    def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]:
         return [self.mark(t, lang) for t in titles]
 
 
-def system_prompt(lang: str) -> str:
+def system_prompt(lang: str, kind: str = "title") -> str:
     name = LANGUAGE_NAME[lang]
     glossary = "\n".join(f"- {he} → {tr}" for he, tr in GLOSSARY[lang])
+    if kind == "summary":
+        return (
+            f"You translate the Knesset's official summaries of laws from Hebrew into {name} for a public "
+            f"voting-record website. Each summary is a short paragraph of plain prose. Translate it faithfully and "
+            f"completely, in clear neutral {name}: no omissions, no additions, no explanations, no editorialising. "
+            f"Keep every number, amount, percentage and date as digits; give dates in the Gregorian calendar only "
+            f"(drop the Hebrew date when the Gregorian one is also given). Law names follow the register of official "
+            f"legal titles in {name}. Use this glossary consistently:\n{glossary}\n"
+            f"{LANGUAGE_NOTES.get(lang, '')}"
+            f"Return only the translations, one per input, in the same order."
+        )
     return (
         f"You translate titles of Israeli Knesset bills and plenum votes from Hebrew into {name} for a public "
         f"voting-record website. Translate each title faithfully and tersely, in the register of official legal "
@@ -132,13 +147,13 @@ class ClaudeTranslator:
     def model_for(self, lang: str) -> str:
         return self.fixed_model or model_for(lang)
 
-    def translate(self, titles: Sequence[str], lang: str) -> list[str]:
+    def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]:
         payload = json.dumps([{"n": i + 1, "he": t} for i, t in enumerate(titles)], ensure_ascii=False)
         response = self.client.messages.create(
             model=self.model_for(lang),
             max_tokens=16000,
-            system=[{"type": "text", "text": system_prompt(lang), "cache_control": {"type": "ephemeral"}}],
-            messages=[{"role": "user", "content": f"Translate these {len(titles)} titles:\n{payload}"}],
+            system=[{"type": "text", "text": system_prompt(lang, kind), "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": f"Translate these {len(titles)} {kind}s:\n{payload}"}],
             output_config={"format": {"type": "json_schema", "schema": {
                 "type": "object",
                 "properties": {"translations": {"type": "array", "items": {"type": "string"}}},
@@ -173,17 +188,24 @@ def _is_hebrew_year(source: str, digits: str) -> bool:
     return False
 
 
+SOURCES = {
+    "title": """SELECT b.title_he AS t, max(v.occurred_on) AS last FROM bill b
+                JOIN vote_subject vs ON vs.bill_id = b.id JOIN vote v ON v.id = vs.vote_id GROUP BY 1
+                UNION ALL
+                SELECT v.title_he, max(v.occurred_on) FROM vote v GROUP BY 1""",
+    # only bills that were voted on in the plenum: the site has no page for the others
+    "summary": """SELECT b.summary_he AS t, max(v.occurred_on) AS last FROM bill b
+                  JOIN vote_subject vs ON vs.bill_id = b.id JOIN vote v ON v.id = vs.vote_id GROUP BY 1""",
+}
+
+
 def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry_failed: bool = False,
-            since: str | None = None) -> list[tuple[str, str]]:
-    """(sha, hebrew) of distinct bill and vote titles without a translation in `lang`, most recently voted first.
-    Titles with an open failed-check issue in `lang` are left out unless `retry_failed`; `since` (ISO date) keeps
-    titles last voted on or after that date."""
+            since: str | None = None, kind: str = "title") -> list[tuple[str, str]]:
+    """(sha, hebrew) of distinct texts of `kind` without a translation in `lang`, most recently voted first.
+    Texts with an open failed-check issue in `lang` are left out unless `retry_failed`; `since` (ISO date) keeps
+    texts last voted on or after that date."""
     rows = conn.execute(
-        """WITH src AS (
-               SELECT b.title_he AS t, max(v.occurred_on) AS last FROM bill b
-               JOIN vote_subject vs ON vs.bill_id = b.id JOIN vote v ON v.id = vs.vote_id GROUP BY 1
-               UNION ALL
-               SELECT v.title_he, max(v.occurred_on) FROM vote v GROUP BY 1)
+        f"""WITH src AS ({SOURCES[kind]})
            SELECT t, title_sha(t) AS h FROM src
            WHERE t IS NOT NULL AND t <> ''
            GROUP BY t HAVING NOT EXISTS (SELECT 1 FROM text_translation x WHERE x.source_sha256 = title_sha(t) AND x.language = %(lang)s)
@@ -195,52 +217,55 @@ def pending(conn: psycopg.Connection, lang: str, limit: int | None = None, retry
     return [(r[1], r[0]) for r in rows]
 
 
-def _translate_batch(translator: Translator, batch: list[tuple[str, str]], lang: str) -> list[tuple[str, str, str]]:
+def _translate_batch(translator: Translator, batch: list[tuple[str, str]], lang: str, kind: str = "title") -> list[tuple[str, str, str]]:
     """(sha, source, target) for a batch. If the batch fails (e.g. the model returned 21 translations for 20 titles),
     each title is sent alone, so one odd title costs one retry instead of 20 untranslated titles."""
     try:
-        out = translator.translate([t for _, t in batch], lang)
+        out = translator.translate([t for _, t in batch], lang, kind)
         return [(h, source, target) for (h, source), target in zip(batch, out, strict=True)]
     except Exception:
         if len(batch) == 1:
             log.exception("translation failed (%s): %s", lang, batch[0][1][:120])
             return []
         log.warning("translation batch failed (%s, %d titles); retrying one by one", lang, len(batch), exc_info=True)
-        return [row for item in batch for row in _translate_batch(translator, [item], lang)]
+        return [row for item in batch for row in _translate_batch(translator, [item], lang, kind)]
 
 
 def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] = LANGUAGES, limit: int | None = None,
-         retry_failed: bool = False, since: str | None = None) -> dict:
+         retry_failed: bool = False, since: str | None = None, kinds: Iterable[str] = KINDS) -> dict:
     """Translate what is missing, store what passes the checks, log the rest as data_issue rows (one open issue per
-    title and language; it is resolved once the title gets a translation)."""
+    text and language; it is resolved once the text gets a translation). Counts are keyed `en`, `en_failed` for
+    titles and `en_summary`, `en_summary_failed` for summaries."""
     counts: dict[str, int] = {}
     for lang in langs:
         _resolve_translated(conn, lang)
-        todo = pending(conn, lang, limit, retry_failed, since)
         model = getattr(translator, "model_for", lambda _: translator.model)(lang)
-        stored = failed = 0
-        for i in range(0, len(todo), BATCH):
-            for h, source, target in _translate_batch(translator, todo[i:i + BATCH], lang):
-                why = check(source, target)
-                if why:
-                    failed += 1
-                    details = json.dumps({"language": lang, "reason": why, "source": source, "target": target, "model": model})
-                    if not conn.execute(
-                            """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
-                               AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
-                        conn.execute(
-                            """INSERT INTO data_issue (external_ref, issue_type, severity, details)
-                               VALUES (%s, 'translation_check_failed', 'warning', %s)""", (h, details))
-                    continue
-                conn.execute(
-                    """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
-                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
-                stored += 1
-            _resolve_translated(conn, lang)
-            conn.commit()
-        counts[lang] = stored
-        counts[f"{lang}_failed"] = failed
-        log.info("translate %s: %d stored, %d failed checks, %d were pending", lang, stored, failed, len(todo))
+        for kind in kinds:
+            todo = pending(conn, lang, limit, retry_failed, since, kind)
+            stored = failed = 0
+            for i in range(0, len(todo), BATCH[kind]):
+                for h, source, target in _translate_batch(translator, todo[i:i + BATCH[kind]], lang, kind):
+                    why = check(source, target)
+                    if why:
+                        failed += 1
+                        details = json.dumps({"language": lang, "kind": kind, "reason": why, "source": source, "target": target, "model": model})
+                        if not conn.execute(
+                                """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
+                                   AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
+                            conn.execute(
+                                """INSERT INTO data_issue (external_ref, issue_type, severity, details)
+                                   VALUES (%s, 'translation_check_failed', 'warning', %s)""", (h, details))
+                        continue
+                    conn.execute(
+                        """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
+                           ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
+                    stored += 1
+                _resolve_translated(conn, lang)
+                conn.commit()
+            key = lang if kind == "title" else f"{lang}_{kind}"
+            counts[key] = stored
+            counts[f"{key}_failed"] = failed
+            log.info("translate %s %ss: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
     return counts
 
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
-import { Title, titleText } from "@/components/Title";
+import { Summary, Title, titleText } from "@/components/Title";
 import { He, PersonName, VoteLine, VoteList } from "@/components/ui";
 import { getBill, type MotionType, NotFound } from "@/lib/api";
 import { MAIN_MOTIONS, verdict } from "@/lib/labels";
@@ -56,7 +56,12 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
         )}
       </header>
 
-      {bill.summary_he && <section className="card"><He as="p">{bill.summary_he}</He></section>}
+      {bill.summary_he && (
+        <section className="card">
+          <h2 className="section-title">{d.summaryTitle}</h2>
+          <Summary he={bill.summary_he} text={bill.summary} origin={bill.summary_origin} page={`/bills/${bill.id}`} />
+        </section>
+      )}
 
       {bill.initiators.length > 0 && (
         <section className="card">
@@ -115,7 +120,7 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
         <section className="card">
           <h2 className="section-title">{d.related}</h2>
           <ul style={{ listStyle: "none" }}>
-            {bill.related.map((r) => <li key={r.id}><Link href={`/bills/${r.id}`}><He>{r.title_he}</He></Link></li>)}
+            {bill.related.map((r) => <li key={r.id}><Link href={`/bills/${r.id}`}><Title he={r.title_he} t={r} compact /></Link></li>)}
           </ul>
         </section>
       )}

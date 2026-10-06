@@ -74,6 +74,16 @@ class TitleTranslations(BaseModel):
     title_ar: str | None = None
 
 
+class SummaryTranslations(BaseModel):
+    """The same for the official bill summary (`summary_he`, roadmap L7): `summary` in the requested language or None,
+    `summary_origin` 'machine' or 'editor'."""
+    summary: str | None = None
+    summary_origin: str | None = None
+    summary_en: str | None = None
+    summary_ru: str | None = None
+    summary_ar: str | None = None
+
+
 def _walk(obj: Any, out: list[BaseModel]) -> None:
     if isinstance(obj, BaseModel):
         out.append(obj)
@@ -143,21 +153,29 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
             m.label_en = found.get((slug, "en"))
             m.label_ar = found.get((slug, "ar"))
             m.label = found.get((slug, lang)) or found.get((slug, "he"))
-    titled = [m for m in models if isinstance(m, TitleTranslations) and getattr(m, "title_he", None)]
-    if titled:
-        texts = list({getattr(m, "title_he") for m in titled})
-        found: dict[tuple[str, str], tuple[str, str]] = {}
-        for r in conn.execute(
-            """SELECT s.t, x.language, x.text, x.origin FROM unnest(%s::text[]) AS s(t)
-               JOIN text_translation x ON x.source_sha256 = title_sha(s.t)""", (texts,)):
-            found[(r["t"], r["language"])] = (r["text"], r["origin"])
-        for m in titled:
-            he = getattr(m, "title_he")
-            for lg in ("en", "ru", "ar"):
-                setattr(m, f"title_{lg}", found.get((he, lg), (None, None))[0])
-            if lang != "he" and (he, lang) in found:
-                m.title, m.title_origin = found[(he, lang)]
+    _fill_translations(conn, [m for m in models if isinstance(m, TitleTranslations)], "title", lang)
+    _fill_translations(conn, [m for m in models if isinstance(m, SummaryTranslations)], "summary", lang)
     return payload
+
+
+def _fill_translations(conn, models: list[BaseModel], field: str, lang: Lang) -> None:
+    """`{field}_en/ru/ar` from text_translation by the hash of `{field}_he`; `{field}` and `{field}_origin` in `lang`."""
+    models = [m for m in models if getattr(m, f"{field}_he", None)]
+    if not models:
+        return
+    texts = list({getattr(m, f"{field}_he") for m in models})
+    found: dict[tuple[str, str], tuple[str, str]] = {}
+    for r in conn.execute(
+        """SELECT s.t, x.language, x.text, x.origin FROM unnest(%s::text[]) AS s(t)
+           JOIN text_translation x ON x.source_sha256 = title_sha(s.t)""", (texts,)):
+        found[(r["t"], r["language"])] = (r["text"], r["origin"])
+    for m in models:
+        he = getattr(m, f"{field}_he")
+        for lg in ("en", "ru", "ar"):
+            setattr(m, f"{field}_{lg}", found.get((he, lg), (None, None))[0])
+        if lang != "he" and (he, lang) in found:
+            setattr(m, field, found[(he, lang)][0])
+            setattr(m, f"{field}_origin", found[(he, lang)][1])
 
 
 LANG_PARAM = inspect.Parameter(

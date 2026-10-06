@@ -34,6 +34,7 @@ export const he: Dict = {
     glossaryLink: "מילון מונחים ←",
     sourceKnesset: "מקור:",
     machine: "תרגום אוטומטי", suggest: "הציעו תיקון",
+    hebrewOriginal: "המקור בעברית",
   },
   stage: {
     preliminary: "קריאה טרומית", first: "קריאה ראשונה", second: "קריאה שנייה", third: "קריאה שלישית",
@@ -223,6 +224,7 @@ export const he: Dict = {
     kicker: (origin, term) => `הצעת חוק ${origin} · ${kn(term)}`,
     published: (d) => ` · פורסם כחוק ב-${d}`,
     status: "סטטוס:", topics: "נושאים:",
+    summaryTitle: "תקציר החוק הרשמי (הכנסת)",
     officialTitle: (e) => `סיווג רשמי של החוק: ${e}`,
     ruleTitle: (e) => `לפי המילה ״${e}״ בשם`,
     officialNote: " · * לפי הסיווג הרשמי של חוקי הכנסת",

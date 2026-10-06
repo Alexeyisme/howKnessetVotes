@@ -56,7 +56,7 @@ Hebrew source puts the translation back into the review queue.
 | L4 | **Topics in English** (21 labels and aliases) | Written by hand | S |
 | L5 | **Search in any language**: Russian and Latin names → MKs, transliteration-tolerant ("netanyahu", "нетаньяху", "натаниягу") | Trigram index on aliases in all languages | S |
 | L6 | **Bill titles en/ru** for ~3,600 bills — *pipeline built 2026-10-05 (`hkv translate`, `text_translation`, marker and corrections on the site); first production run pending an API key on the server* | LLM with a fixed glossary (Amendment No. → «поправка №», Basic Law → «Основной закон», ministries…) and a style rule for Hebrew years; automatic checks (numbers and glossary terms preserved); a native speaker reviews a 100-title sample | M |
-| L7 | **Bill descriptions he/en/ru**: 2–3 neutral sentences | Official `SummaryLaw` where it exists (1,144 bills); otherwise generated from the explanatory notes ("דברי הסבר") in `KNS_DocumentBill` DOCX, labelled "according to the sponsors…" | L |
+| L7 | **Bill descriptions he/en/ru/ar**, in three steps (sources: "Source research (2026-10-06)" below). **1. What the law does** — *built 2026-10-06*: the official `SummaryLaw` (1,144 voted bills, from the 20th Knesset on), machine-translated by `hkv translate` (kind `summary`) and shown on the bill page with the Hebrew original folded away; where it is missing, later a summary of the explanatory notes ("דברי הסבר"), labelled "according to the sponsors…". **2. What the sides argued**: a machine summary of the plenum debate on the bill, arguments attributed by name and faction, linked to the transcript. **3. Objections**: which factions filed how many reservations on which sections, from the committee version for the 2nd/3rd reading. Steps 2–3 start with the 423 laws whose third reading was contested | L |
 | L8 | **API language**: `?lang=` picks the display fields; every response also carries `{he, en, ru}` objects | — | S |
 | L9 | **Review screen**: approve or fix machine translations and topic assignments; sets `review_state` and removes the "machine" mark | Small admin page behind a login | M |
 | L10 | **Arabic** (`/ar`) — *beta, Phase 4*: about 21% of Israelis are Arab citizens, and Arabic-speaking voters have no Knesset voting tracker in their language | **Names:** the Knesset website's API returns official Arabic MK names and faction names (`languageKey=ar`, checked 2026-10-04: "بنيامين نتنياهو", "الليكود"), fetched by the same `hkv names` code. **Data:** the schema already allows `ar` in `person_alias`, `topic_label` and `topic_alias`; `faction_label` needs `ar` added back to its language check. **Site:** RTL layout from the Hebrew site; `dict/ar.tsx`, glossary and methodology need a native Arabic-speaking reviewer for Knesset terms (قراءة أولى، تحفّظ، حجب الثقة); Arabic search with alef/hamza and ta marbuta normalisation; Arabic topic labels and aliases; `?lang=ar` in the API. Curated short names for the 16th–25th Knesset factions where the website has none. **Later:** bill titles in Arabic come with L6 | M |
@@ -217,3 +217,26 @@ New item:
   ballots from then on. Legacy `Votes.svc` covers 2003 – 2021-07-13.
 - **Access from the server**: all of the above are reachable from Hetzner Helsinki (<hkv-1 address>).
   60 paced requests all returned 200.
+
+## Source research (2026-10-06): bill descriptions and the coalition–opposition fight
+
+Scope: the 3,060 bills with a contested vote on the whole bill (adopt or reject; coalition and opposition
+majorities differed), and within them the **423 laws whose third reading was contested**. Document lists came from
+`KNS_DocumentBill` (all 3,060 bills); samples from 2016, 2017, 2023 and 2026 were read.
+
+| Source | 16th–19th Knesset (112 laws) | 20th–25th Knesset (311 laws) | What it is |
+|---|---|---|---|
+| `KNS_Bill.SummaryLaw` | 0 | 284 (91%) | Official neutral summary, ~850 characters on average |
+| Explanatory notes (`KNS_DocumentBill` group 1 preliminary, 2 first reading) | 107 | 292 | Written by the sponsor (government or MK), so one-sided |
+| Committee version for the 2nd/3rd reading (groups 4, 101 "פונץ' בננה", 5/50/102/105 amendment tables, 46/49/103/104 re-tabled) | 87 | 311 (100%) | Ends with "הסתייגויות ובקשות רשות דיבור": who proposed which change to which section (legal edits, not reasons; in the 25th Knesset grouped by opposition faction) and who asked to speak |
+| Debate excerpt for one bill (groups 15, 45 "קטע מדברי הכנסת", 28) | 66 | 14 | The plenum debate on that bill, every speaker with their faction. **Not published after November 2017** |
+| Full plenum transcript (`KNS_DocumentPlenumSession`, group 28 "דברי הכנסת", DOC) | yes | yes | The whole sitting; available ~2 months after it |
+
+- **Cutting one bill's debate out of a sitting** works: the transcript DOC marks agenda items with
+  `<< הצח >> title << הצח >>` and speakers with `<< דובר >>`, `<< יור >>`, `<< דובר_המשך >>` ("שרון ניר (ישראל ביתנו):").
+  A 2023 law came out as a clean 16,000-character segment. A vote after midnight belongs to the sitting that started
+  the day before (`KNS_PlenumSession` StartDate/FinishDate).
+- Old `.doc` files convert with `textutil` (macOS) or LibreOffice; PDFs with `pypdf`.
+- Other official sources, not linked to a bill ID: Knesset Research and Information Center (ממ"מ) papers, Knesset
+  press releases.
+- Since 2026-10-05 these files are geo-blocked like the rest of `knesset.gov.il` (see `docs/knesset-proxy.md`).
