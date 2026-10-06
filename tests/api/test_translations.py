@@ -43,6 +43,11 @@ def test_checks():
     assert check("חוק (תיקון מס' 4), 2026", "Law (Amendment), 2026") == "numbers_missing:4"
     assert check("חוק", "חוק Law") == "hebrew_left"
     assert check("חוק", "  ") == "empty"
+    # summaries: a numeric date keeps its day and year, the month becomes a word
+    assert check("החל מיום 03.07.2026", "from 3 July 2026", "summary") is None
+    assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None
+    assert check("החל מיום 1.4.2026", "from April 2026", "summary") == "numbers_missing:1"
+    assert check("החל מיום 1.4.2026", "from 1 April 2026") == "numbers_missing:4"
 
 
 def test_sync_stores_and_rejects(url):

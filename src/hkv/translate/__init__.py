@@ -41,6 +41,7 @@ SUMMARY_MODEL = "claude-sonnet-5"
 
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
+_NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{2,4})(?!\d)")   # also "ב1.9.2025"
 
 LANGUAGE_NAME = {"en": "English", "ru": "Russian", "ar": "Arabic"}
 
@@ -175,12 +176,16 @@ class ClaudeTranslator:
         return out
 
 
-def check(source: str, target: str) -> str | None:
-    """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane."""
+def check(source: str, target: str, kind: str = "title") -> str | None:
+    """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane.
+    In a summary a numeric date ("1.4.2026") is written with the month as a word ("1 April 2026"), so only its day
+    and year have to survive."""
     if not target or not target.strip():
         return "empty"
     if _HEBREW.search(target):
         return "hebrew_left"
+    if kind == "summary":
+        source = _NUMERIC_DATE.sub(lambda m: f"{int(m[1])} {m[3]}", source)
     missing = [d for d in _DIGITS.findall(source) if d not in target and not _is_hebrew_year(source, d)]
     if missing:
         return f"numbers_missing:{','.join(missing)}"
@@ -251,7 +256,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
             stored = failed = 0
             for i in range(0, len(todo), BATCH[kind]):
                 for h, source, target in _translate_batch(translator, todo[i:i + BATCH[kind]], lang, kind):
-                    why = check(source, target)
+                    why = check(source, target, kind)
                     if why:
                         failed += 1
                         details = json.dumps({"language": lang, "kind": kind, "reason": why, "source": source, "target": target, "model": model})
