@@ -90,3 +90,10 @@ def vote_time(ts: str) -> tuple[str | None, str]:
 
 def strip(s: str | None) -> str | None:
     return s.strip() if s is not None else None
+
+
+def file_url(path: str) -> str:
+    """KNS_Document*.FilePath uses Windows separators ('https://fs.knesset.gov.il/\\25\\law\\x.docx'); the server
+    accepts forward slashes, which every browser and HTTP client handles."""
+    host, _, rest = path.strip().partition("fs.knesset.gov.il")
+    return host + "fs.knesset.gov.il/" + rest.replace("\\", "/").lstrip("/") if rest else path.strip()

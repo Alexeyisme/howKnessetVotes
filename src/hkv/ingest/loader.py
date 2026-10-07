@@ -364,6 +364,31 @@ class Loader:
                         (bill, person, "initiator" if r["IsInitiator"] else "joined", r["Ordinal"]))
                     self.counts["initiators"] += 1
 
+    def load_documents(self, bill_ids: list[int]) -> None:
+        """KNS_DocumentBill: links to every official file of the given bills (proposals, committee versions, debate)."""
+        with self.run("KNS_DocumentBill", {"bills": len(bill_ids)}, atomic=False):
+            bills = dict(self.conn.execute("SELECT knesset_bill_id, id FROM bill WHERE knesset_bill_id = ANY(%s)", (bill_ids,)).fetchall())
+            batches = list(chunks(sorted(bills)))
+            for i, chunk in enumerate(batches, 1):
+                with self.conn.transaction():
+                    for page in self.v4.pages("KNS_DocumentBill", {"$filter": or_filter("BillID", chunk)}):
+                        snap = self.snapshot(page)
+                        for r in page.rows:
+                            if r["BillID"] not in bills:
+                                continue
+                            self.conn.execute(
+                                """INSERT INTO bill_document (knesset_document_id, bill_id, group_type_id, group_type_he, format, url,
+                                                              source_updated_at, source_snapshot_id)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                   ON CONFLICT (knesset_document_id) DO UPDATE SET bill_id = EXCLUDED.bill_id, group_type_id = EXCLUDED.group_type_id,
+                                     group_type_he = EXCLUDED.group_type_he, format = EXCLUDED.format, url = EXCLUDED.url,
+                                     source_updated_at = EXCLUDED.source_updated_at, source_snapshot_id = EXCLUDED.source_snapshot_id""",
+                                (r["Id"], bills[r["BillID"]], r["GroupTypeID"], m.strip(r["GroupTypeDesc"]), m.strip(r["ApplicationDesc"]),
+                                 m.file_url(r["FilePath"]), r["LastUpdatedDate"], snap))
+                            self.counts["documents"] += 1
+                if i % 20 == 0 or i == len(batches):
+                    log.info("documents: batch %d/%d, %d rows", i, len(batches), self.counts["documents"])
+
     def _load_ballots(self, vote_ids: list[int], *, resume: bool = False, label: str = "") -> None:
         votes = dict(self.conn.execute("SELECT knesset_vote_id, id FROM vote WHERE knesset_vote_id = ANY(%s)", (vote_ids,)).fetchall())
         people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())

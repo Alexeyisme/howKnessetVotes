@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
-from hkv.api.names import FactionNames, PersonNames, SummaryTranslations, TitleTranslations, TopicLabels, with_names
+from hkv.api.names import ExplanationTranslations, FactionNames, PersonNames, SummaryTranslations, TitleTranslations, TopicLabels, with_names
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -182,9 +182,12 @@ class BillTopic(TopicLabels):
     evidence: str | None
 
 
-class BillDetail(BillSummary, SummaryTranslations):
+class BillDetail(BillSummary, SummaryTranslations, ExplanationTranslations):
     topics: list[BillTopic]
     summary_he: str | None
+    # where there is no official summary: a machine description from the sponsors' explanatory notes (hkv.notes)
+    explanation_he: str | None = None
+    explanation_source_url: str | None = None   # the proposal file the notes were read from
     published_on: dt.date | None
     initiators: list[Initiator]
     related: list[BillRef]
@@ -673,7 +676,11 @@ def get_bill(bill_id: int, conn: Conn):
         """SELECT t.slug, l.label AS label_ru, he.label AS label_he, bt.origin, bt.review_state, bt.evidence FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
            JOIN topic_label l ON l.topic_id = t.id AND l.language = 'ru' JOIN topic_label he ON he.topic_id = t.id AND he.language = 'he' WHERE bt.bill_id = %s AND bt.review_state <> 'rejected' ORDER BY t.sort""",
         (r["pk"],)).fetchall()
+    explanation = None if r["summary_he"] else conn.execute(
+        """SELECT e.summary_he, d.url FROM bill_explanation e JOIN bill_document d ON d.knesset_document_id = e.document_id
+           WHERE e.bill_id = %s""", (r["pk"],)).fetchone()
     return {"data": BillDetail(**bill_summary(r).model_dump(), topics=topics, summary_he=r["summary_he"], published_on=r["published_on"],
+                               explanation_he=explanation and explanation["summary_he"], explanation_source_url=explanation and explanation["url"],
                                initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline]),
             "meta": Meta(filters={"id": bill_id})}
 

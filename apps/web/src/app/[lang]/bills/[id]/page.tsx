@@ -63,6 +63,18 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
         </section>
       )}
 
+      {/* L7: no official summary: our machine summary of the sponsors' explanatory notes, labelled as their account */}
+      {!bill.summary_he && bill.explanation_he && (
+        <section className="card">
+          <h2 className="section-title">{d.explanationTitle}</h2>
+          <Summary he={bill.explanation_he} text={bill.explanation} origin={bill.explanation_origin} page={`/bills/${bill.id}`} />
+          <p className="small muted" style={{ marginTop: 6 }}>
+            {d.explanationNote}
+            {bill.explanation_source_url && <> · <a href={bill.explanation_source_url} rel="noopener">{d.explanationSource}</a></>}
+          </p>
+        </section>
+      )}
+
       {bill.initiators.length > 0 && (
         <section className="card">
           <h2 className="section-title">{d.initiators}</h2>

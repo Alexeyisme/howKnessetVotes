@@ -67,8 +67,16 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--since", help="only titles last voted on or after this date (YYYY-MM-DD)")
     tr.add_argument("--recheck", action="store_true", help="no API calls: store earlier rejected translations that pass the current checks")
     tr.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results, often up to an hour)")
-    tr.add_argument("--kind", default="title,summary", help="comma-separated: title (bill and vote titles), summary (official bill summaries)")
+    tr.add_argument("--kind", default="title,summary,notes",
+                    help="comma-separated: title (bill and vote titles), summary (official bill summaries), notes (descriptions from explanatory notes)")
     tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    nt = sub.add_parser("notes", help="bill descriptions from the sponsors' explanatory notes where SummaryLaw is missing (Claude API)")
+    nt.add_argument("--documents", action="store_true", help="first reload the document lists (KNS_DocumentBill) of all voted bills (~5 min)")
+    nt.add_argument("--limit", type=int, help="describe at most N bills (most recently voted first)")
+    nt.add_argument("--stub", action="store_true", help="placeholder text instead of the model (dry run without an API key)")
+    nt.add_argument("--retry-failed", action="store_true", help="also retry bills that failed before")
+    nt.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results)")
+    nt.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -90,6 +98,20 @@ def main(argv: list[str] | None = None) -> int:
         with psycopg.connect(args.db) as conn:
             print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit, retry_failed=args.retry_failed, since=args.since,
                                     kinds=[x.strip() for x in args.kind.split(",") if x.strip()], batch=args.batch))
+        return 0
+    if args.cmd == "notes":
+        import logging
+
+        from hkv.notes import ClaudeSummarizer, StubSummarizer, sync as sync_notes
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        with psycopg.connect(args.db) as conn:
+            if args.documents:
+                loader = Loader(conn, ODataClient(raw_dir=RAW_DIR))
+                loader.load_documents([r[0] for r in conn.execute(
+                    "SELECT DISTINCT b.knesset_bill_id FROM bill b JOIN vote_subject vs ON vs.bill_id = b.id")])
+                print(dict(loader.counts))
+            print(sync_notes(conn, StubSummarizer() if args.stub else ClaudeSummarizer(), RAW_DIR / "knesset_files",
+                             limit=args.limit, retry_failed=args.retry_failed, batch=args.batch))
         return 0
     if args.cmd == "initiators":
         import logging

@@ -84,6 +84,17 @@ class SummaryTranslations(BaseModel):
     summary_ar: str | None = None
 
 
+class ExplanationTranslations(BaseModel):
+    """The same for our description of a bill from its sponsors' explanatory notes (`explanation_he`, hkv.notes),
+    shown only where there is no official summary and labelled as the sponsors' account; machine-written in every
+    language, Hebrew included, until an editor reviews it."""
+    explanation: str | None = None
+    explanation_origin: str | None = None
+    explanation_en: str | None = None
+    explanation_ru: str | None = None
+    explanation_ar: str | None = None
+
+
 def _walk(obj: Any, out: list[BaseModel]) -> None:
     if isinstance(obj, BaseModel):
         out.append(obj)
@@ -155,6 +166,7 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
             m.label = found.get((slug, lang)) or found.get((slug, "he"))
     _fill_translations(conn, [m for m in models if isinstance(m, TitleTranslations)], "title", lang)
     _fill_translations(conn, [m for m in models if isinstance(m, SummaryTranslations)], "summary", lang)
+    _fill_translations(conn, [m for m in models if isinstance(m, ExplanationTranslations)], "explanation", lang)
     return payload
 
 

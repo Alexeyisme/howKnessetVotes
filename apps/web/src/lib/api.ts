@@ -204,6 +204,10 @@ export interface BillDetail extends BillSummary {
   summary_he: string | null;
   summary?: string | null;
   summary_origin?: "machine" | "editor" | null;
+  explanation_he?: string | null;
+  explanation?: string | null;
+  explanation_origin?: "machine" | "editor" | null;
+  explanation_source_url?: string | null;
   published_on: string | null;
   initiators: (PersonNames & { person_id: number; role: "initiator" | "joined" | "withdrew" })[];
   related: ({ id: number; title_he: string } & Titled)[];

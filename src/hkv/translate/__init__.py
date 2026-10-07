@@ -5,8 +5,9 @@ source in text_translation. A fixed glossary keeps ~22,000 titles consistent; au
 that lose a number or keep Hebrew letters, and log them as data_issue rows instead of storing them. The translator
 is pluggable: ClaudeTranslator in production, StubTranslator in tests.
 
-Two kinds of text share the table and the checks: "title" (bill and vote titles) and "summary" (the official
-`SummaryLaw` of a bill, a paragraph of plain prose, so it gets its own prompt and smaller batches).
+Three kinds of text share the table and the checks: "title" (bill and vote titles), "summary" (the official
+`SummaryLaw` of a bill, a paragraph of plain prose, so it gets its own prompt and smaller batches) and "notes" (our
+description of a bill from its sponsors' explanatory notes, hkv.notes; prose like a summary).
 
 Every `hkv update` runs `sync` when the server has an API key, so only titles that are new since the last run go to
 the API; when nothing is new, no request is made. A title that failed the checks is not retried automatically (it
@@ -29,8 +30,9 @@ import psycopg
 log = logging.getLogger(__name__)
 
 LANGUAGES = ("en", "ru", "ar")
-KINDS = ("title", "summary")
-BATCH = {"title": 20, "summary": 5}   # a summary averages ~850 Hebrew characters, the longest ~6,400
+KINDS = ("title", "summary", "notes")
+PROSE = ("summary", "notes")   # own prompt, prose checks, the summary model
+BATCH = {"title": 20, "summary": 5, "notes": 5}   # a summary averages ~850 Hebrew characters, the longest ~6,400
 # Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it.
 # Arabic gets Sonnet: in a 30-title comparison (2026-10-05) Haiku mistranslated legal terms (התיישנות, מסגרות תקציב)
 # and translated a person's name; Sonnet did not. HKV_TRANSLATE_MODEL_<LANG> overrides per language.
@@ -113,9 +115,11 @@ class StubTranslator:
 def system_prompt(lang: str, kind: str = "title") -> str:
     name = LANGUAGE_NAME[lang]
     glossary = "\n".join(f"- {he} → {tr}" for he, tr in GLOSSARY[lang])
-    if kind == "summary":
+    if kind in PROSE:
+        what = ("the Knesset's official summaries of laws" if kind == "summary" else
+                "short descriptions of bills, written from the sponsors' explanatory notes (keep the attribution to the sponsors)")
         return (
-            f"You translate the Knesset's official summaries of laws from Hebrew into {name} for a public "
+            f"You translate {what} from Hebrew into {name} for a public "
             f"voting-record website. Each summary is a short paragraph of plain prose. Translate it faithfully and "
             f"completely, in clear neutral {name}: no omissions, no additions, no explanations, no editorialising. "
             f"Keep every number, amount, percentage and date as digits. Dates: the Hebrew text often gives a "
@@ -144,7 +148,7 @@ LANGUAGE_NOTES = {
 
 
 def model_for(lang: str, kind: str = "title") -> str:
-    if kind == "summary":
+    if kind in PROSE:
         return os.environ.get("HKV_TRANSLATE_MODEL_SUMMARY") or SUMMARY_MODEL
     return (os.environ.get(f"HKV_TRANSLATE_MODEL_{lang.upper()}") or LANGUAGE_MODELS.get(lang)
             or os.environ.get("HKV_TRANSLATE_MODEL") or DEFAULT_MODEL)
@@ -233,9 +237,9 @@ def check(source: str, target: str, kind: str = "title") -> str | None:
     their Hebrew letters."""
     if not target or not target.strip():
         return "empty"
-    if _HEBREW.search(_SECTION_LETTERS.sub("", target) if kind == "summary" else target):
+    if _HEBREW.search(_SECTION_LETTERS.sub("", target) if kind in PROSE else target):
         return "hebrew_left"
-    if kind == "summary":
+    if kind in PROSE:
         source = _NUMERIC_DATE.sub(lambda m: f"{int(m[1])} {m[3]}", source)
         source = _SHORT_DATE.sub(lambda m: str(int(m[1])) if 1 <= int(m[1]) <= 31 and 1 <= int(m[2]) <= 12 else m[0], source)
         target = _THOUSANDS.sub("", target)
@@ -262,6 +266,8 @@ SOURCES = {
     # only bills that were voted on in the plenum: the site has no page for the others
     "summary": """SELECT b.summary_he AS t, max(v.occurred_on) AS last FROM bill b
                   JOIN vote_subject vs ON vs.bill_id = b.id JOIN vote v ON v.id = vs.vote_id GROUP BY 1""",
+    "notes": """SELECT e.summary_he AS t, max(v.occurred_on) AS last FROM bill_explanation e
+                JOIN vote_subject vs ON vs.bill_id = e.bill_id JOIN vote v ON v.id = vs.vote_id GROUP BY 1""",
 }
 
 

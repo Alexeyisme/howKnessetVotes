@@ -109,8 +109,19 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     sync_factions(conn)
     sync_parties(conn)
     derive_coalitions(conn)  # memberships and posts may have changed
-    # new titles and summaries get their en/ru/ar translations when the server has an API key
+    if bills:
+        try:  # document links of the bills voted in the window (explanatory notes, later debate and reservations)
+            loader.load_documents(bills)
+        except Exception:
+            log.exception("bill documents failed")
+    # new titles and summaries get their en/ru/ar translations when the server has an API key; bills without an
+    # official summary first get a description from their explanatory notes (hkv.notes)
     if os.environ.get("ANTHROPIC_API_KEY"):
+        try:
+            from hkv.notes import ClaudeSummarizer, sync as sync_notes
+            log.info("explanations: %s", sync_notes(conn, ClaudeSummarizer(), (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None))
+        except Exception:  # a description failure must not fail the vote update
+            log.exception("explanations failed; votes are loaded")
         try:
             from hkv.translate import ClaudeTranslator, sync as sync_translations
             langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru,ar").split(",") if x]
