@@ -211,8 +211,23 @@ def _hebrew_prose(text: str, lo: int, hi: int) -> bool:
     return lo <= len(text) <= hi and len(_HEBREW.findall(text)) >= len(text) / 3
 
 
+def merge_proposers(out: dict) -> dict:
+    """The same proposer listed twice (the model repeats a label it met again further down) becomes one, with the
+    members of both."""
+    merged: dict[str, dict] = {}
+    for p in out.get("proposers") or []:
+        if p["label"] in merged:
+            m = merged[p["label"]]
+            m["members"] = list(dict.fromkeys([*m["members"], *p["members"]]))
+            m["gist"] = m.get("gist") or p.get("gist")
+        else:
+            merged[p["label"]] = {**p, "members": list(p["members"])}
+    return {**out, "proposers": list(merged.values())}
+
+
 def check(item: Item, out: dict) -> str | None:
-    """Why the extraction must not be stored, or None."""
+    """Why the extraction must not be stored, or None. Blocks numbered 0 are reservations printed without a number
+    (all of them in some documents, a "לאחרי סעיף 11" addition in others); the numbered ones are checked."""
     proposers, blocks = out.get("proposers") or [], out.get("blocks") or []
     labels = [p["label"] for p in proposers]
     if len(set(labels)) != len(labels):
@@ -220,25 +235,22 @@ def check(item: Item, out: dict) -> str | None:
     for b in blocks:
         if not b["proposers"] or any(p not in labels for p in b["proposers"]):
             return "unknown_proposer_in_block"
-        if b["first"] > b["last"] or b["first"] < 0:
+        if b["first"] > b["last"] or b["first"] < 0 or (b["first"] == 0 < b["last"]):
             return "bad_range"
-    got = [n for b in blocks for n in range(b["first"], b["last"] + 1)]
+    numbered = [b for b in blocks if b["last"]]
+    got = [n for b in numbered for n in range(b["first"], b["last"] + 1)]
     if not blocks and _PROPOSES.search(item.text):
         return "no_reservations_extracted"
+    if len(got) != len(set(got)):
+        return "overlapping_numbers"
     if item.numbers_checked:
         expected = expected_numbers(item.text)
-        if len(got) != len(set(got)):
-            return "overlapping_numbers"
         if set(got) != expected:
             return f"numbers_mismatch:{len(set(got))}/{len(expected)}"
-    elif blocks and all(b["first"] == b["last"] == 0 for b in blocks):
-        if not _PROPOSES.search(item.text):   # unnumbered: one block per reservation
-            return "unnumbered_without_proposal"
-    elif blocks:
-        if 0 in got or len(got) != len(set(got)):
-            return "overlapping_numbers"
-        if set(got) != set(range(1, max(got) + 1)):
-            return "numbers_not_contiguous"
+    elif got and set(got) != set(range(1, max(got) + 1)):
+        return "numbers_not_contiguous"
+    if blocks and not numbered and not _PROPOSES.search(item.text):
+        return "unnumbered_without_proposal"
     squashed, words = _squash(item.text), set(re.findall(r"\w+", he_norm(item.text)))
     names = [n for p in proposers for n in p["members"]] + list(out.get("speak_requests") or [])
     absent = [n for n in names if not n.strip() or (_squash(n) not in squashed and not set(re.findall(r"\w+", he_norm(n))) <= words)]
@@ -338,6 +350,7 @@ def sync(conn: psycopg.Connection, extractor: Extractor, cache_dir: Path | None 
                 log.warning("reservations failed for %s", it.title[:80], exc_info=True)
                 results.append(e)
     for (it, on), out in zip(items, results, strict=True):
+        out = out if isinstance(out, Exception) else merge_proposers(out)
         why = "model_error:" + repr(out)[:300] if isinstance(out, Exception) else check(it, out)
         if why:
             _fail(conn, it.bill_id, why, document=it.document_id, output=None if isinstance(out, Exception) else out)
@@ -351,11 +364,11 @@ def sync(conn: psycopg.Connection, extractor: Extractor, cache_dir: Path | None 
 
 
 def numbered_blocks(it: Item, out: dict) -> list[dict]:
-    """The blocks with their reservation numbers; unnumbered reservations (first = last = 0) are numbered by their
-    order, internally only, so a joint one still counts once per faction."""
-    if not out["blocks"] or any(b["first"] or b["last"] for b in out["blocks"]):
-        return out["blocks"]
-    return [{**b, "first": i, "last": i} for i, b in enumerate(out["blocks"], 1)]
+    """The blocks with their reservation numbers; unnumbered reservations (first = last = 0) get numbers after the
+    printed ones, internally only, so a joint one still counts once per faction."""
+    top = max((b["last"] for b in out["blocks"]), default=0)
+    extra = iter(range(top + 1, top + 1 + len(out["blocks"])))
+    return [b if b["last"] else {**b, "first": (n := next(extra)), "last": n} for b in out["blocks"]]
 
 
 def store(conn: psycopg.Connection, it: Item, out: dict, roster: Roster, model: str) -> None:

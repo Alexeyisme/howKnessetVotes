@@ -375,9 +375,8 @@ def check(item: Item, out: dict) -> tuple[str | None, list[dict]]:
     if not args:
         return "no_arguments", []
     source = set(_DIGITS.findall((item.title + " " + " ".join(item.texts)).replace(",", "")))
-    for side in ("for", "against"):
-        if sum(a.get("side") == side for a in args) > MAX_ARGUMENTS_PER_SIDE:
-            return f"too_many_arguments:{side}", []
+    # the model ranks the arguments, most important first, and sometimes gives more than asked: keep its top ones
+    args = [a for side in ("for", "against") for a in [x for x in args if x.get("side") == side][:MAX_ARGUMENTS_PER_SIDE]]
     stored: list[dict] = []
     for a in args:
         text = (a.get("text") or "").strip()

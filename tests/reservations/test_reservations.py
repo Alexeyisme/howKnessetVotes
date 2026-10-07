@@ -90,6 +90,16 @@ def test_check():
     assert check(reversed_text, GOOD) is None
 
 
+def test_unnumbered_and_duplicates():
+    from hkv.reservations import merge_proposers, numbered_blocks
+    extra = {**GOOD, "blocks": [*GOOD["blocks"], {"proposers": ["אביגדור ליברמן"], "section": "לאחרי סעיף 2", "first": 0, "last": 0}]}
+    assert check(item(), extra) is None                                    # an unnumbered addition next to numbered ones
+    assert [(b["first"], b["last"]) for b in numbered_blocks(item(), extra)][-1] == (5, 5)
+    twice = {**GOOD, "proposers": [*GOOD["proposers"], {"label": "קבוצת העבודה", "members": ["גלעד קריב", "מרב מיכאלי"], "gist": ""}]}
+    assert check(item(), twice) == "duplicate_proposer"
+    assert check(item(), merge_proposers(twice)) is None and len(merge_proposers(twice)["proposers"]) == 2
+
+
 def test_gershayim():
     from hkv.llm import gershayim
     assert gershayim('צה"ל ובג"ץ, "ציטוט"') == 'צה״ל ובג״ץ, "ציטוט"'   # only between Hebrew letters
