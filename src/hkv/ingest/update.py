@@ -109,11 +109,11 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     sync_factions(conn)
     sync_parties(conn)
     derive_coalitions(conn)  # memberships and posts may have changed
-    # titles of new bills and votes get their en/ru (and ar) translations when the server has an API key
+    # new titles and summaries get their en/ru/ar translations when the server has an API key
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
             from hkv.translate import ClaudeTranslator, sync as sync_translations
-            langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru").split(",") if x]
+            langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru,ar").split(",") if x]
             log.info("translations: %s", sync_translations(conn, ClaudeTranslator(), langs))
         except Exception:  # a translation failure must not fail the vote update
             log.exception("title translation failed; votes are loaded")

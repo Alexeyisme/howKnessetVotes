@@ -68,7 +68,7 @@ services:
       DATABASE_URL: *db-url
       # title translations (hkv translate / inside hkv update); empty = skipped
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
-      HKV_TRANSLATE_LANGS: ${HKV_TRANSLATE_LANGS:-en,ru}
+      HKV_TRANSLATE_LANGS: ${HKV_TRANSLATE_LANGS:-en,ru,ar}
       HKV_TRANSLATE_MODEL: ${HKV_TRANSLATE_MODEL:-claude-haiku-4-5-20251001}
       # HTTP proxy for knesset.gov.il only (the Knesset refuses requests from outside Israel); empty = direct
       HKV_KNESSET_PROXY: ${HKV_KNESSET_PROXY:-}
