@@ -65,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--stub", action="store_true", help="mark instead of translating (dry run without an API key)")
     tr.add_argument("--retry-failed", action="store_true", help="also retry titles whose translation failed the checks before")
     tr.add_argument("--since", help="only titles last voted on or after this date (YYYY-MM-DD)")
+    tr.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results, often up to an hour)")
     tr.add_argument("--kind", default="title,summary", help="comma-separated: title (bill and vote titles), summary (official bill summaries)")
     tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
@@ -82,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
         translator = StubTranslator() if args.stub else ClaudeTranslator()
         with psycopg.connect(args.db) as conn:
             print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit, retry_failed=args.retry_failed, since=args.since,
-                                    kinds=[x.strip() for x in args.kind.split(",") if x.strip()]))
+                                    kinds=[x.strip() for x in args.kind.split(",") if x.strip()], batch=args.batch))
         return 0
     if args.cmd == "initiators":
         import logging

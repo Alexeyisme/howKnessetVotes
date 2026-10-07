@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import time
 from collections.abc import Iterable, Sequence
 from typing import Protocol
 
@@ -141,8 +142,19 @@ def model_for(lang: str, kind: str = "title") -> str:
             or os.environ.get("HKV_TRANSLATE_MODEL") or DEFAULT_MODEL)
 
 
+# Translation needs no reasoning, and Sonnet 5 thinks by default (billed as output); Haiku 4.5 does not.
+NO_THINKING_PARAM = ("claude-haiku-",)
+BATCH_POLL_SECONDS = 60
+OUTPUT_FORMAT = {"format": {"type": "json_schema", "schema": {
+    "type": "object",
+    "properties": {"translations": {"type": "array", "items": {"type": "string"}}},
+    "required": ["translations"], "additionalProperties": False,
+}}}
+
+
 class ClaudeTranslator:
-    """Batches of titles through the Claude API with a JSON-schema output (one string per input)."""
+    """Batches of titles through the Claude API with a JSON-schema output (one string per input). `translate` sends
+    one request; `translate_many` sends many as one Message Batch (half price, results within hours), for backlogs."""
 
     def __init__(self, model: str | None = None):
         import anthropic  # imported here so the API and tests do not need the package
@@ -154,25 +166,55 @@ class ClaudeTranslator:
     def model_for(self, lang: str, kind: str = "title") -> str:
         return self.fixed_model or model_for(lang, kind)
 
-    def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]:
+    def _params(self, titles: Sequence[str], lang: str, kind: str) -> dict:
+        model = self.model_for(lang, kind)
         payload = json.dumps([{"n": i + 1, "he": t} for i, t in enumerate(titles)], ensure_ascii=False)
-        response = self.client.messages.create(
-            model=self.model_for(lang, kind),
+        params = dict(
+            model=model,
             max_tokens=16000,
             system=[{"type": "text", "text": system_prompt(lang, kind), "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": f"Translate these {len(titles)} {kind}s:\n{payload}"}],
-            output_config={"format": {"type": "json_schema", "schema": {
-                "type": "object",
-                "properties": {"translations": {"type": "array", "items": {"type": "string"}}},
-                "required": ["translations"], "additionalProperties": False,
-            }}},
+            output_config=OUTPUT_FORMAT,
         )
-        if response.stop_reason == "refusal":
-            raise RuntimeError(f"translation refused: {response.stop_details}")
-        text = next(b.text for b in response.content if b.type == "text")
+        if not model.startswith(NO_THINKING_PARAM):
+            params["thinking"] = {"type": "disabled"}
+        return params
+
+    @staticmethod
+    def _parse(message, n: int) -> list[str]:
+        if message.stop_reason == "refusal":
+            raise RuntimeError(f"translation refused: {message.stop_details}")
+        text = next(b.text for b in message.content if b.type == "text")
         out = json.loads(text)["translations"]
-        if len(out) != len(titles):
-            raise RuntimeError(f"expected {len(titles)} translations, got {len(out)}")
+        if len(out) != n:
+            raise RuntimeError(f"expected {n} translations, got {len(out)}")
+        return out
+
+    def translate(self, titles: Sequence[str], lang: str, kind: str = "title") -> list[str]:
+        return self._parse(self.client.messages.create(**self._params(titles, lang, kind)), len(titles))
+
+    def translate_many(self, jobs: Sequence[tuple[str, str, Sequence[str]]]) -> list[list[str] | None]:
+        """(lang, kind, texts) per request, all in one Message Batch; waits until it has ended. None where a request
+        failed (the caller sends those again one by one)."""
+        batch = self.client.messages.batches.create(requests=[
+            {"custom_id": str(i), "params": self._params(texts, lang, kind)} for i, (lang, kind, texts) in enumerate(jobs)])
+        log.info("message batch %s: %d requests", batch.id, len(jobs))
+        while batch.processing_status != "ended":
+            time.sleep(BATCH_POLL_SECONDS)
+            batch = self.client.messages.batches.retrieve(batch.id)
+            c = batch.request_counts
+            log.info("message batch %s: %s, %d processing, %d succeeded, %d errored", batch.id, batch.processing_status,
+                     c.processing, c.succeeded, c.errored)
+        out: list[list[str] | None] = [None] * len(jobs)
+        for r in self.client.messages.batches.results(batch.id):
+            i = int(r.custom_id)
+            if r.result.type != "succeeded":
+                log.warning("message batch %s: request %d %s", batch.id, i, r.result.type)
+                continue
+            try:
+                out[i] = self._parse(r.result.message, len(jobs[i][2]))
+            except Exception:
+                log.warning("message batch %s: request %d unusable", batch.id, i, exc_info=True)
         return out
 
 
@@ -243,40 +285,53 @@ def _translate_batch(translator: Translator, batch: list[tuple[str, str]], lang:
 
 
 def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] = LANGUAGES, limit: int | None = None,
-         retry_failed: bool = False, since: str | None = None, kinds: Iterable[str] = KINDS) -> dict:
+         retry_failed: bool = False, since: str | None = None, kinds: Iterable[str] = KINDS, batch: bool = False) -> dict:
     """Translate what is missing, store what passes the checks, log the rest as data_issue rows (one open issue per
     text and language; it is resolved once the text gets a translation). Counts are keyed `en`, `en_failed` for
-    titles and `en_summary`, `en_summary_failed` for summaries."""
-    counts: dict[str, int] = {}
+    titles and `en_summary`, `en_summary_failed` for summaries. `batch`: everything pending, in every language, goes
+    as one Message Batch first (translators with `translate_many`); requests that failed in it are sent directly."""
+    plan = []
     for lang in langs:
         _resolve_translated(conn, lang)
         for kind in kinds:
             model = getattr(translator, "model_for", lambda *_: translator.model)(lang, kind)
-            todo = pending(conn, lang, limit, retry_failed, since, kind)
-            stored = failed = 0
-            for i in range(0, len(todo), BATCH[kind]):
-                for h, source, target in _translate_batch(translator, todo[i:i + BATCH[kind]], lang, kind):
-                    why = check(source, target, kind)
-                    if why:
-                        failed += 1
-                        details = json.dumps({"language": lang, "kind": kind, "reason": why, "source": source, "target": target, "model": model})
-                        if not conn.execute(
-                                """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
-                                   AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
-                            conn.execute(
-                                """INSERT INTO data_issue (external_ref, issue_type, severity, details)
-                                   VALUES (%s, 'translation_check_failed', 'warning', %s)""", (h, details))
-                        continue
-                    conn.execute(
-                        """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
-                           ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
-                    stored += 1
-                _resolve_translated(conn, lang)
-                conn.commit()
-            key = lang if kind == "title" else f"{lang}_{kind}"
-            counts[key] = stored
-            counts[f"{key}_failed"] = failed
-            log.info("translate %s %s: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
+            plan.append((lang, kind, model, pending(conn, lang, limit, retry_failed, since, kind)))
+    batched: dict[tuple[str, str, int], list[str] | None] = {}
+    if batch and hasattr(translator, "translate_many"):
+        keys = [(lang, kind, i) for lang, kind, _, todo in plan for i in range(0, len(todo), BATCH[kind])]
+        jobs = [(lang, kind, [t for _, t in todo[i:i + BATCH[kind]]]) for lang, kind, _, todo in plan for i in range(0, len(todo), BATCH[kind])]
+        if jobs:
+            batched = dict(zip(keys, translator.translate_many(jobs), strict=True))
+    counts: dict[str, int] = {}
+    for lang, kind, model, todo in plan:
+        stored = failed = 0
+        for i in range(0, len(todo), BATCH[kind]):
+            chunk = todo[i:i + BATCH[kind]]
+            out = batched.get((lang, kind, i))
+            rows = ([(h, source, target) for (h, source), target in zip(chunk, out, strict=True)] if out is not None
+                    else _translate_batch(translator, chunk, lang, kind))
+            for h, source, target in rows:
+                why = check(source, target, kind)
+                if why:
+                    failed += 1
+                    details = json.dumps({"language": lang, "kind": kind, "reason": why, "source": source, "target": target, "model": model})
+                    if not conn.execute(
+                            """UPDATE data_issue SET details = %s WHERE issue_type = 'translation_check_failed' AND status = 'open'
+                               AND external_ref = %s AND details->>'language' = %s""", (details, h, lang)).rowcount:
+                        conn.execute(
+                            """INSERT INTO data_issue (external_ref, issue_type, severity, details)
+                               VALUES (%s, 'translation_check_failed', 'warning', %s)""", (h, details))
+                    continue
+                conn.execute(
+                    """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
+                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
+                stored += 1
+            _resolve_translated(conn, lang)
+            conn.commit()
+        key = lang if kind == "title" else f"{lang}_{kind}"
+        counts[key] = stored
+        counts[f"{key}_failed"] = failed
+        log.info("translate %s %s: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
     return counts
 
 

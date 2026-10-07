@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.translate import StubTranslator, check, pending, sha256, sync
+from hkv.translate import BATCH, StubTranslator, check, pending, sha256, sync
 from tests.ingest.test_loader import SLICE, ingest
 
 BILL = 2229019
@@ -162,3 +162,38 @@ def test_summaries(url):
         assert b["summary"] == StubTranslator.mark(SUMMARY, "en") == b["summary_en"] and b["summary_origin"] == "machine"
         assert client.get(f"/api/v1/bills/{BILL}").json()["data"]["summary"] is None
         assert client.get(f"/api/v1/bills/{BILL}", params={"lang": "ru"}).json()["data"]["summary"] is None
+
+
+class BatchStub(StubTranslator):
+    """A Message Batch where the second request errored: that chunk must be sent again directly."""
+
+    def __init__(self):
+        self.direct = 0
+
+    def translate_many(self, jobs):
+        return [None if i == 1 else self.translate(texts, lang, kind) for i, (lang, kind, texts) in enumerate(jobs)]
+
+    def translate(self, titles, lang, kind="title"):
+        self.direct += 1
+        return super().translate(titles, lang, kind)
+
+
+def test_batch_mode(url, monkeypatch):
+    monkeypatch.setitem(BATCH, "title", 1)
+    with psycopg.connect(url) as conn:
+        conn.execute("DELETE FROM text_translation WHERE language = 'ar'")
+        conn.commit()
+        todo = len(pending(conn, "ar"))
+        assert todo > BATCH["title"]   # at least two chunks, so one can fail
+        tr = BatchStub()
+        assert sync(conn, tr, ["ar"], kinds=["title"], batch=True) == {"ar": todo, "ar_failed": 0}
+        assert pending(conn, "ar") == []
+
+
+def test_claude_params_turn_thinking_off():
+    from hkv.translate import ClaudeTranslator
+    tr = ClaudeTranslator.__new__(ClaudeTranslator)
+    tr.fixed_model = None
+    assert tr._params(["x"], "en", "summary")["thinking"] == {"type": "disabled"}
+    tr.fixed_model = "claude-haiku-4-5-20251001"
+    assert "thinking" not in tr._params(["x"], "en", "title")
