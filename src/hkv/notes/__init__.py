@@ -31,6 +31,7 @@ from typing import Protocol
 
 import psycopg
 
+from hkv.llm import HEBREW_QUOTES, complete_sentence
 from hkv.sources.odata import BLOCK_PAGE, USER_AGENT, SourceBlocked, _urlopen
 
 log = logging.getLogger(__name__)
@@ -142,7 +143,8 @@ SYSTEM = (
     "adjectives the notes do not support, no names of Knesset members. Keep numbers as digits, exactly as in the "
     "notes. Dates: only the Gregorian date, never the Hebrew calendar. When the document holds several bills or the "
     "full text of the bill as well, describe only the bill with the given title, from its explanatory notes. If the "
-    "document has no explanatory notes for that bill, set found to false and leave the description empty."
+    "document has no explanatory notes for that bill, set found to false and leave the description empty. "
+    + HEBREW_QUOTES
 )
 OUTPUT_FORMAT = {"format": {"type": "json_schema", "schema": {
     "type": "object",
@@ -164,7 +166,7 @@ class StubSummarizer:
 
     def summarize(self, item: Item) -> str | None:
         digits = _DIGITS.findall(item.notes or "")[:1]
-        return " ".join(["לדברי המציעים, ההצעה נועדה לשנות את החוק.", *digits])
+        return "לדברי המציעים, ההצעה נועדה לשנות את החוק" + "".join(f" ({d})" for d in digits) + "."
 
 
 class ClaudeSummarizer:
@@ -229,6 +231,8 @@ def check(item: Item, text: str) -> str | None:
         return "too_long"
     if len(_HEBREW.findall(text)) < len(text) / 3:
         return "not_hebrew"
+    if not complete_sentence(text):
+        return "cut_off"
     if item.notes is not None:
         source = set(_DIGITS.findall(item.title + " " + item.notes.replace(",", "")))
         missing = [d for d in _DIGITS.findall(text.replace(",", "")) if d not in source]

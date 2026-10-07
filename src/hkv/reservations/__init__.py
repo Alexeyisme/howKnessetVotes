@@ -32,6 +32,7 @@ from typing import Protocol
 import psycopg
 
 from hkv.debate import FINAL_VOTE
+from hkv.llm import HEBREW_QUOTES, complete_sentence
 from hkv.notes import docx_text, fetch, legacy_doc_text
 from hkv.people import Roster
 from hkv.sources.odata import SourceBlocked
@@ -127,7 +128,7 @@ SYSTEM = (
     "summary: in Hebrew, one or two neutral sentences on what the reservations as a whole sought to change; empty if "
     "there are none.\n"
     "gists: for each proposer, one neutral Hebrew sentence on what its reservations would change. Describe, do not "
-    "judge; keep numbers as digits as printed."
+    "judge; keep numbers as digits as printed. " + HEBREW_QUOTES
 )
 SCHEMA = {
     "type": "object",
@@ -246,9 +247,13 @@ def check(item: Item, out: dict) -> str | None:
     if blocks:
         if not _hebrew_prose((out.get("summary") or "").strip(), 20, 600):
             return "bad_summary"
+        if not complete_sentence(out["summary"]):
+            return "summary_cut_off"
         used = {p for b in blocks for p in b["proposers"]}
         if any(p["label"] in used and not _hebrew_prose((p.get("gist") or "").strip(), 10, 400) for p in proposers):
             return "bad_gist"
+        if any(p["label"] in used and not complete_sentence(p["gist"]) for p in proposers):
+            return "gist_cut_off"
     return None
 
 

@@ -116,6 +116,9 @@ def test_check():
     assert check(item, {**good, "arguments": [{"side": "for", "text": "החוק מגן על קטינים.", "speeches": [3]}]})[0] == "bad_speech_reference"
     assert check(item, {**good, "summary": "The debate was about minors in police interrogations."})[0] == "bad_summary"
     assert check(item, {**good, "arguments": [good["arguments"][0]] * 6})[0] == "too_many_arguments:for"
+    # an unescaped quote in צה"ל ends the JSON string: a cut-off text is rejected, not stored
+    assert check(item, {**good, "summary": "הדיון עסק בהגנה על 300 קטינים בחקירות ובמחסור בכוח אדם בצה"})[0] == "summary_cut_off"
+    assert check(item, {**good, "arguments": []})[0] == "no_arguments"
 
 
 @pytest.fixture(scope="module")

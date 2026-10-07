@@ -8,12 +8,25 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from collections.abc import Sequence
 
 log = logging.getLogger(__name__)
 
 BATCH_POLL_SECONDS = 60
+
+# 2026-10-07: under structured output the model sometimes wrote צה"ל or בג"ץ with an unescaped ASCII quote, which
+# ended the JSON string there: a summary cut at "בצה" with no arguments after it, still valid JSON. The prompts ask
+# for the gershayim instead, and the jobs reject a text that does not end like a sentence.
+HEBREW_QUOTES = ("In Hebrew abbreviations and acronyms write the gershayim ״ and the geresh ׳ (צה״ל, בג״ץ, ח״כ), "
+                 "never the ASCII \" or ' characters. ")
+_SENTENCE_END = re.compile(r"[.!?…][\s)\]״\"'׳»]*$")
+
+
+def complete_sentence(text: str) -> bool:
+    """The text ends like a sentence (not cut off in the middle of a word)."""
+    return bool(_SENTENCE_END.search(text.strip()))
 
 
 class JsonModel:

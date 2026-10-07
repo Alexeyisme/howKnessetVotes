@@ -40,6 +40,7 @@ from typing import Protocol
 
 import psycopg
 
+from hkv.llm import HEBREW_QUOTES, complete_sentence
 from hkv.notes import docx_text, fetch, legacy_doc_text
 from hkv.people import Roster
 from hkv.sources.odata import SourceBlocked
@@ -290,7 +291,7 @@ SYSTEM = (
     "it. A speech's side is what it argues, not the speaker's party. Use only what the speeches say: no outside "
     "facts, no judgement of which side is right, no loaded words the speakers' own arguments do not need; insults, "
     "procedure and thanks are not arguments. If one side made no arguments, give none for it. Keep numbers as digits "
-    "exactly as in the speeches. Dates: only the Gregorian date."
+    "exactly as in the speeches. Dates: only the Gregorian date. " + HEBREW_QUOTES
 )
 SCHEMA = {
     "type": "object",
@@ -340,7 +341,7 @@ class StubSummarizer:
     def summarize(self, item: Item) -> dict:
         digits = _DIGITS.findall(" ".join(item.texts))[:1]
         n = len(item.speeches)
-        return {"summary": " ".join(["הדיון עסק בהצעת החוק ובהשלכותיה על הציבור.", *digits]),
+        return {"summary": "הדיון עסק בהצעת החוק ובהשלכותיה על הציבור" + "".join(f" ({d})" for d in digits) + ".",
                 "arguments": [{"side": "for", "text": "לדברי התומכים, החוק נחוץ כדי לטפל בבעיה.", "speeches": [1]},
                               {"side": "against", "text": "לדברי המתנגדים, החוק פוגע בזכויות.", "speeches": [n]}]}
 
@@ -369,6 +370,10 @@ def check(item: Item, out: dict) -> tuple[str | None, list[dict]]:
     summary, args = (out.get("summary") or "").strip(), out.get("arguments") or []
     if not 40 <= len(summary) <= 900 or not _is_hebrew(summary):
         return "bad_summary", []
+    if not complete_sentence(summary):
+        return "summary_cut_off", []
+    if not args:
+        return "no_arguments", []
     source = set(_DIGITS.findall((item.title + " " + " ".join(item.texts)).replace(",", "")))
     for side in ("for", "against"):
         if sum(a.get("side") == side for a in args) > MAX_ARGUMENTS_PER_SIDE:
@@ -379,6 +384,8 @@ def check(item: Item, out: dict) -> tuple[str | None, list[dict]]:
         nums = a.get("speeches") or []
         if not 10 <= len(text) <= 400 or not _is_hebrew(text):
             return "bad_argument_text", []
+        if not complete_sentence(text):
+            return "argument_cut_off", []
         if not nums or any(not 1 <= n <= len(item.speeches) for n in nums):
             return "bad_speech_reference", []
         stored.append({"side": a["side"], "text_he": text,
