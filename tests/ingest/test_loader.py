@@ -265,4 +265,5 @@ def test_update_caps_machine_text_per_run(new_database, monkeypatch):
     monkeypatch.setattr(hkv.notes, "sync", lambda conn, s, cache, **kw: calls.setdefault("notes", kw) and {"pending": 0})
     with psycopg.connect(url) as conn:
         upd.update(conn, FixtureSource(copy.deepcopy(SLICE)), days=5, today=dt.date(2026, 7, 30))
-    assert calls == {"translate": {"limit": upd.TRANSLATE_LIMIT}, "notes": {"limit": upd.NOTES_LIMIT}}
+    # descriptions only for bills voted in the window: the backlog is a manual batch (`hkv notes --contested --batch`)
+    assert calls == {"translate": {"limit": upd.TRANSLATE_LIMIT}, "notes": {"limit": upd.NOTES_LIMIT, "since": dt.date(2026, 7, 25)}}

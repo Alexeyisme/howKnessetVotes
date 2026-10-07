@@ -243,9 +243,12 @@ def check(item: Item, text: str) -> str | None:
 
 # -- the job --------------------------------------------------------------------------------------
 
-def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed: bool = False) -> list[tuple]:
+def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed: bool = False, contested_only: bool = False,
+               since=None) -> list[tuple]:
     """(bill id, title, document id, url) for voted bills without an official summary or a description, most recently
-    voted first, with the sponsors' proposal file: the earliest proposal group, Word before PDF."""
+    voted first, with the sponsors' proposal file: the earliest proposal group, Word before PDF. `contested_only`:
+    bills whose final vote split the coalition and the opposition (as hkv.debate); `since`: bills voted on or after
+    that date (the daily update describes new bills only; the backlog is a manual batch)."""
     return conn.execute(
         """SELECT b.id, b.title_he, d.knesset_document_id, d.url
            FROM bill b
@@ -257,10 +260,16 @@ def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed:
                          LIMIT 1) d ON true
            WHERE coalesce(b.summary_he, '') = ''
              AND NOT EXISTS (SELECT 1 FROM bill_explanation e WHERE e.bill_id = b.id)
+             AND (%(since)s::date IS NULL OR lv.last >= %(since)s::date)
+             AND (NOT %(contested)s OR EXISTS (
+                   SELECT 1 FROM vote_subject vs JOIN vote v ON v.id = vs.vote_id JOIN vote_bloc vb ON vb.vote_id = v.id AND vb.contested
+                   LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+                   WHERE vs.bill_id = b.id AND v.status = 'valid'
+                     AND coalesce(k.motion_type, v.motion_type) = 'adopt_bill' AND coalesce(k.stage, v.stage) = 'third'))
              AND (%(retry)s OR NOT EXISTS (SELECT 1 FROM data_issue i WHERE i.issue_type = 'explanation_failed'
                                            AND i.status = 'open' AND i.entity_id = b.id))
            ORDER BY lv.last DESC""" + (" LIMIT %(limit)s" if limit else ""),
-        {"groups": PROPOSAL_GROUPS, "retry": retry_failed, "limit": limit}).fetchall()
+        {"groups": PROPOSAL_GROUPS, "retry": retry_failed, "limit": limit, "contested": contested_only, "since": since}).fetchall()
 
 
 def _fail(conn: psycopg.Connection, bill_id, reason: str, **details) -> None:
@@ -273,12 +282,12 @@ def _fail(conn: psycopg.Connection, bill_id, reason: str, **details) -> None:
 
 
 def sync(conn: psycopg.Connection, summarizer: Summarizer, cache_dir: Path | None = None, limit: int | None = None,
-         retry_failed: bool = False, batch: bool = False) -> dict[str, int]:
+         retry_failed: bool = False, batch: bool = False, contested_only: bool = False, since=None) -> dict[str, int]:
     """Describe the bills that need it. Files are fetched first; with `batch` (and a summariser that has
     `summarize_many`) all requests then go as one Message Batch, otherwise one by one."""
     counts = {"pending": 0, "stored": 0, "failed": 0}
     items: list[Item] = []
-    for bill_id, title, doc_id, url in candidates(conn, limit, retry_failed):
+    for bill_id, title, doc_id, url in candidates(conn, limit, retry_failed, contested_only, since):
         counts["pending"] += 1
         try:
             items.append(prepare(bill_id, title, doc_id, fetch(url, cache_dir)))

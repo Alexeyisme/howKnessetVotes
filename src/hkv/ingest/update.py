@@ -129,10 +129,10 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
         files = (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None
         try:
             from hkv.notes import ClaudeSummarizer, sync as sync_notes
-            notes = sync_notes(conn, ClaudeSummarizer(), files, limit=NOTES_LIMIT)
+            notes = sync_notes(conn, ClaudeSummarizer(), files, limit=NOTES_LIMIT, since=date_from)   # new bills only
             log.info("explanations: %s", notes)
             if notes["pending"] >= NOTES_LIMIT:
-                log.warning("explanations: more than %d bills pending; the rest follow in later runs, or at once with `hkv notes --batch`", NOTES_LIMIT)
+                log.warning("explanations: more than %d new bills pending; the rest follow in later runs", NOTES_LIMIT)
         except Exception:  # a description failure must not fail the vote update
             log.exception("explanations failed; votes are loaded")
         try:

@@ -77,6 +77,7 @@ def main(argv: list[str] | None = None) -> int:
     nt.add_argument("--stub", action="store_true", help="placeholder text instead of the model (dry run without an API key)")
     nt.add_argument("--retry-failed", action="store_true", help="also retry bills that failed before")
     nt.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results)")
+    nt.add_argument("--contested", action="store_true", help="only bills whose final vote split the coalition and the opposition")
     nt.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     for name, what in (("debate", "the plenum debate on bills that reached a final vote: speakers, summary and arguments (Claude API)"),
                        ("reservations", "the reservations filed for the second reading: who proposed how many on which sections (Claude API)")):
@@ -121,7 +122,7 @@ def main(argv: list[str] | None = None) -> int:
                     "SELECT DISTINCT b.knesset_bill_id FROM bill b JOIN vote_subject vs ON vs.bill_id = b.id")])
                 print(dict(loader.counts))
             print(sync_notes(conn, StubSummarizer() if args.stub else ClaudeSummarizer(), RAW_DIR / "knesset_files",
-                             limit=args.limit, retry_failed=args.retry_failed, batch=args.batch))
+                             limit=args.limit, retry_failed=args.retry_failed, batch=args.batch, contested_only=args.contested))
         return 0
     if args.cmd in ("debate", "reservations"):
         import logging

@@ -97,6 +97,8 @@ def test_documents_loaded(url):
 def test_sync_and_api(url, cache):
     with psycopg.connect(url) as conn:
         assert {c[2] for c in candidates(conn)} == {1, 3}   # Word before PDF
+        assert candidates(conn, contested_only=True) == []    # no coalition data in the fixture: nothing contested
+        assert candidates(conn, since="2030-01-01") == []
         assert sync(conn, StubSummarizer(), cache) == {"pending": 2, "stored": 1, "failed": 1}
         issue = conn.execute("SELECT details->>'reason' FROM data_issue WHERE issue_type = 'explanation_failed' AND status = 'open'").fetchall()
         assert issue == [("notes_not_found",)]
