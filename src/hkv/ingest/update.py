@@ -36,6 +36,8 @@ REFERENCE_MAX_AGE = dt.timedelta(hours=20)
 # Arabic backlog one request at a time until systemd killed it.
 TRANSLATE_LIMIT = int(os.environ.get("HKV_UPDATE_TRANSLATE_LIMIT", "60"))   # texts per language and kind (<= ~30 requests per language)
 NOTES_LIMIT = int(os.environ.get("HKV_UPDATE_NOTES_LIMIT", "20"))           # bills (one request each)
+# debates and reservations of contested final votes (one larger request each: a debate is up to ~60k tokens)
+POSITIONS_LIMIT = int(os.environ.get("HKV_UPDATE_POSITIONS_LIMIT", "5"))
 
 
 def _reference_fresh(conn: psycopg.Connection, today: dt.date) -> bool:
@@ -121,17 +123,28 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
         except Exception:
             log.exception("bill documents failed")
     # new titles and summaries get their en/ru/ar translations when the server has an API key; bills without an
-    # official summary first get a description from their explanatory notes (hkv.notes)
+    # official summary first get a description from their explanatory notes (hkv.notes), and contested final votes
+    # the debate and the reservations (hkv.debate, hkv.reservations)
     if os.environ.get("ANTHROPIC_API_KEY"):
+        files = (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None
         try:
             from hkv.notes import ClaudeSummarizer, sync as sync_notes
-            notes = sync_notes(conn, ClaudeSummarizer(), (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None,
-                               limit=NOTES_LIMIT)
+            notes = sync_notes(conn, ClaudeSummarizer(), files, limit=NOTES_LIMIT)
             log.info("explanations: %s", notes)
             if notes["pending"] >= NOTES_LIMIT:
                 log.warning("explanations: more than %d bills pending; the rest follow in later runs, or at once with `hkv notes --batch`", NOTES_LIMIT)
         except Exception:  # a description failure must not fail the vote update
             log.exception("explanations failed; votes are loaded")
+        try:
+            from hkv.debate import ClaudeSummarizer as DebateSummarizer, sync as sync_debates
+            log.info("debates: %s", sync_debates(conn, DebateSummarizer(), files, limit=POSITIONS_LIMIT, loader=loader))
+        except Exception:
+            log.exception("debates failed; votes are loaded")
+        try:
+            from hkv.reservations import ClaudeExtractor, sync as sync_reservations
+            log.info("reservations: %s", sync_reservations(conn, ClaudeExtractor(), files, limit=POSITIONS_LIMIT))
+        except Exception:
+            log.exception("reservations failed; votes are loaded")
         try:
             from hkv.translate import ClaudeTranslator, sync as sync_translations
             langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru,ar").split(",") if x]

@@ -67,8 +67,9 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--since", help="only titles last voted on or after this date (YYYY-MM-DD)")
     tr.add_argument("--recheck", action="store_true", help="no API calls: store earlier rejected translations that pass the current checks")
     tr.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results, often up to an hour)")
-    tr.add_argument("--kind", default="title,summary,notes",
-                    help="comma-separated: title (bill and vote titles), summary (official bill summaries), notes (descriptions from explanatory notes)")
+    tr.add_argument("--kind", default="title,summary,notes,positions",
+                    help="comma-separated: title (bill and vote titles), summary (official bill summaries), notes (descriptions from explanatory notes), "
+                         "positions (debate and reservation summaries)")
     tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     nt = sub.add_parser("notes", help="bill descriptions from the sponsors' explanatory notes where SummaryLaw is missing (Claude API)")
     nt.add_argument("--documents", action="store_true", help="first reload the document lists (KNS_DocumentBill) of all voted bills (~5 min)")
@@ -77,6 +78,15 @@ def main(argv: list[str] | None = None) -> int:
     nt.add_argument("--retry-failed", action="store_true", help="also retry bills that failed before")
     nt.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results)")
     nt.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    for name, what in (("debate", "the plenum debate on bills that reached a final vote: speakers, summary and arguments (Claude API)"),
+                       ("reservations", "the reservations filed for the second reading: who proposed how many on which sections (Claude API)")):
+        x = sub.add_parser(name, help=what)
+        x.add_argument("--limit", type=int, help="at most N bills (most recent final vote first)")
+        x.add_argument("--all", action="store_true", help="every final vote, not only contested ones (coalition and opposition majorities differed)")
+        x.add_argument("--stub", action="store_true", help="placeholder output instead of the model (dry run without an API key)")
+        x.add_argument("--retry-failed", action="store_true", help="also retry bills that failed before")
+        x.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results)")
+        x.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -112,6 +122,19 @@ def main(argv: list[str] | None = None) -> int:
                 print(dict(loader.counts))
             print(sync_notes(conn, StubSummarizer() if args.stub else ClaudeSummarizer(), RAW_DIR / "knesset_files",
                              limit=args.limit, retry_failed=args.retry_failed, batch=args.batch))
+        return 0
+    if args.cmd in ("debate", "reservations"):
+        import logging
+        logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        opts = dict(limit=args.limit, retry_failed=args.retry_failed, batch=args.batch, contested_only=not args.all)
+        with psycopg.connect(args.db) as conn:
+            if args.cmd == "debate":
+                from hkv.debate import ClaudeSummarizer, StubSummarizer, sync as sync_debates
+                print(sync_debates(conn, StubSummarizer() if args.stub else ClaudeSummarizer(), RAW_DIR / "knesset_files",
+                                   loader=Loader(conn, ODataClient(raw_dir=RAW_DIR)), **opts))
+            else:
+                from hkv.reservations import ClaudeExtractor, StubExtractor, sync as sync_reservations
+                print(sync_reservations(conn, StubExtractor() if args.stub else ClaudeExtractor(), RAW_DIR / "knesset_files", **opts))
         return 0
     if args.cmd == "initiators":
         import logging

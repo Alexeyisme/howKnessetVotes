@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Debate, Reservations } from "@/components/BillPositions";
 import Link from "@/components/Link";
 import { Summary, Title, titleText } from "@/components/Title";
 import { He, PersonName, VoteLine, VoteList } from "@/components/ui";
@@ -110,6 +111,10 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
         </VoteList>
         {milestones.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
       </section>
+
+      {/* L7 steps 2–3: the plenum debate and the reservations (contested final votes first) */}
+      {bill.debate && <Debate debate={bill.debate} page={`/bills/${bill.id}`} />}
+      {bill.reservations && <Reservations r={bill.reservations} page={`/bills/${bill.id}`} />}
 
       {others.length > 0 && (
         <details className="card">

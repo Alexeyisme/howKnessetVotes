@@ -214,6 +214,54 @@ export interface BillDetail extends BillSummary {
   initiators: (PersonNames & { person_id: number; role: "initiator" | "joined" | "withdrew" })[];
   related: ({ id: number; title_he: string } & Titled)[];
   timeline: VoteSummary[];
+  debate?: BillDebate | null;
+  reservations?: BillReservations | null;
+}
+
+/** A machine-written Hebrew text of ours with its translation in the requested language (L7 steps 2–3). */
+export interface ProseText { text_he: string; text?: string | null; text_origin?: "machine" | "editor" | null }
+
+/** A member as a document prints them, resolved to a member and their faction where possible (faction_name: short
+ *  name in the requested language). */
+export interface PrintedMember extends PersonNames {
+  person_id: number | null;
+  faction_id: number | null;
+  faction_name_he: string | null;
+  faction_name?: string | null;
+}
+
+export interface DebateSpeaker extends PrintedMember {
+  label_he: string;
+  affiliation_he: string | null;
+  alignment: Alignment | null;
+  stages: Stage[];
+  speeches: number;
+  chars: number;
+  final_choice: Choice | null;
+  final_participation: string | null;
+}
+
+export interface BillDebate {
+  final_vote_id: number;
+  summary: ProseText;
+  arguments: (ProseText & { side: "for" | "against"; speakers: number[] })[];
+  speakers: DebateSpeaker[];
+  agenda_titles: string[];
+  truncated: boolean;
+  sources: string[];
+  model: string | null;
+}
+
+export interface BillReservations {
+  total: number;
+  numbers_checked: boolean;
+  summary: ProseText | null;
+  groups: { label_he: string; reservations: number; sections: string[]; gist: ProseText | null; members: PrintedMember[] }[];
+  by_faction: (FactionNames & { faction_id: number; alignment: Alignment | null; reservations: number; members: number })[];
+  unresolved_proposers: number;
+  speak_requests: PrintedMember[];
+  source_url: string;
+  model: string | null;
 }
 
 export interface Term { number: number; name_he: string | null; started_on: string; ended_on: string | null }

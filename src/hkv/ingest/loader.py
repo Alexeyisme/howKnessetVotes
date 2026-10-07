@@ -389,6 +389,29 @@ class Loader:
                 if i % 20 == 0 or i == len(batches):
                     log.info("documents: batch %d/%d, %d rows", i, len(batches), self.counts["documents"])
 
+    def load_plenum_documents(self, session_ids: list[int]) -> None:
+        """KNS_DocumentPlenumSession: links to the official files of the given sittings (above all the transcript)."""
+        with self.run("KNS_DocumentPlenumSession", {"sessions": len(session_ids)}, atomic=False):
+            sessions = dict(self.conn.execute("SELECT knesset_session_id, id FROM plenum_session WHERE knesset_session_id = ANY(%s)",
+                                              (session_ids,)).fetchall())
+            for chunk in chunks(sorted(sessions)):
+                with self.conn.transaction():
+                    for page in self.v4.pages("KNS_DocumentPlenumSession", {"$filter": or_filter("PlenumSessionID", chunk)}):
+                        snap = self.snapshot(page)
+                        for r in page.rows:
+                            if r["PlenumSessionID"] not in sessions:
+                                continue
+                            self.conn.execute(
+                                """INSERT INTO plenum_document (knesset_document_id, session_id, group_type_id, group_type_he, format, url,
+                                                                source_updated_at, source_snapshot_id)
+                                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                   ON CONFLICT (knesset_document_id) DO UPDATE SET session_id = EXCLUDED.session_id, group_type_id = EXCLUDED.group_type_id,
+                                     group_type_he = EXCLUDED.group_type_he, format = EXCLUDED.format, url = EXCLUDED.url,
+                                     source_updated_at = EXCLUDED.source_updated_at, source_snapshot_id = EXCLUDED.source_snapshot_id""",
+                                (r["Id"], sessions[r["PlenumSessionID"]], r["GroupTypeID"], m.strip(r["GroupTypeDesc"]), m.strip(r["ApplicationDesc"]),
+                                 m.file_url(r["FilePath"]), r["LastUpdatedDate"], snap))
+                            self.counts["plenum_documents"] += 1
+
     def _load_ballots(self, vote_ids: list[int], *, resume: bool = False, label: str = "") -> None:
         votes = dict(self.conn.execute("SELECT knesset_vote_id, id FROM vote WHERE knesset_vote_id = ANY(%s)", (vote_ids,)).fetchall())
         people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())

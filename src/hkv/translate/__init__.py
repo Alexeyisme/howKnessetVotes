@@ -5,9 +5,11 @@ source in text_translation. A fixed glossary keeps ~22,000 titles consistent; au
 that lose a number or keep Hebrew letters, and log them as data_issue rows instead of storing them. The translator
 is pluggable: ClaudeTranslator in production, StubTranslator in tests.
 
-Three kinds of text share the table and the checks: "title" (bill and vote titles), "summary" (the official
-`SummaryLaw` of a bill, a paragraph of plain prose, so it gets its own prompt and smaller batches) and "notes" (our
-description of a bill from its sponsors' explanatory notes, hkv.notes; prose like a summary).
+Four kinds of text share the table and the checks: "title" (bill and vote titles), "summary" (the official
+`SummaryLaw` of a bill, a paragraph of plain prose, so it gets its own prompt and smaller batches), "notes" (our
+description of a bill from its sponsors' explanatory notes, hkv.notes; prose like a summary) and "positions" (our
+summaries of the plenum debate and the reservations, hkv.debate and hkv.reservations: one-sentence arguments and
+gists, attributed to the sides).
 
 Every `hkv update` runs `sync` when the server has an API key, so only titles that are new since the last run go to
 the API; when nothing is new, no request is made. A title that failed the checks is not retried automatically (it
@@ -30,9 +32,9 @@ import psycopg
 log = logging.getLogger(__name__)
 
 LANGUAGES = ("en", "ru", "ar")
-KINDS = ("title", "summary", "notes")
-PROSE = ("summary", "notes")   # own prompt, prose checks, the summary model
-BATCH = {"title": 20, "summary": 5, "notes": 5}   # a summary averages ~850 Hebrew characters, the longest ~6,400
+KINDS = ("title", "summary", "notes", "positions")
+PROSE = ("summary", "notes", "positions")   # own prompt, prose checks, the summary model
+BATCH = {"title": 20, "summary": 5, "notes": 5, "positions": 10}   # a summary averages ~850 Hebrew characters, the longest ~6,400
 # Haiku: legal titles are formulaic and the checks catch lost numbers; the full history cost a few dollars with it.
 # Arabic gets Sonnet: in a 30-title comparison (2026-10-05) Haiku mistranslated legal terms (התיישנות, מסגרות תקציב)
 # and translated a person's name; Sonnet did not. HKV_TRANSLATE_MODEL_<LANG> overrides per language.
@@ -116,8 +118,11 @@ def system_prompt(lang: str, kind: str = "title") -> str:
     name = LANGUAGE_NAME[lang]
     glossary = "\n".join(f"- {he} → {tr}" for he, tr in GLOSSARY[lang])
     if kind in PROSE:
-        what = ("the Knesset's official summaries of laws" if kind == "summary" else
-                "short descriptions of bills, written from the sponsors' explanatory notes (keep the attribution to the sponsors)")
+        what = {"summary": "the Knesset's official summaries of laws",
+                "notes": "short descriptions of bills, written from the sponsors' explanatory notes (keep the attribution to the sponsors)",
+                "positions": ("short neutral summaries of Knesset plenum debates and of the reservations filed to bills, and "
+                              "one-sentence arguments made for or against a bill (keep each argument's wording neutral and "
+                              "its attribution as it is)")}[kind]
         return (
             f"You translate {what} from Hebrew into {name} for a public "
             f"voting-record website. Each summary is a short paragraph of plain prose. Translate it faithfully and "
@@ -268,6 +273,14 @@ SOURCES = {
                   JOIN vote_subject vs ON vs.bill_id = b.id JOIN vote v ON v.id = vs.vote_id GROUP BY 1""",
     "notes": """SELECT e.summary_he AS t, max(v.occurred_on) AS last FROM bill_explanation e
                 JOIN vote_subject vs ON vs.bill_id = e.bill_id JOIN vote v ON v.id = vs.vote_id GROUP BY 1""",
+    "positions": """SELECT d.summary_he AS t, v.occurred_on AS last FROM bill_debate d JOIN vote v ON v.id = d.vote_id
+                    UNION ALL
+                    SELECT a->>'text_he', v.occurred_on FROM bill_debate d JOIN vote v ON v.id = d.vote_id
+                    CROSS JOIN jsonb_array_elements(d.arguments) a
+                    UNION ALL
+                    SELECT t, max(v.occurred_on) FROM (SELECT r.bill_id, r.summary_he AS t FROM bill_reservations r
+                                                       UNION ALL SELECT g.bill_id, g.gist_he FROM bill_reservation_group g) x
+                    JOIN vote_subject vs ON vs.bill_id = x.bill_id JOIN vote v ON v.id = vs.vote_id GROUP BY t""",
 }
 
 

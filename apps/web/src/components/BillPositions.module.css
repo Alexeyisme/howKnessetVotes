@@ -1,0 +1,11 @@
+.sides { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 14px; }
+.side { min-width: 0; }
+.sideTitle { font-size: 1rem; font-weight: 650; margin-bottom: 6px; }
+.args { list-style: none; display: grid; gap: 10px; }
+.args li { padding-inline-start: 10px; border-inline-start: 2px solid var(--border); }
+.member { white-space: normal; }
+.more { margin-top: 12px; }
+.more table { margin-top: 8px; }
+.sub { font-size: 1rem; font-weight: 650; margin: 12px 0 6px; }
+.factions { list-style: none; display: grid; gap: 4px; }
+.groups { list-style: none; display: grid; gap: 10px; margin-top: 8px; }

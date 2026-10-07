@@ -12,7 +12,9 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
-from hkv.api.names import ExplanationTranslations, FactionNames, PersonNames, SummaryTranslations, TitleTranslations, TopicLabels, with_names
+from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
+                           TitleTranslations, TopicLabels, with_names)
+from hkv.debate import FINAL_VOTE
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -185,6 +187,81 @@ class BillTopic(TopicLabels):
     evidence: str | None
 
 
+Alignment = Literal["coalition", "opposition", "external_support", "unknown"]
+
+
+class DebateSpeaker(PersonNames, BallotFactionNames):
+    """A speaker in the plenum debate, as the transcript prints them, resolved to a member where possible."""
+    _person_key: ClassVar[str] = "person_id"
+    person_id: int | None
+    name_he: str
+    label_he: str
+    affiliation_he: str | None       # faction or role as printed ("בשם ועדת …")
+    faction_id: int | None           # on the day of their first speech
+    faction_name_he: str | None
+    alignment: Alignment | None      # of that faction on the date of the final vote
+    stages: list[Stage]              # readings they spoke at
+    speeches: int
+    chars: int
+    final_choice: Choice | None      # their ballot in the final vote
+    final_participation: str | None  # None: no roll-call record
+
+
+class DebateArgument(ProseText):
+    side: Literal["for", "against"]
+    speakers: list[int]              # indexes into BillDebate.speakers
+
+
+class BillDebate(BaseModel):
+    """The plenum debate on the bill (hkv.debate): who spoke, and a machine summary of the arguments."""
+    final_vote_id: int
+    summary: ProseText
+    arguments: list[DebateArgument]
+    speakers: list[DebateSpeaker]
+    agenda_titles: list[str]
+    truncated: bool                  # long debate: every speech was shortened before summarising
+    sources: list[str]               # transcript files
+    model: str | None
+
+
+class ReservationMember(PersonNames, BallotFactionNames):
+    _person_key: ClassVar[str] = "person_id"
+    person_id: int | None
+    name_he: str
+    faction_id: int | None
+    faction_name_he: str | None
+
+
+class ReservationGroup(BaseModel):
+    label_he: str
+    reservations: int
+    sections: list[str]
+    gist: ProseText | None
+    members: list[ReservationMember]
+
+
+class ReservationFaction(FactionNames):
+    _faction_key: ClassVar[str] = "faction_id"
+    faction_id: int
+    name_he: str
+    alignment: Alignment | None
+    reservations: int                # distinct reservations (co-)proposed by its members; joint ones count for each
+    members: int
+
+
+class BillReservations(BaseModel):
+    """The reservations filed for the second reading (hkv.reservations)."""
+    total: int
+    numbers_checked: bool            # false: the counts were read from the PDF pages, not checked against its text
+    summary: ProseText | None
+    groups: list[ReservationGroup]
+    by_faction: list[ReservationFaction]
+    unresolved_proposers: int        # proposers not matched to a member (counted in groups, not in by_faction)
+    speak_requests: list[ReservationMember]
+    source_url: str
+    model: str | None
+
+
 class BillDetail(BillSummary, SummaryTranslations, ExplanationTranslations):
     topics: list[BillTopic]
     summary_he: str | None
@@ -195,6 +272,8 @@ class BillDetail(BillSummary, SummaryTranslations, ExplanationTranslations):
     initiators: list[Initiator]
     related: list[BillRef]
     timeline: list[VoteSummary]
+    debate: BillDebate | None = None
+    reservations: BillReservations | None = None
 
 
 class Term(BaseModel):
@@ -707,8 +786,71 @@ def get_bill(bill_id: int, conn: Conn):
            WHERE e.bill_id = %s""", (r["pk"],)).fetchone()
     return {"data": BillDetail(**bill_summary(r).model_dump(), topics=topics, summary_he=r["summary_he"], published_on=r["published_on"],
                                explanation_he=explanation and explanation["summary_he"], explanation_source_url=explanation and explanation["url"],
-                               initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline]),
+                               initiators=initiators, related=related, timeline=[vote_summary(t) for t in timeline],
+                               debate=bill_debate(conn, r["pk"]), reservations=bill_reservations(conn, r["pk"])),
             "meta": Meta(filters={"id": bill_id})}
+
+
+def bill_debate(conn, pk) -> BillDebate | None:
+    d = conn.execute(
+        """SELECT d.*, v.knesset_vote_id, v.occurred_on,
+                  (SELECT array_agg(p.url ORDER BY p.knesset_document_id) FROM plenum_document p
+                   WHERE p.knesset_document_id = ANY(d.document_ids)) AS urls
+           FROM bill_debate d JOIN vote v ON v.id = d.vote_id WHERE d.bill_id = %s""", (pk,)).fetchone()
+    if d is None:
+        return None
+    speakers = conn.execute(
+        """SELECT p.knesset_person_id AS person_id, s.name_he, s.label_he, s.affiliation_he, f.knesset_faction_id AS faction_id,
+                  f.name_he AS faction_name_he, a.role AS alignment, s.stages, s.speeches, s.chars,
+                  b.choice AS final_choice, b.participation AS final_participation
+           FROM bill_debate_speaker s LEFT JOIN person p ON p.id = s.person_id LEFT JOIN faction f ON f.id = s.faction_id
+           LEFT JOIN faction_alignment a ON a.faction_id = s.faction_id AND a.valid @> %(on)s::date
+           LEFT JOIN ballot b ON b.vote_id = %(vote)s AND b.person_id = s.person_id
+           WHERE s.bill_id = %(bill)s ORDER BY s.ordinal""", {"bill": pk, "vote": d["vote_id"], "on": d["occurred_on"]}).fetchall()
+    return BillDebate(final_vote_id=d["knesset_vote_id"], summary=ProseText(text_he=d["summary_he"]),
+                      arguments=[DebateArgument(side=a["side"], text_he=a["text_he"], speakers=a["speakers"]) for a in d["arguments"]],
+                      speakers=[DebateSpeaker(**{**s, "stages": list(dict.fromkeys("third" if x == "second" else x for x in s["stages"]))})
+                                for s in speakers],
+                      agenda_titles=d["segment_titles"], truncated=d["truncated"], sources=d["urls"] or [], model=d["model"])
+
+
+def bill_reservations(conn, pk) -> BillReservations | None:
+    r = conn.execute(
+        f"""SELECT r.*, d.url,
+                   (SELECT max(v.occurred_on) FROM vote v JOIN vote_subject vs ON vs.vote_id = v.id
+                    LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+                    WHERE vs.bill_id = r.bill_id AND {FINAL_VOTE}) AS final_on
+            FROM bill_reservations r JOIN bill_document d ON d.knesset_document_id = r.document_id WHERE r.bill_id = %s""", (pk,)).fetchone()
+    if r is None:
+        return None
+    people = conn.execute(
+        """SELECT p.role, p.group_ordinal, pe.knesset_person_id AS person_id, p.name_he, f.knesset_faction_id AS faction_id,
+                  f.name_he AS faction_name_he
+           FROM bill_reservation_person p LEFT JOIN person pe ON pe.id = p.person_id LEFT JOIN faction f ON f.id = p.faction_id
+           WHERE p.bill_id = %s ORDER BY p.role, p.ordinal""", (pk,)).fetchall()
+    member = lambda x: ReservationMember(person_id=x["person_id"], name_he=x["name_he"], faction_id=x["faction_id"],  # noqa: E731
+                                         faction_name_he=x["faction_name_he"])
+    groups = [ReservationGroup(label_he=g["label_he"], reservations=len(g["numbers"]), sections=g["sections"],
+                               gist=ProseText(text_he=g["gist_he"]) if g["gist_he"] else None,
+                               members=[member(x) for x in people if x["role"] == "proposer" and x["group_ordinal"] == g["ordinal"]])
+              for g in conn.execute("SELECT * FROM bill_reservation_group WHERE bill_id = %s ORDER BY cardinality(numbers) DESC, ordinal", (pk,))
+              if g["numbers"]]
+    by_faction = conn.execute(
+        """SELECT f.knesset_faction_id AS faction_id, f.name_he, a.role AS alignment,
+                  count(DISTINCT n) AS reservations, count(DISTINCT p.person_id) AS members
+           FROM bill_reservation_person p
+           JOIN bill_reservation_group g ON g.bill_id = p.bill_id AND g.ordinal = p.group_ordinal
+           CROSS JOIN LATERAL unnest(g.numbers) n
+           JOIN faction f ON f.id = p.faction_id
+           LEFT JOIN faction_alignment a ON a.faction_id = f.id AND a.valid @> %(on)s::date
+           WHERE p.bill_id = %(bill)s AND p.role = 'proposer'
+           GROUP BY 1, 2, 3 ORDER BY 4 DESC, 2""", {"bill": pk, "on": r["final_on"]}).fetchall()
+    return BillReservations(total=r["total"], numbers_checked=r["numbers_checked"],
+                            summary=ProseText(text_he=r["summary_he"]) if r["summary_he"] else None,
+                            groups=groups, by_faction=[ReservationFaction(**f) for f in by_faction],
+                            unresolved_proposers=sum(x["role"] == "proposer" and x["faction_id"] is None for x in people),
+                            speak_requests=[member(x) for x in people if x["role"] == "speaker"],
+                            source_url=r["url"], model=r["model"])
 
 
 # -- parties and governments --------------------------------------------------------------------------

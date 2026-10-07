@@ -95,6 +95,17 @@ class ExplanationTranslations(BaseModel):
     explanation_ar: str | None = None
 
 
+class ProseText(BaseModel):
+    """A machine-written Hebrew text of ours (debate summaries and arguments, reservation gists; hkv.debate,
+    hkv.reservations) with its translations, the same way: `text` in the requested language or None."""
+    text_he: str
+    text: str | None = None
+    text_origin: str | None = None
+    text_en: str | None = None
+    text_ru: str | None = None
+    text_ar: str | None = None
+
+
 def _walk(obj: Any, out: list[BaseModel]) -> None:
     if isinstance(obj, BaseModel):
         out.append(obj)
@@ -167,6 +178,7 @@ def fill_names(conn, payload: Any, lang: Lang = "he") -> Any:
     _fill_translations(conn, [m for m in models if isinstance(m, TitleTranslations)], "title", lang)
     _fill_translations(conn, [m for m in models if isinstance(m, SummaryTranslations)], "summary", lang)
     _fill_translations(conn, [m for m in models if isinstance(m, ExplanationTranslations)], "explanation", lang)
+    _fill_translations(conn, [m for m in models if isinstance(m, ProseText)], "text", lang)
     return payload
 
 
