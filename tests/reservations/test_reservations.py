@@ -85,6 +85,14 @@ def test_check():
     pdf = Item("b", "t", 1, "0" * 64, "\n".join(SECTION).replace("1. ", "").replace("4. ", ""), numbers_checked=False, pdf=b"%PDF")
     assert check(pdf, GOOD) is None
     assert check(pdf, {**GOOD, "blocks": [GOOD["blocks"][0], GOOD["blocks"][2]]}) == "numbers_not_contiguous"
+    # names followed by a comma in the text, words in reverse order (PDF extracted in visual order)
+    reversed_text = Item("b", "t", 1, "0" * 64, "\n".join(SECTION).replace("מרב מיכאלי,", "מיכאלי מרב,"), numbers_checked=True)
+    assert check(reversed_text, GOOD) is None
+
+
+def test_gershayim():
+    from hkv.llm import gershayim
+    assert gershayim('צה"ל ובג"ץ, "ציטוט"') == 'צה״ל ובג״ץ, "ציטוט"'   # only between Hebrew letters
 
 
 @pytest.fixture(scope="module")

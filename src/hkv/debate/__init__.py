@@ -40,7 +40,7 @@ from typing import Protocol
 
 import psycopg
 
-from hkv.llm import HEBREW_QUOTES, complete_sentence
+from hkv.llm import HEBREW_QUOTES, complete_sentence, gershayim
 from hkv.notes import docx_text, fetch, legacy_doc_text
 from hkv.people import Roster
 from hkv.sources.odata import SourceBlocked
@@ -324,7 +324,7 @@ class Item:
         parts = [f"The bill: {self.title}", ""]
         for n, (s, text) in enumerate(zip(self.speeches, self.texts, strict=True), 1):
             parts.append(f"[{n}] ({STAGE_HE.get(s.stage, s.stage)}) {self.speakers[s.speaker].label}:\n{text}\n")
-        return "\n".join(parts)
+        return gershayim("\n".join(parts))
 
 
 class Summarizer(Protocol):

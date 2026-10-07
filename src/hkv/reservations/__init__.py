@@ -32,7 +32,7 @@ from typing import Protocol
 import psycopg
 
 from hkv.debate import FINAL_VOTE
-from hkv.llm import HEBREW_QUOTES, complete_sentence
+from hkv.llm import HEBREW_QUOTES, complete_sentence, gershayim
 from hkv.notes import docx_text, fetch, legacy_doc_text
 from hkv.people import Roster
 from hkv.sources.odata import SourceBlocked
@@ -121,7 +121,7 @@ SYSTEM = (
     "members are just that name. Names exactly as printed, without titles (no חבר הכנסת, השר).\n"
     "blocks: consecutive numbered reservations with the same proposers: the proposer labels, the section heading "
     "they fall under as printed (\"לסעיף 1\", \"לפני סעיף 1\", \"לאחרי סעיף 11\"), and the first and last reservation "
-    "number. Joint reservations list every proposer. Unnumbered alternatives (\"לחלופין\") belong to the block before. "
+    "number, in the order they appear; every printed number belongs to exactly one block. Joint reservations list every proposer. Unnumbered alternatives (\"לחלופין\") belong to the block before. "
     "If the document does not number its reservations at all, give each reservation as its own block with first and "
     "last 0.\n"
     "speak_requests: the members who asked to speak, names as printed (empty if \"אין\").\n"
@@ -162,10 +162,10 @@ class Item:
 
     def prompt(self) -> str | list:
         if self.pdf is None:
-            return f"The bill: {self.title}\n\n{self.text}"
+            return gershayim(f"The bill: {self.title}\n\n{self.text}")
         return [{"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
                                                 "data": base64.standard_b64encode(self.pdf).decode("ascii")}},
-                {"type": "text", "text": f"The bill: {self.title}\n\nThe pages above are the reservations section."}]
+                {"type": "text", "text": gershayim(f"The bill: {self.title}\n\nThe pages above are the reservations section.")}]
 
 
 class Extractor(Protocol):
@@ -239,9 +239,9 @@ def check(item: Item, out: dict) -> str | None:
             return "overlapping_numbers"
         if set(got) != set(range(1, max(got) + 1)):
             return "numbers_not_contiguous"
-    squashed, words = _squash(item.text), set(he_norm(item.text).split())
+    squashed, words = _squash(item.text), set(re.findall(r"\w+", he_norm(item.text)))
     names = [n for p in proposers for n in p["members"]] + list(out.get("speak_requests") or [])
-    absent = [n for n in names if not n.strip() or (_squash(n) not in squashed and not set(he_norm(n).split()) <= words)]
+    absent = [n for n in names if not n.strip() or (_squash(n) not in squashed and not set(re.findall(r"\w+", he_norm(n))) <= words)]
     if absent:
         return f"name_not_in_text:{absent[0][:40]}"
     if blocks:
@@ -293,7 +293,7 @@ def _fail(conn: psycopg.Connection, bill_id, reason: str, **details) -> None:
 def prepare(bill_id, title: str, document_id: int, data: bytes) -> Item:
     sha = hashlib.sha256(data).hexdigest()
     sec = section(document_text(data))
-    if sec is not None and expected_numbers(sec):
+    if sec is not None and (expected_numbers(sec) or not _PROPOSES.search(sec)):   # numbered, or none filed
         if len(sec) > MAX_CHARS:
             raise ReservationsError("too_long")
         return Item(bill_id, title, document_id, sha, sec, numbers_checked=True)

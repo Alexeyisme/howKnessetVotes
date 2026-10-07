@@ -24,6 +24,15 @@ HEBREW_QUOTES = ("In Hebrew abbreviations and acronyms write the gershayim ״ an
 _SENTENCE_END = re.compile(r"[.!?…][\s)\]״\"'׳»]*$")
 
 
+_ACRONYM_QUOTE = re.compile(r'(?<=[\u05d0-\u05ea])"(?=[\u05d0-\u05ea])')
+
+
+def gershayim(text: str) -> str:
+    """צה"ל -> צה״ל in text sent to the model: it copies the source's spelling, and the instruction alone did not stop
+    it writing the ASCII quote (second trial, 2026-10-07)."""
+    return _ACRONYM_QUOTE.sub("\u05f4", text)
+
+
 def complete_sentence(text: str) -> bool:
     """The text ends like a sentence (not cut off in the middle of a word)."""
     return bool(_SENTENCE_END.search(text.strip()))

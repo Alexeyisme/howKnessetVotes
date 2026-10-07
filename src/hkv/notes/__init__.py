@@ -31,7 +31,7 @@ from typing import Protocol
 
 import psycopg
 
-from hkv.llm import HEBREW_QUOTES, complete_sentence
+from hkv.llm import HEBREW_QUOTES, complete_sentence, gershayim
 from hkv.sources.odata import BLOCK_PAGE, USER_AGENT, SourceBlocked, _urlopen
 
 log = logging.getLogger(__name__)
@@ -183,9 +183,9 @@ class ClaudeSummarizer:
         if item.pdf is not None:
             content.append({"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
                                                            "data": base64.standard_b64encode(item.pdf).decode("ascii")}})
-            content.append({"type": "text", "text": f"The bill: {item.title}"})
+            content.append({"type": "text", "text": gershayim(f"The bill: {item.title}")})
         else:
-            content.append({"type": "text", "text": f"The bill: {item.title}\n\nExplanatory notes:\n{item.notes}"})
+            content.append({"type": "text", "text": gershayim(f"The bill: {item.title}\n\nExplanatory notes:\n{item.notes}")})
         return dict(model=self.model, max_tokens=4000, thinking={"type": "disabled"},
                     system=[{"type": "text", "text": SYSTEM, "cache_control": {"type": "ephemeral"}}],
                     messages=[{"role": "user", "content": content}], output_config=OUTPUT_FORMAT)
