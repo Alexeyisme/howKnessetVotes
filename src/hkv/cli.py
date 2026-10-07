@@ -65,6 +65,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--stub", action="store_true", help="mark instead of translating (dry run without an API key)")
     tr.add_argument("--retry-failed", action="store_true", help="also retry titles whose translation failed the checks before")
     tr.add_argument("--since", help="only titles last voted on or after this date (YYYY-MM-DD)")
+    tr.add_argument("--recheck", action="store_true", help="no API calls: store earlier rejected translations that pass the current checks")
     tr.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results, often up to an hour)")
     tr.add_argument("--kind", default="title,summary", help="comma-separated: title (bill and vote titles), summary (official bill summaries)")
     tr.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -80,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
 
         from hkv.translate import ClaudeTranslator, StubTranslator, sync as sync_translations
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s %(message)s")
+        if args.recheck:
+            from hkv.translate import recheck_failed
+            with psycopg.connect(args.db) as conn:
+                print(recheck_failed(conn))
+            return 0
         translator = StubTranslator() if args.stub else ClaudeTranslator()
         with psycopg.connect(args.db) as conn:
             print(sync_translations(conn, translator, [x.strip() for x in args.lang.split(",") if x.strip()], limit=args.limit, retry_failed=args.retry_failed, since=args.since,

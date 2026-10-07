@@ -3,12 +3,14 @@ search finds bills by their translated title, and visitors can file a correction
 
 from __future__ import annotations
 
+import json
+
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.translate import BATCH, StubTranslator, check, pending, sha256, sync
+from hkv.translate import BATCH, StubTranslator, check, pending, recheck_failed, sha256, sync
 from tests.ingest.test_loader import SLICE, ingest
 
 BILL = 2229019
@@ -46,6 +48,13 @@ def test_checks():
     # summaries: a numeric date keeps its day and year, the month becomes a word
     assert check("החל מיום 03.07.2026", "from 3 July 2026", "summary") is None
     assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None
+    assert check("עד ה-31.03, ומה-07 באוקטובר", "by 31 March, and from 7 October", "summary") is None
+    assert check("קנס בסך 1000 ₪", "a fine of NIS 1,000", "summary") is None
+    assert check("קנס בסך 6000 ₪", "штраф 6 000 шекелей", "summary") is None
+    assert check("סעיף 14טו וסעיף 406(ה)", "Section 14טו and Section 406(ה)", "summary") is None
+    assert check("ארגון איחוד הצלה", "منظمة إيחוד הצלה", "summary") == "hebrew_left"
+    assert check("פי 1.25", "multiplied by 1", "summary") == "numbers_missing:25"   # a decimal is not a date
+    assert check("סעיף 14טו", "Section 14טו") == "hebrew_left"                       # titles stay strict
     assert check("החל מיום 1.4.2026", "from April 2026", "summary") == "numbers_missing:1"
     assert check("החל מיום 1.4.2026", "from 1 April 2026") == "numbers_missing:4"
 
@@ -197,3 +206,18 @@ def test_claude_params_turn_thinking_off():
     assert tr._params(["x"], "en", "summary")["thinking"] == {"type": "disabled"}
     tr.fixed_model = "claude-haiku-4-5-20251001"
     assert "thinking" not in tr._params(["x"], "en", "title")
+
+
+def test_recheck_stores_what_passes_relaxed_checks(url):
+    with psycopg.connect(url) as conn:
+        h = sha256("קנס בסך 1000 ₪")
+        for src, target, ref in (("קנס בסך 1000 ₪", "a fine of NIS 1,000", h), ("קנס בסך 7 ₪", "a fine of NIS seven", sha256("x"))):
+            conn.execute("""INSERT INTO data_issue (external_ref, issue_type, severity, details)
+                            VALUES (%s, 'translation_check_failed', 'warning', %s)""",
+                         (ref, json.dumps({"language": "en", "kind": "summary", "reason": "numbers_missing", "source": src,
+                                           "target": target, "model": "m"})))
+        conn.commit()
+        assert recheck_failed(conn)["stored"] == 1
+        assert conn.execute("SELECT text, model FROM text_translation WHERE source_sha256 = %s AND language = 'en'", (h,)).fetchone() == ("a fine of NIS 1,000", "m")
+        assert conn.execute("SELECT status FROM data_issue WHERE external_ref = %s", (h,)).fetchone()[0] == "resolved"
+        assert conn.execute("SELECT status FROM data_issue WHERE external_ref = %s", (sha256("x"),)).fetchone()[0] == "open"

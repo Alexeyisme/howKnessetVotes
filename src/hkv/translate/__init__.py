@@ -42,6 +42,11 @@ SUMMARY_MODEL = "claude-sonnet-5"
 
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
+# Summaries only (prose, where the model rightly reformats): "31.03" is written "31 March"; "1000" may become "1,000"
+# or "1 000"; section numbers keep their Hebrew letters ("סעיף 14טו", "406(ה)"), as translations of Israeli law do.
+_SHORT_DATE = re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})(?![\d.])")
+_THOUSANDS = re.compile(r"(?<=\d)[,\u00a0\u202f ](?=\d{3}(?!\d))")
+_SECTION_LETTERS = re.compile(r"(?<=\d)[\u05d0-\u05ea]{1,3}|\([\u05d0-\u05ea]{1,2}\)|[\u05d0-\u05ea](?=\d)")
 _NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{2,4})(?!\d)")   # also "ב1.9.2025"
 
 LANGUAGE_NAME = {"en": "English", "ru": "Russian", "ar": "Arabic"}
@@ -223,15 +228,20 @@ class ClaudeTranslator:
 
 def check(source: str, target: str, kind: str = "title") -> str | None:
     """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane.
-    In a summary a numeric date ("1.4.2026") is written with the month as a word ("1 April 2026"), so only its day
-    and year have to survive."""
+    In a summary a numeric date ("1.4.2026", "31.03") is written with the month as a word ("1 April 2026"), so only
+    its day and year have to survive; thousands separators and leading zeros may change; section numbers may keep
+    their Hebrew letters."""
     if not target or not target.strip():
         return "empty"
-    if _HEBREW.search(target):
+    if _HEBREW.search(_SECTION_LETTERS.sub("", target) if kind == "summary" else target):
         return "hebrew_left"
     if kind == "summary":
         source = _NUMERIC_DATE.sub(lambda m: f"{int(m[1])} {m[3]}", source)
-    missing = [d for d in _DIGITS.findall(source) if d not in target and not _is_hebrew_year(source, d)]
+        source = _SHORT_DATE.sub(lambda m: str(int(m[1])) if 1 <= int(m[1]) <= 31 and 1 <= int(m[2]) <= 12 else m[0], source)
+        target = _THOUSANDS.sub("", target)
+        missing = [d for d in _DIGITS.findall(source) if str(int(d)) not in target]
+    else:
+        missing = [d for d in _DIGITS.findall(source) if d not in target and not _is_hebrew_year(source, d)]
     if missing:
         return f"numbers_missing:{','.join(missing)}"
     if len(target) > 3 * len(source) + 40:
@@ -335,6 +345,24 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
         counts[key] = stored
         counts[f"{key}_failed"] = failed
         log.info("translate %s %s: %d stored, %d failed checks, %d were pending", lang, kind, stored, failed, len(todo))
+    return counts
+
+
+def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
+    """Run the current checks again on translations that failed earlier ones (the target is kept in the issue), and
+    store those that pass now. No API call: after a check is relaxed, the earlier work is not paid for twice."""
+    counts: dict[str, int] = {"open": 0, "stored": 0}
+    for h, d in conn.execute("""SELECT external_ref, details FROM data_issue
+                                 WHERE issue_type = 'translation_check_failed' AND status = 'open'""").fetchall():
+        counts["open"] += 1
+        if d.get("target") and check(d["source"], d["target"], d.get("kind", "title")) is None:
+            conn.execute("""INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
+                            ON CONFLICT (source_sha256, language) DO NOTHING""", (h, d["language"], d["target"].strip(), d.get("model")))
+            counts["stored"] += 1
+    for lang in LANGUAGES:
+        _resolve_translated(conn, lang)
+    conn.commit()
+    log.info("recheck: %s", counts)
     return counts
 
 
