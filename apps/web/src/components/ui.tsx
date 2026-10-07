@@ -30,16 +30,16 @@ export async function FactionName({ f, full = false, he = "title" }: { f: Factio
 }
 
 /** A member as a chip: portrait, name, party. Grids of these replace member tables on phones. */
-export async function MemberChip({ m, faction }: { m: PersonNames & { id: number; photo_url?: string | null }; faction?: FactionNames | null }) {
+export async function MemberChip({ m, faction }: { m: PersonNames & { id: number; photo_url?: string | null; photo_thumb_url?: string | null }; faction?: FactionNames | null }) {
   const t = await getT();
   const name = t.person(m);
   return (
     <li className={styles.chip}>
       <Link href={`/members/${m.id}`} className={styles.chipLink}>
         {m.photo_url ? (
-          // official portrait, linked from the Knesset website rather than copied
+          // official portrait from the Knesset website, a small copy served from our domain
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={m.photo_url} alt="" width={40} height={50} loading="lazy" referrerPolicy="no-referrer" className={styles.chipPhoto} />
+          <img src={m.photo_thumb_url ?? m.photo_url} alt="" width={40} height={50} loading="lazy" referrerPolicy="no-referrer" className={styles.chipPhoto} />
         ) : <span className={styles.chipPhoto} aria-hidden />}
         <span className={styles.chipText}>
           <span className={styles.chipName} title={name !== m.name_he ? m.name_he : undefined}>{name}</span>

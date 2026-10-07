@@ -59,7 +59,10 @@ class MemberSummary(PersonNames):
     terms: list[int]
     last_faction: FactionRef | None
     roll_call_records: int
-    photo_url: str | None = None   # official Knesset portrait: our copy (/api/v1/members/{id}/photo), else the fs.knesset.gov.il URL
+    photo_url: str | None = None   # official Knesset portrait: our copy (/api/v1/members/{id}/photo.jpg), else the fs.knesset.gov.il URL
+    # smaller copies for the page (migration 0016): 240 px wide for a portrait, 96 px for a chip; None until they exist
+    photo_medium_url: str | None = None
+    photo_thumb_url: str | None = None
 
 
 class MemberStats(BaseModel):
@@ -262,18 +265,26 @@ MEMBER_SELECT = """
            (SELECT array_agg(DISTINCT m.term_number ORDER BY m.term_number) FROM mandate m WHERE m.person_id = p.id) AS terms,
            lf.knesset_faction_id AS lf_id, lf.name_he AS lf_name, lf.term_number AS lf_term,
            (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records,
-           (SELECT CASE WHEN ph.image_sha256 IS NOT NULL
-                        THEN '/api/v1/members/' || p.knesset_person_id || '/photo?v=' || left(ph.image_sha256, 12) ELSE ph.url END
-            FROM person_photo ph WHERE ph.person_id = p.id) AS photo_url
+           ph.photo_url, ph.sizes AS photo_sizes, ph.v AS photo_v
     FROM person p
     LEFT JOIN LATERAL (SELECT f.knesset_faction_id, f.name_he, f.term_number FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
-                       WHERE fm.person_id = p.id ORDER BY lower(fm.valid) DESC LIMIT 1) lf ON true"""
+                       WHERE fm.person_id = p.id ORDER BY lower(fm.valid) DESC LIMIT 1) lf ON true
+    LEFT JOIN LATERAL (SELECT CASE WHEN ph.image_sha256 IS NOT NULL
+                                   THEN '/api/v1/members/' || p.knesset_person_id || '/photo.jpg?v=' || left(ph.image_sha256, 12) ELSE ph.url END AS photo_url,
+                              left(ph.image_sha256, 12) AS v,
+                              (SELECT array_agg(s.width) FROM person_photo_size s WHERE s.person_id = ph.person_id
+                                 AND s.source_sha256 = ph.image_sha256) AS sizes
+                       FROM person_photo ph WHERE ph.person_id = p.id) ph ON true"""
+
+
+def photo_size_url(r: dict, width: int) -> str | None:
+    return f"/api/v1/members/{r['id']}/photo-{width}.jpg?v={r['photo_v']}" if width in (r["photo_sizes"] or []) else None
 
 
 def member_summary(r: dict) -> MemberSummary:
     return MemberSummary(id=r["id"], name_he=r["name_he"], gender=r["gender"], terms=r["terms"] or [],
                          last_faction=faction_ref(r["lf_id"], r["lf_name"], r["lf_term"]), roll_call_records=r["records"],
-                         photo_url=r["photo_url"])
+                         photo_url=r["photo_url"], photo_medium_url=photo_size_url(r, 240), photo_thumb_url=photo_size_url(r, 96))
 
 
 @router.get("/members", response_model=Page[MemberSummary])
@@ -317,16 +328,31 @@ MEMBER_VOTES_CTE = f"""
     )"""
 
 
-@router.get("/members/{member_id}/photo", response_class=Response, responses={200: {"content": {"image/jpeg": {}}}})
+PHOTO_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
+
+
+@router.get("/members/{member_id}/photo-{width}.jpg", response_class=Response, responses={200: {"content": {"image/jpeg": {}}}})
+def member_photo_size(member_id: int, width: int, conn: Conn):
+    """A smaller copy of the portrait (photo_medium_url, photo_thumb_url; migration 0016)."""
+    r = conn.execute("""SELECT s.image FROM person_photo_size s JOIN person_photo ph ON ph.person_id = s.person_id
+                        JOIN person p ON p.id = s.person_id
+                        WHERE p.knesset_person_id = %s AND s.width = %s AND s.source_sha256 = ph.image_sha256""", (member_id, width)).fetchone()
+    if r is None:
+        raise HTTPException(404, "no photo of this size")
+    return Response(content=bytes(r["image"]), media_type="image/jpeg", headers=PHOTO_HEADERS)
+
+
+@router.get("/members/{member_id}/photo.jpg", response_class=Response, responses={200: {"content": {"image/jpeg": {}}}})
+@router.get("/members/{member_id}/photo", response_class=Response, include_in_schema=False)   # URLs before 2026-10-07
 def member_photo(member_id: int, conn: Conn):
     """The official portrait from the Knesset website, served from here: the Knesset file server blocks visitors
-    outside Israel (migration 0014). `?v=` in photo_url changes with the image, so it may be cached for good."""
+    outside Israel (migration 0014). `?v=` in photo_url changes with the image, so it may be cached for good; the .jpg
+    extension lets Cloudflare cache it."""
     r = conn.execute("""SELECT ph.image, ph.content_type FROM person_photo ph JOIN person p ON p.id = ph.person_id
                         WHERE p.knesset_person_id = %s AND ph.image IS NOT NULL""", (member_id,)).fetchone()
     if r is None:
         raise HTTPException(404, "no stored photo")
-    return Response(content=bytes(r["image"]), media_type=r["content_type"],
-                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
+    return Response(content=bytes(r["image"]), media_type=r["content_type"], headers=PHOTO_HEADERS)
 
 
 @router.get("/members/{member_id}", response_model=One[MemberDetail])

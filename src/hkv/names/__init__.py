@@ -331,6 +331,50 @@ def cache_photos(conn: psycopg.Connection, fetch=fetch_image) -> dict[str, int]:
         conn.commit()
         counts["stored"] += 1
     log.info("member photo copies: %s", dict(counts))
+    counts.update(make_photo_sizes(conn))
+    return dict(counts)
+
+
+PHOTO_WIDTHS = (96, 240)   # 2x the 40x50 member chip and the 120x150 portrait on the member page
+
+
+def resize_photo(body: bytes, width: int) -> bytes:
+    """A smaller JPEG of the portrait: aspect ratio kept, camera metadata dropped (the page crops with CSS)."""
+    from io import BytesIO
+
+    from PIL import Image, ImageOps
+
+    with Image.open(BytesIO(body)) as im:
+        im = ImageOps.exif_transpose(im).convert("RGB")
+        im.thumbnail((width, width * 4), Image.Resampling.LANCZOS)
+        out = BytesIO()
+        im.save(out, "JPEG", quality=82, optimize=True, progressive=True)
+        return out.getvalue()
+
+
+def make_photo_sizes(conn: psycopg.Connection) -> dict[str, int]:
+    """PHOTO_WIDTHS copies of every stored portrait that lacks them or was made from an older image (migration 0016).
+    No network: works from person_photo.image."""
+    rows = conn.execute(
+        """SELECT ph.person_id, ph.image, ph.image_sha256, w.width FROM person_photo ph CROSS JOIN unnest(%s::smallint[]) AS w(width)
+           WHERE ph.image IS NOT NULL AND NOT EXISTS (SELECT 1 FROM person_photo_size s WHERE s.person_id = ph.person_id
+                                                      AND s.width = w.width AND s.source_sha256 = ph.image_sha256)""",
+        (list(PHOTO_WIDTHS),)).fetchall()
+    counts: Counter[str] = Counter()
+    for pid, image, sha, width in rows:
+        try:
+            small = resize_photo(bytes(image), width)
+        except Exception as e:  # noqa: BLE001 - an unreadable image keeps being served in full
+            log.warning("photo resize failed for %s: %s", pid, e)
+            counts["size_failed"] += 1
+            continue
+        conn.execute("""INSERT INTO person_photo_size (person_id, width, image, source_sha256) VALUES (%s, %s, %s, %s)
+                        ON CONFLICT (person_id, width) DO UPDATE SET image = EXCLUDED.image, source_sha256 = EXCLUDED.source_sha256""",
+                     (pid, width, small, sha))
+        counts["sizes"] += 1
+    conn.commit()
+    if rows:
+        log.info("member photo sizes: %s", dict(counts))
     return dict(counts)
 
 

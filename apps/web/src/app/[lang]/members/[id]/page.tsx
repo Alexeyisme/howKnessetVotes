@@ -48,9 +48,9 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
       <header className={styles.head}>
         {member.photo_url && (
           <figure className={styles.photo}>
-            {/* official portrait, linked from the Knesset website rather than copied */}
+            {/* official portrait from the Knesset website, a 240 px copy served from our domain */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={member.photo_url} alt={name} width={120} height={150} referrerPolicy="no-referrer" loading="lazy" />
+            <img src={member.photo_medium_url ?? member.photo_url} alt={name} width={120} height={150} referrerPolicy="no-referrer" />
             <figcaption className="small muted">{d.photoCredit}</figcaption>
           </figure>
         )}

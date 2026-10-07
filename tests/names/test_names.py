@@ -117,7 +117,17 @@ def test_member_list_filters_by_name_in_any_language(db):
             assert [m["id"] for m in c.get("/api/v1/members", params={"q": q}).json()["data"]] == [NETANYAHU], q
 
 
-JPEG = b"\xff\xd8\xff" + b"x" * 2000
+def _jpeg(w: int = 420, h: int = 630) -> bytes:
+    """A real portrait-sized JPEG (the originals are 420x630), so the small copies can be made from it."""
+    from io import BytesIO
+
+    from PIL import Image
+    out = BytesIO()
+    Image.new("RGB", (w, h), (120, 90, 60)).save(out, "JPEG")
+    return out.getvalue()
+
+
+JPEG = _jpeg()
 
 
 def test_photo_copies_are_served_from_here(db):
@@ -129,19 +139,35 @@ def test_photo_copies_are_served_from_here(db):
         def failing(u):
             raise ValueError("not an image: text/html")
         assert cache_photos(conn, failing) == {"todo": n, "failed": n}
-        assert cache_photos(conn, lambda u: (JPEG, "image/jpeg")) == {"todo": n, "stored": n}
+        assert cache_photos(conn, lambda u: (JPEG, "image/jpeg")) == {"todo": n, "stored": n, "sizes": 2 * n}
         assert cache_photos(conn, lambda u: (JPEG, "image/jpeg")) == {"todo": 0}
     with TestClient(create_app(url)) as c:
         m = c.get(f"/api/v1/members/{NETANYAHU}").json()["data"]
-        assert m["photo_url"].startswith(f"/api/v1/members/{NETANYAHU}/photo?v=")
+        assert m["photo_url"].startswith(f"/api/v1/members/{NETANYAHU}/photo.jpg?v=")
         r = c.get(m["photo_url"])
         assert r.status_code == 200 and r.content == JPEG and r.headers["content-type"] == "image/jpeg"
         assert "immutable" in r.headers["cache-control"]
-        assert c.get("/api/v1/members/999999999/photo").status_code == 404
+        assert c.get(f"/api/v1/members/{NETANYAHU}/photo").content == JPEG   # URLs from before .jpg keep working
+        assert c.get("/api/v1/members/999999999/photo.jpg").status_code == 404
+        # small copies (migration 0016): a fraction of the bytes, for chips and the member page
+        from PIL import Image
+        from io import BytesIO
+        for key, width in (("photo_thumb_url", 96), ("photo_medium_url", 240)):
+            assert m[key] == f"/api/v1/members/{NETANYAHU}/photo-{width}.jpg?v={m['photo_url'].split('v=')[1]}"
+            r = c.get(m[key])
+            assert r.status_code == 200 and "immutable" in r.headers["cache-control"]
+            assert Image.open(BytesIO(r.content)).size == (width, width * 3 // 2) and len(r.content) < len(JPEG)
+        assert c.get(f"/api/v1/members/{NETANYAHU}/photo-50.jpg").status_code == 404
+        assert all(x["photo_thumb_url"] for x in c.get("/api/v1/members").json()["data"] if x["photo_url"])
     with psycopg.connect(url) as conn:
         # a new portrait URL on the Knesset website drops the old copy until it is fetched again
         pid = conn.execute("SELECT id FROM person WHERE knesset_person_id = %s", (NETANYAHU,)).fetchone()[0]
         assert _set_photo(conn, pid, "https://fs.knesset.gov.il/globaldocs/MK/90/new.jpeg") == 1
         conn.commit()
     with TestClient(create_app(url)) as c:
-        assert c.get(f"/api/v1/members/{NETANYAHU}").json()["data"]["photo_url"] == "https://fs.knesset.gov.il/globaldocs/MK/90/new.jpeg"
+        m = c.get(f"/api/v1/members/{NETANYAHU}").json()["data"]
+        assert m["photo_url"] == "https://fs.knesset.gov.il/globaldocs/MK/90/new.jpeg" and m["photo_thumb_url"] is None
+    with psycopg.connect(url) as conn:
+        # the new image gets new small copies, made from it and not served from the old one
+        other = _jpeg(400, 600)
+        assert cache_photos(conn, lambda u: (other, "image/jpeg")) == {"todo": 1, "stored": 1, "sizes": 2}

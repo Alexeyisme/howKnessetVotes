@@ -136,6 +136,8 @@ export interface MemberSummary extends PersonNames {
   last_faction: FactionRef | null;
   roll_call_records: number;
   photo_url: string | null;
+  photo_medium_url?: string | null;
+  photo_thumb_url?: string | null;
 }
 
 export interface MemberDetail extends MemberSummary {
