@@ -8,7 +8,7 @@ import datetime as dt
 import json
 from typing import Annotated, ClassVar, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
@@ -59,7 +59,7 @@ class MemberSummary(PersonNames):
     terms: list[int]
     last_faction: FactionRef | None
     roll_call_records: int
-    photo_url: str | None = None   # official portrait on the Knesset website (fs.knesset.gov.il)
+    photo_url: str | None = None   # official Knesset portrait: our copy (/api/v1/members/{id}/photo), else the fs.knesset.gov.il URL
 
 
 class MemberStats(BaseModel):
@@ -259,7 +259,9 @@ MEMBER_SELECT = """
            (SELECT array_agg(DISTINCT m.term_number ORDER BY m.term_number) FROM mandate m WHERE m.person_id = p.id) AS terms,
            lf.knesset_faction_id AS lf_id, lf.name_he AS lf_name, lf.term_number AS lf_term,
            (SELECT count(*) FROM ballot b WHERE b.person_id = p.id) AS records,
-           (SELECT ph.url FROM person_photo ph WHERE ph.person_id = p.id) AS photo_url
+           (SELECT CASE WHEN ph.image_sha256 IS NOT NULL
+                        THEN '/api/v1/members/' || p.knesset_person_id || '/photo?v=' || left(ph.image_sha256, 12) ELSE ph.url END
+            FROM person_photo ph WHERE ph.person_id = p.id) AS photo_url
     FROM person p
     LEFT JOIN LATERAL (SELECT f.knesset_faction_id, f.name_he, f.term_number FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                        WHERE fm.person_id = p.id ORDER BY lower(fm.valid) DESC LIMIT 1) lf ON true"""
@@ -310,6 +312,18 @@ MEMBER_VOTES_CTE = f"""
                     WHEN 2 * maj.ab > maj.f + maj.a + maj.ab THEN 'abstain' END AS majority
         FROM mine m LEFT JOIN maj USING (vote_id)
     )"""
+
+
+@router.get("/members/{member_id}/photo", response_class=Response, responses={200: {"content": {"image/jpeg": {}}}})
+def member_photo(member_id: int, conn: Conn):
+    """The official portrait from the Knesset website, served from here: the Knesset file server blocks visitors
+    outside Israel (migration 0014). `?v=` in photo_url changes with the image, so it may be cached for good."""
+    r = conn.execute("""SELECT ph.image, ph.content_type FROM person_photo ph JOIN person p ON p.id = ph.person_id
+                        WHERE p.knesset_person_id = %s AND ph.image IS NOT NULL""", (member_id,)).fetchone()
+    if r is None:
+        raise HTTPException(404, "no stored photo")
+    return Response(content=bytes(r["image"]), media_type=r["content_type"],
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 @router.get("/members/{member_id}", response_model=One[MemberDetail])

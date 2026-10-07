@@ -144,7 +144,7 @@ public launch or press, so that early coverage isn't based on a partial history.
 | L8 API language | done | `?lang=he|en|ru` on every endpoint fills `name` / `short` / `faction_name` / `label`, falling back to Hebrew; `label_en` on topics; search returns full faction name objects |
 | Hebrew short names | done (new) | Long official list names ("התאחדות הספרדים שומרי תורה…") get curated short forms (`he_short`, 38 factions) for tables and charts; the official name stays as a tooltip |
 | U1 home page | done | Search box for any language with examples, top topics, the latest final votes with the outcome in words, tiles for the sections. The vote feed moved to `/votes` (old `/?view=` links redirect) |
-| U5 MK page | done | Official photo (linked from the Knesset website, 299/299), current or last party, a one-sentence summary (participation, votes against own faction, bills sponsored); the vote list opens on final votes |
+| U5 MK page | done | Official photo (from the Knesset website, 299/299; since 2026-10-07 a stored copy served from `/api/v1/members/{id}/photo`, because `fs.knesset.gov.il` is geo-blocked outside Israel), current or last party, a one-sentence summary (participation, votes against own faction, bills sponsored); the vote list opens on final votes |
 | U6 roll call | done | Filter by name (any language), by faction and "against own faction's majority"; sticky header; cards on phones |
 | Quorum | done (new) | Glossary entry and a note on votes with fewer than 40 votes cast: the plenum has no quorum, a simple majority of those voting decides |
 

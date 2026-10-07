@@ -21,7 +21,7 @@ import psycopg
 
 from hkv.ingest.loader import Loader
 from hkv.coalition import derive as derive_coalitions, load_positions as load_gov_positions
-from hkv.names import LiveSources, NameSources, sync_factions, sync_members, sync_parties
+from hkv.names import LiveSources, NameSources, cache_photos, sync_factions, sync_members, sync_parties
 from hkv.sources.odata import ODataClient, PageSource
 from hkv.topics import sync as sync_topics
 from hkv.topics.official import load as load_official
@@ -102,6 +102,8 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     if names is not None:
         try:
             sync_members(conn, names)
+            if isinstance(names, LiveSources):
+                cache_photos(conn)  # new or changed portraits, served from our domain (migration 0014)
         except Exception:  # a name source being down must not fail the vote update
             log.exception("member names failed; votes are loaded")
     sync_factions(conn)

@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.names import MkDetails, SiteMk, WikidataMk, match_by_name, sync_factions, sync_members
+from hkv.names import MkDetails, SiteMk, WikidataMk, _set_photo, cache_photos, match_by_name, sync_factions, sync_members
 from tests.ingest.test_loader import BEN_GVIR, SLICE, ingest
 
 NETANYAHU = 965
@@ -115,3 +115,33 @@ def test_member_list_filters_by_name_in_any_language(db):
     with TestClient(create_app(url)) as c:
         for q in ("Нетаньяху", "netanyahu", "נתניהו", "نتنياهو"):
             assert [m["id"] for m in c.get("/api/v1/members", params={"q": q}).json()["data"]] == [NETANYAHU], q
+
+
+JPEG = b"\xff\xd8\xff" + b"x" * 2000
+
+
+def test_photo_copies_are_served_from_here(db):
+    """The Knesset file server blocks visitors outside Israel (migration 0014): the API serves a stored copy."""
+    url, _ = db
+    with psycopg.connect(url) as conn:
+        n = conn.execute("SELECT count(*) FROM person_photo").fetchone()[0]
+        assert n > 0
+        def failing(u):
+            raise ValueError("not an image: text/html")
+        assert cache_photos(conn, failing) == {"todo": n, "failed": n}
+        assert cache_photos(conn, lambda u: (JPEG, "image/jpeg")) == {"todo": n, "stored": n}
+        assert cache_photos(conn, lambda u: (JPEG, "image/jpeg")) == {"todo": 0}
+    with TestClient(create_app(url)) as c:
+        m = c.get(f"/api/v1/members/{NETANYAHU}").json()["data"]
+        assert m["photo_url"].startswith(f"/api/v1/members/{NETANYAHU}/photo?v=")
+        r = c.get(m["photo_url"])
+        assert r.status_code == 200 and r.content == JPEG and r.headers["content-type"] == "image/jpeg"
+        assert "immutable" in r.headers["cache-control"]
+        assert c.get("/api/v1/members/999999999/photo").status_code == 404
+    with psycopg.connect(url) as conn:
+        # a new portrait URL on the Knesset website drops the old copy until it is fetched again
+        pid = conn.execute("SELECT id FROM person WHERE knesset_person_id = %s", (NETANYAHU,)).fetchone()[0]
+        assert _set_photo(conn, pid, "https://fs.knesset.gov.il/globaldocs/MK/90/new.jpeg") == 1
+        conn.commit()
+    with TestClient(create_app(url)) as c:
+        assert c.get(f"/api/v1/members/{NETANYAHU}").json()["data"]["photo_url"] == "https://fs.knesset.gov.il/globaldocs/MK/90/new.jpeg"

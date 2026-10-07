@@ -15,11 +15,13 @@ Knesset, the website's official faction names are stored as well and win (view p
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import re
 import tomllib
 import urllib.parse
+import urllib.request
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,7 +29,7 @@ from typing import Protocol
 
 import psycopg
 
-from hkv.sources.odata import ODataClient, Page
+from hkv.sources.odata import USER_AGENT, ODataClient, Page, _urlopen
 from hkv.topics import he_norm
 
 log = logging.getLogger("hkv.names")
@@ -290,8 +292,46 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
 
 
 def _set_photo(conn: psycopg.Connection, pid, url: str) -> int:
+    """A new URL drops the stored copy of the old image; cache_photos fetches the new one."""
     return conn.execute("""INSERT INTO person_photo (person_id, url) VALUES (%s, %s) ON CONFLICT (person_id) DO UPDATE
-                           SET url = EXCLUDED.url, fetched_at = now() WHERE person_photo.url <> EXCLUDED.url""", (pid, url)).rowcount
+                           SET url = EXCLUDED.url, fetched_at = now(), image = NULL, content_type = NULL, image_sha256 = NULL,
+                               image_fetched_at = NULL
+                           WHERE person_photo.url <> EXCLUDED.url""", (pid, url)).rowcount
+
+
+MAX_PHOTO_BYTES = 3_000_000
+
+
+def fetch_image(url: str) -> tuple[bytes, str]:
+    """GET an image from the Knesset file server (through HKV_KNESSET_PROXY when set). The geo-block answers with a
+    redirect to an HTML page, so anything that is not an image is an error."""
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "image/*"})
+    with _urlopen(req, timeout=60) as r:
+        ctype = (r.headers.get_content_type() or "").lower()
+        body = r.read(MAX_PHOTO_BYTES + 1)
+    if not ctype.startswith("image/") or not 1000 <= len(body) <= MAX_PHOTO_BYTES:
+        raise ValueError(f"not an image: {ctype}, {len(body)} bytes, {url}")
+    return body, ctype
+
+
+def cache_photos(conn: psycopg.Connection, fetch=fetch_image) -> dict[str, int]:
+    """Store a copy of every photo that has none yet, so the site serves it from its own domain (migration 0014).
+    A failed download is logged and tried again on the next run."""
+    rows = conn.execute("SELECT person_id, url FROM person_photo WHERE image IS NULL").fetchall()
+    counts: Counter[str] = Counter(todo=len(rows))
+    for pid, url in rows:
+        try:
+            body, ctype = fetch(url)
+        except Exception as e:  # noqa: BLE001 - one photo must not stop the others
+            log.warning("photo download failed: %s", e)
+            counts["failed"] += 1
+            continue
+        conn.execute("""UPDATE person_photo SET image = %s, content_type = %s, image_sha256 = %s, image_fetched_at = now()
+                        WHERE person_id = %s AND url = %s""", (body, ctype, hashlib.sha256(body).hexdigest(), pid, url))
+        conn.commit()
+        counts["stored"] += 1
+    log.info("member photo copies: %s", dict(counts))
+    return dict(counts)
 
 
 def sync_photos(conn: psycopg.Connection, src: NameSources) -> dict[str, int]:
