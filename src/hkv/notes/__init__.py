@@ -21,6 +21,7 @@ import json
 import logging
 import re
 import time
+import urllib.parse
 import urllib.request
 import zipfile
 from collections.abc import Sequence
@@ -39,12 +40,14 @@ log = logging.getLogger(__name__)
 # preliminary, preliminary amended, first reading, first reading amended: the earliest is the sponsors' own text
 PROPOSAL_GROUPS = [1, 51, 2, 3]
 MODEL = "claude-sonnet-5"
+MAX_PDF_PAGES = 100
 MAX_PDF_BYTES = 25_000_000      # the API takes 32 MB per request, base64 adds a third
 MAX_NOTES_CHARS = 60_000        # longer notes (arrangements laws) are cut: the description is a few sentences anyway
 FETCH_DELAY_S = 0.3
 BATCH_POLL_SECONDS = 60
 
 _HEBREW = re.compile(r"[֐-׿]")
+_HEBREW_UTF16 = re.compile(rb"[\xd0-\xea]\x05")
 _DIGITS = re.compile(r"\d+")
 _NOTES_HEADING = re.compile(r"^[ \t]*דברי[ \t\-–]+(?:ה)?הסבר[ \t]*:?[ \t]*$", re.M)   # 16th Knesset: "דברי - הסבר"
 # the notes end where the filing stamp or a separator line starts
@@ -74,7 +77,8 @@ def fetch(url: str, cache_dir: Path | None) -> bytes:
     if path and path.exists():
         return path.read_bytes()
     time.sleep(FETCH_DELAY_S)
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    # some file names have spaces in them ("18_lst  _141475.doc", 1,327 bills of the 17th–18th Knesset)
+    req = urllib.request.Request(urllib.parse.quote(url, safe=":/%?=&#"), headers={"User-Agent": USER_AGENT})
     with _urlopen(req, timeout=120) as resp:
         if BLOCK_PAGE in resp.geturl():
             raise SourceBlocked(f"redirected to {resp.geturl()}: {url}")
@@ -98,9 +102,11 @@ def docx_text(data: bytes) -> str:
 
 def legacy_doc_text(data: bytes) -> str:
     """Text runs of a Word 97 .doc: Hebrew documents store their text as UTF-16, so runs of Hebrew/ASCII code units
-    are the text (field codes and styles are mostly ASCII-only noise that the notes cut drops)."""
+    are the text. Short ASCII-only runs are field codes and style names; short Hebrew ones are kept (a heading such as
+    "דברי הסבר" on a line of its own is one: dropping those lost the notes of 33 bills, 2026-10-08)."""
     runs = re.findall(rb"(?:[\x20-\x7e\r\n\t]\x00|[\xb0-\xf4]\x05|[\x13-\x14\x1c-\x1f] )+", data)
-    return "\n".join(r.decode("utf-16le", "replace") for r in runs if len(r) >= 40).replace("\r", "\n")
+    return "\n".join(r.decode("utf-16le", "replace") for r in runs
+                     if len(r) >= 40 or _HEBREW_UTF16.search(r)).replace("\r", "\n")
 
 
 def notes_section(text: str) -> str | None:
@@ -114,12 +120,23 @@ def notes_section(text: str) -> str | None:
     return body if len(body) >= 40 else None
 
 
+def pdf_pages(data: bytes) -> int:
+    """Page count, 0 when pypdf cannot read the file (the model may still manage)."""
+    from pypdf import PdfReader
+    try:
+        return len(PdfReader(BytesIO(data)).pages)
+    except Exception:
+        return 0
+
+
 def prepare(bill_id: str, title: str, document_id: int, data: bytes) -> Item:
     """Item for the summariser; NotesError when the file cannot be used."""
     sha = hashlib.sha256(data).hexdigest()
     if data[:4] == b"%PDF":
         if len(data) > MAX_PDF_BYTES:
             raise NotesError("pdf_too_large")
+        if pdf_pages(data) > MAX_PDF_PAGES:   # a whole booklet: 1.5–2.1M tokens, over the API's limit
+            raise NotesError("pdf_too_long")
         return Item(bill_id, title, document_id, sha, pdf=data)
     if data[:2] == b"PK":
         text = docx_text(data)

@@ -60,11 +60,23 @@ GLOSSARY = {
     "en": [("הצעת חוק", "Bill"), ("חוק", "Law"), ("חוק-יסוד / חוק יסוד", "Basic Law"), ("תיקון מס' N", "Amendment No. N"),
            ("הוראת שעה", "temporary provision"), ("תיקוני חקיקה", "legislative amendments"), ("פקודת", "Ordinance"),
            ("תקנות", "Regulations"), ("הצעת אי-אמון", "no-confidence motion"), ("התשפ\"ו-2026", "2026"),
-           ("אישור מסע אלקטרוני (Israel's ETA-IL; not a passport or a journey)", "electronic travel authorization (ETA-IL)")],
+           ("אישור מסע אלקטרוני (Israel's ETA-IL; not a passport or a journey)", "electronic travel authorization (ETA-IL)"),
+           # from the 20-bill sample of descriptions and debates (2026-10-08)
+           ("דברי הסבר", "explanatory notes"), ("המציעים / יוזמי ההצעה", "the sponsors"),
+           ("דיינים (judges of the rabbinical courts)", "dayanim (rabbinical court judges)"),
+           ("אסירים ביטחוניים", "security prisoners"), ("תקני כשרות / ריבוי תקנים (kashrut standards, not staff positions)", "kashrut standards"),
+           ("מבצע עם כלביא (June 2025, Iran)", "Operation Rising Lion"), ("מבצע מרכבות גדעון", "Operation Gideon's Chariots"),
+           ("מבצע שאגת הארי", "Operation Lion's Roar")],
     "ru": [("הצעת חוק", "Законопроект"), ("חוק", "Закон"), ("חוק-יסוד / חוק יסוד", "Основной закон"), ("תיקון מס' N", "поправка № N"),
            ("הוראת שעה", "временное положение"), ("תיקוני חקיקה", "поправки к законодательству"), ("פקודת", "Указ"),
            ("תקנות", "Правила"), ("הצעת אי-אמון", "вотум недоверия"), ("התשפ\"ו-2026", "2026"),
-           ("אישור מסע אלקטרוני (Israel's ETA-IL; not a passport or a journey)", "электронное разрешение на въезд (ETA-IL)")],
+           ("אישור מסע אלקטרוני (Israel's ETA-IL; not a passport or a journey)", "электронное разрешение на въезд (ETA-IL)"),
+           # from the 20-bill sample of descriptions and debates (2026-10-08)
+           ("דברי הסבר", "пояснительная записка"), ("המציעים / יוזמי ההצעה", "инициаторы законопроекта (not «авторы»)"),
+           ("דיינים (judges of the rabbinical courts)", "даяны (судьи раввинских судов)"),
+           ("אסירים ביטחוניים", "заключённые по делам безопасности"), ("תקני כשרות / ריבוי תקנים (kashrut standards, not staff positions)", "стандарты кашрута"),
+           ("מבצע עם כלביא (June 2025, Iran)", "операция «Народ как лев»"), ("מבצע מרכבות גדעון", "операция «Колесницы Гидеона»"),
+           ("מבצע שאגת הארי", "операция «Рык льва»"), ("בג\"ץ", "БАГАЦ (Высший суд справедливости)")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
            ("תקנות", "أنظمة"), ("הצעת אי-אמון", "اقتراح حجب الثقة"), ("התשפ\"ו-2026", "2026"),
@@ -86,7 +98,13 @@ GLOSSARY = {
            # bill references and Knesset numbers keep their digits (the checks reject Hebrew letters and lost numbers)
            ("(פ/3088/25) private bill reference; כ/ committee, מ/ government", "(ف/3088/25); ك/ ، م/"),
            ("הכנסת ה-25", "الكنيست الـ25"),
-           ("אישור מסע אלקטרוני (Israel's ETA-IL)", "تصريح سفر إلكتروني (ETA-IL)")],
+           ("אישור מסע אלקטרוני (Israel's ETA-IL)", "تصريح سفر إلكتروني (ETA-IL)"),
+           # from the 20-bill sample of descriptions and debates (2026-10-08)
+           ("דברי הסבר", "المذكرة التفسيرية"), ("המציעים / יוזמי ההצעה", "مقدمو الاقتراح"),
+           ("דיינים (judges of the rabbinical courts; NOT sharia judges)", "قضاة المحاكم الحاخامية (الدايانيم)"),
+           ("אסירים ביטחוניים", "الأسرى الأمنيون"), ("תקני כשרות / ריבוי תקנים (kashrut standards, not staff positions)", "معايير الكشروت"),
+           ("מבצע עם כלביא (June 2025, Iran)", "عملية «الأسد الصاعد»"), ("מבצע מרכבות גדעון", "عملية «عربات جدعون»"),
+           ("מבצע שאגת הארי", "عملية «زئير الأسد»"), ("ציני (cynical)", "انتهازي (not ساخر, which means sarcastic)")],
 }
 
 
@@ -130,7 +148,10 @@ def system_prompt(lang: str, kind: str = "title") -> str:
             f"Keep every number, amount, percentage and date as digits. Dates: the Hebrew text often gives a "
             f"Hebrew-calendar date followed by the Gregorian one in parentheses, e.g. 'כ\"ג בשבט התשפ\"ז (31 בינואר 2027)'; "
             f"write only the Gregorian date ('31 January 2027'), never the Hebrew month, day or year. Law names follow the register of official "
-            f"legal titles in {name}. Use this glossary consistently:\n{glossary}\n"
+            f"legal titles in {name}. Names of military operations are translated as {name}-language media name "
+            f"them, never transliterated. Write every word in {name}: no Hebrew letters and no words of another language "
+            f"(not «security-заключённые»). Where a Hebrew word has several senses, choose by context (תקן is a standard "
+            f"in kashrut or regulation and a staff position in budgets). Use this glossary consistently:\n{glossary}\n"
             f"{LANGUAGE_NOTES.get(lang, '')}"
             f"Return only the translations, one per input, in the same order."
         )
