@@ -30,6 +30,12 @@ log = logging.getLogger("hkv.update")
 METRIC_VERSION = "1"
 RECESS_DAYS = 14                          # no vote for this long: the Knesset is in recess
 REFERENCE_MAX_AGE = dt.timedelta(hours=20)
+# Machine text per run: an update must finish well inside its 2-hour systemd limit, and a direct request takes ~10 s.
+# A sitting day brings a few dozen new texts; a backlog (a new language, a new kind of text) is for
+# `hkv translate --batch` / `hkv notes --batch`. 2026-10-07: adding Arabic made the daily update translate the whole
+# Arabic backlog one request at a time until systemd killed it.
+TRANSLATE_LIMIT = int(os.environ.get("HKV_UPDATE_TRANSLATE_LIMIT", "60"))   # texts per language and kind (<= ~30 requests per language)
+NOTES_LIMIT = int(os.environ.get("HKV_UPDATE_NOTES_LIMIT", "20"))           # bills (one request each)
 
 
 def _reference_fresh(conn: psycopg.Connection, today: dt.date) -> bool:
@@ -119,13 +125,22 @@ def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: d
     if os.environ.get("ANTHROPIC_API_KEY"):
         try:
             from hkv.notes import ClaudeSummarizer, sync as sync_notes
-            log.info("explanations: %s", sync_notes(conn, ClaudeSummarizer(), (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None))
+            notes = sync_notes(conn, ClaudeSummarizer(), (v4.raw_dir / "knesset_files") if getattr(v4, "raw_dir", None) else None,
+                               limit=NOTES_LIMIT)
+            log.info("explanations: %s", notes)
+            if notes["pending"] >= NOTES_LIMIT:
+                log.warning("explanations: more than %d bills pending; the rest follow in later runs, or at once with `hkv notes --batch`", NOTES_LIMIT)
         except Exception:  # a description failure must not fail the vote update
             log.exception("explanations failed; votes are loaded")
         try:
             from hkv.translate import ClaudeTranslator, sync as sync_translations
             langs = [x for x in os.environ.get("HKV_TRANSLATE_LANGS", "en,ru,ar").split(",") if x]
-            log.info("translations: %s", sync_translations(conn, ClaudeTranslator(), langs))
+            counts = sync_translations(conn, ClaudeTranslator(), langs, limit=TRANSLATE_LIMIT)
+            log.info("translations: %s", counts)
+            full = sorted(k for k in counts if not k.endswith("_failed") and counts[k] + counts[f"{k}_failed"] >= TRANSLATE_LIMIT)
+            if full:
+                log.warning("translations: backlog over %d texts per run (%s); the rest follow in later runs, or at once with "
+                            "`hkv translate --batch`", TRANSLATE_LIMIT, ", ".join(full))
         except Exception:  # a translation failure must not fail the vote update
             log.exception("title translation failed; votes are loaded")
     summary = release(conn, note=f"update {date_from}..{today}: {len(ids)} votes")

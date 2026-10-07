@@ -247,3 +247,22 @@ def test_update_skips_fresh_reference_in_recess(new_database):
     assert one(url, "SELECT count(*) FROM ballot WHERE knesset_ballot_id = 999003") == (1,)
     assert one(url, "SELECT count(*) FROM data_issue WHERE issue_type = 'ballot_unknown_person' AND status = 'open'") == (0,)
     assert one(url, "SELECT count(*) FROM data_issue WHERE issue_type = 'ballot_unknown_person' AND status = 'resolved'") == (1,)
+
+
+def test_update_caps_machine_text_per_run(new_database, monkeypatch):
+    """A backlog (a new language, a new kind of text) must not keep the update busy past its systemd limit
+    (2026-10-07): the update translates and describes at most a fixed number of texts per run."""
+    import hkv.ingest.update as upd
+    import hkv.notes
+    import hkv.translate
+    url = new_database()
+    ingest(url, SLICE)
+    calls = {}
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setattr(hkv.translate, "ClaudeTranslator", hkv.translate.StubTranslator)
+    monkeypatch.setattr(hkv.notes, "ClaudeSummarizer", hkv.notes.StubSummarizer)
+    monkeypatch.setattr(hkv.translate, "sync", lambda conn, tr, langs, **kw: calls.setdefault("translate", kw) and {})
+    monkeypatch.setattr(hkv.notes, "sync", lambda conn, s, cache, **kw: calls.setdefault("notes", kw) and {"pending": 0})
+    with psycopg.connect(url) as conn:
+        upd.update(conn, FixtureSource(copy.deepcopy(SLICE)), days=5, today=dt.date(2026, 7, 30))
+    assert calls == {"translate": {"limit": upd.TRANSLATE_LIMIT}, "notes": {"limit": upd.NOTES_LIMIT}}
