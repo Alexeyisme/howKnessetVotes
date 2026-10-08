@@ -31,6 +31,7 @@ services:
       # corrections and mistake reports are forwarded to the owner's chat by @knessetvotes_bot (api/suggestions.py)
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}   # Cloudflare Turnstile check of the contact form; off when empty
     command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips '*'"
     depends_on:
       db: { condition: service_healthy }
@@ -45,6 +46,7 @@ services:
     restart: unless-stopped
     environment:
       HKV_API_URL: http://api:8000
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}       # read at request time by the /suggest page
     depends_on:
       api: { condition: service_healthy }
 

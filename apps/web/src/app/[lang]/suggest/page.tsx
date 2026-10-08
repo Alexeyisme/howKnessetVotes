@@ -24,7 +24,8 @@ export default async function SuggestPage({ searchParams }: PageProps<"/[lang]/s
       <header className="page-head"><h1>{sha ? d.title : d.reportTitle}</h1></header>
       <p className="muted">{sha ? d.lead : d.reportLead}</p>
       {str("he") && <p><span className="small muted">{d.original}:</span> <He>{str("he")}</He></p>}
-      <SuggestForm sha={sha} lang={lang} text={str("text")} page={str("page") || null}
+      {/* the Turnstile site key is read at request time (runtime env of the web container), so no rebuild is needed */}
+      <SuggestForm sha={sha} lang={lang} text={str("text")} page={str("page") || null} siteKey={process.env.TURNSTILE_SITE_KEY || null}
                    labels={{ textLabel: sha ? d.textLabel : d.reportTextLabel, noteLabel: d.noteLabel, contactLabel: d.contactLabel,
                            send: d.send, thanks: sha ? d.thanks : d.reportThanks, error: d.error }} />
     </div>

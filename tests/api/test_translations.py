@@ -239,3 +239,33 @@ def test_recheck_stores_what_passes_relaxed_checks(url):
         assert conn.execute("SELECT text, model FROM text_translation WHERE source_sha256 = %s AND language = 'en'", (h,)).fetchone() == ("a fine of NIS 1,000", "m")
         assert conn.execute("SELECT status FROM data_issue WHERE external_ref = %s", (h,)).fetchone()[0] == "resolved"
         assert conn.execute("SELECT status FROM data_issue WHERE external_ref = %s", (sha256("x"),)).fetchone()[0] == "open"
+
+
+def test_turnstile_and_per_visitor_limit(client, url, monkeypatch):
+    """With a Turnstile secret, a message needs a token Cloudflare accepts; the daily limit counts X-Real-IP."""
+    import io
+
+    monkeypatch.setattr("hkv.api.suggestions.notify", lambda text: None)
+    monkeypatch.setenv("TURNSTILE_SECRET_KEY", "test-secret")
+    seen: list[bytes] = []
+
+    def fake_urlopen(req_url, data=None, timeout=None):
+        seen.append(data)
+        return io.BytesIO(json.dumps({"success": b"response=good" in data}).encode())
+
+    monkeypatch.setattr("hkv.api.suggestions.urllib.request.urlopen", fake_urlopen)
+    body = {"language": "ru", "suggested_text": "Спасибо за сайт"}
+    assert client.post("/api/v1/suggestions", json=body).status_code == 403                                  # no token
+    assert client.post("/api/v1/suggestions", json={**body, "turnstile_token": "bad"}).status_code == 403
+    assert client.post("/api/v1/suggestions", json={**body, "turnstile_token": "good"},
+                       headers={"X-Real-IP": "203.0.113.7"}).status_code == 201
+    assert b"remoteip=203.0.113.7" in seen[-1] and b"secret=test-secret" in seen[-1]
+
+    monkeypatch.delenv("TURNSTILE_SECRET_KEY")
+    with psycopg.connect(url) as conn:
+        conn.execute("DELETE FROM translation_suggestion")
+    a, b = {"X-Real-IP": "198.51.100.1"}, {"X-Real-IP": "198.51.100.2"}
+    for _ in range(20):
+        assert client.post("/api/v1/suggestions", json=body, headers=a).status_code == 201
+    assert client.post("/api/v1/suggestions", json=body, headers=a).status_code == 429
+    assert client.post("/api/v1/suggestions", json=body, headers=b).status_code == 201   # another visitor is not blocked

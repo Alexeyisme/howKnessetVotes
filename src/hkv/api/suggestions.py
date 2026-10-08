@@ -3,8 +3,10 @@
 A suggestion with a source hash corrects one translated text; without one it is a free-text report about a page
 (a wrong number, a badly summarised argument, anything). Stored, never applied: an editor accepts a suggestion in the
 review queue. Each one is forwarded to the owner's Telegram chat by @knessetvotes_bot (TELEGRAM_BOT_TOKEN and
-TELEGRAM_CHAT_ID, the same bot as the update alerts), because otherwise nobody would see it. No account; a honeypot
-field and a per-address daily limit keep bots out. The address is hashed with the day, so the table holds no identity.
+TELEGRAM_CHAT_ID, the same bot as the update alerts), because otherwise nobody would see it. No account; Cloudflare
+Turnstile (when TURNSTILE_SECRET_KEY is set), a honeypot field and a per-visitor daily limit keep bots out. The visitor's
+address comes from Caddy as X-Real-IP (CF-Connecting-IP, trusted only from Cloudflare) and is hashed with the day, so
+the table holds no identity.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ import hashlib
 import logging
 import os
 import urllib.parse
+import json
 import urllib.request
 from typing import Literal
 
@@ -28,6 +31,7 @@ router = APIRouter(prefix="/api/v1")
 
 DAILY_LIMIT = 20
 SITE = "https://knessetvotes.org"
+TURNSTILE_VERIFY = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 
 
 class SuggestionIn(BaseModel):
@@ -38,15 +42,37 @@ class SuggestionIn(BaseModel):
     contact: str | None = Field(default=None, max_length=200)
     page: str | None = Field(default=None, max_length=500)
     website: str = ""   # honeypot: real forms leave it empty
+    turnstile_token: str | None = Field(default=None, max_length=4096)
 
 
 class SuggestionOut(BaseModel):
     id: str
 
 
+def client_ip(request: Request) -> str:
+    """Caddy's X-Real-IP (it overwrites whatever the visitor sent); the socket address when run without Caddy."""
+    return request.headers.get("x-real-ip") or (request.client.host if request.client else "")
+
+
 def ip_hash(request: Request) -> str:
-    ip = request.headers.get("x-forwarded-for", request.client.host if request.client else "").split(",")[0].strip()
-    return hashlib.sha256(f"{ip}|{dt.date.today().isoformat()}".encode()).hexdigest()
+    return hashlib.sha256(f"{client_ip(request)}|{dt.date.today().isoformat()}".encode()).hexdigest()
+
+
+def human(token: str | None, ip: str) -> bool:
+    """Cloudflare's verdict on the Turnstile token; True when the check is off (no secret: local runs and tests).
+    If Cloudflare cannot be reached the message is let through: the honeypot and the daily limit still apply."""
+    secret = os.environ.get("TURNSTILE_SECRET_KEY")
+    if not secret:
+        return True
+    if not token:
+        return False
+    data = urllib.parse.urlencode({"secret": secret, "response": token, "remoteip": ip}).encode()
+    try:
+        with urllib.request.urlopen(TURNSTILE_VERIFY, data=data, timeout=10) as resp:
+            return bool(json.load(resp).get("success"))
+    except Exception as e:
+        log.warning("Turnstile verification unavailable: %s", type(e).__name__)
+        return True
 
 
 def message(body: SuggestionIn, current: str | None) -> str:
@@ -82,6 +108,8 @@ def notify(text: str) -> None:
 def create_suggestion(body: SuggestionIn, request: Request, conn: Conn, tasks: BackgroundTasks):
     if body.website:
         return SuggestionOut(id="00000000-0000-0000-0000-000000000000")  # a bot filled the honeypot: pretend
+    if not human(body.turnstile_token, client_ip(request)):
+        raise HTTPException(403, "verification failed")
     h = ip_hash(request)
     n = conn.execute("SELECT count(*) AS n FROM translation_suggestion WHERE ip_hash = %s AND created_at > now() - interval '1 day'", (h,)).fetchone()["n"]
     if n >= DAILY_LIMIT:
