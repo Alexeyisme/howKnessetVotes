@@ -310,7 +310,7 @@ export const ar: Dict = {
     made: (n) => `عدد المتحدثين الذين طرحوا هذه الحجة: ${n}`,
     counts: (speakers, reservations) => [
       speakers ? cnt(speakers, "تحدّث عضو واحد", "تحدّث عضوان", "أعضاء تحدّثوا", "عضوًا تحدّثوا") : null,
-      reservations ? cnt(reservations, "تحفّظ واحد", "تحفّظان", "تحفّظات", "تحفّظًا") : null,
+      reservations ? (reservations > 10 ? `${reservations.toLocaleString("ar-IL-u-nu-latn")} تحفّظًا` : cnt(reservations, "تحفّظ واحد", "تحفّظان", "تحفّظات", "تحفّظًا")) : null,
     ].filter(Boolean).join(" · "),
     note: "ملخص آلي لنقاش الهيئة العامة: الحجة التي طرحها كل طرف أكثر من غيرها.",
     speeches: (n) => `الخطابات في النقاش: ${n}`,

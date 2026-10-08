@@ -315,7 +315,7 @@ export const ru = {
     made: (n: number) => `Выступавших с этим доводом: ${n}`,
     counts: (speakers: number | null, reservations: number | null) => [
       speakers ? `${speakers} ${plural(speakers, "депутат выступил", "депутата выступили", "депутатов выступили")}` : null,
-      reservations ? `${reservations} ${plural(reservations, "оговорка", "оговорки", "оговорок")}` : null,
+      reservations ? `${reservations.toLocaleString("ru-RU")} ${plural(reservations, "оговорка", "оговорки", "оговорок")}` : null,
     ].filter(Boolean).join(" · "),
     note: "Автоматическая выжимка из дебатов в пленуме: довод, который чаще всего приводила каждая сторона.",
     speeches: (n: number) => `Выступлений в дебатах: ${n}`,

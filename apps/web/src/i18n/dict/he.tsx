@@ -304,7 +304,7 @@ export const he: Dict = {
     made: (n) => `דוברים שהעלו טענה זו: ${n}`,
     counts: (speakers, reservations) => [
       speakers ? (speakers === 1 ? "ח״כ אחד נאם" : `${speakers} ח״כים נאמו`) : null,
-      reservations ? (reservations === 1 ? "הסתייגות אחת" : `${reservations} הסתייגויות`) : null,
+      reservations ? (reservations === 1 ? "הסתייגות אחת" : `${reservations.toLocaleString("he-IL")} הסתייגויות`) : null,
     ].filter(Boolean).join(" · "),
     note: "סיכום אוטומטי של הדיון במליאה: הטענה שכל צד העלה הכי הרבה.",
     speeches: (n) => `נאומים בדיון: ${n}`,

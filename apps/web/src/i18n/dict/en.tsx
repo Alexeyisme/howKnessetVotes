@@ -308,7 +308,7 @@ export const en: Dict = {
     made: (n) => `Speakers who made this point: ${n}`,
     counts: (speakers, reservations) => [
       speakers ? `${speakers} ${s(speakers, "member", "members")} spoke` : null,
-      reservations ? `${reservations} ${s(reservations, "reservation", "reservations")}` : null,
+      reservations ? `${reservations.toLocaleString("en-GB")} ${s(reservations, "reservation", "reservations")}` : null,
     ].filter(Boolean).join(" · "),
     note: "An automatic summary of the plenum debate: the argument each side made most often.",
     speeches: (n) => `Speeches in the debate: ${n}`,
