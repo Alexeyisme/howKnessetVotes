@@ -10,12 +10,24 @@ const OK = <a href="https://oknesset.org" target="_blank" rel="noopener">Open Kn
 export function methodology(locale: Locale, link: (href: string, text: string) => ReactNode): Section[] {
   if (locale === "en") return [
     { id: "sources", title: "Sources", body: <>
+      <p>Every vote, roll-call record, member, faction and bill on the site comes from <strong>official Knesset sources</strong>. Everything else is listed below by where it comes from, and the site labels it where it is shown.</p>
+      <p><strong>Official Knesset sources</strong></p>
       <ul>
-        <li><strong>Knesset open data (OData v4)</strong>: plenum votes, roll-call records, bills, sponsors, members, factions and membership. The main source.</li>
+        <li><strong>Knesset open data (OData v4)</strong>: plenum votes, roll-call records, bills, sponsors, members, factions and membership, government posts (used to determine the {link("/about/methodology#coalition", "coalition")}), the official law classification (used for {link("/about/methodology#topics", "topics")}) and official law summaries. The main source.</li>
         <li><strong>The old Knesset votes service (Votes.svc)</strong>, data up to July 2021: official results and votes missing from the main source, plus flags for votes not counted in the official result.</li>
         <li><strong>The Knesset website</strong>: official member names and faction names in English, Russian and Arabic, and member photos.</li>
+        <li><strong>Knesset documents</strong>: bill files with the sponsors&apos; explanatory notes, plenum transcripts (&ldquo;Divrei HaKnesset&rdquo;) and the committee&apos;s version of a bill for the second reading, with the reservations. Bill descriptions, debates and reservations are taken from them.</li>
+      </ul>
+      <p><strong>Other sources</strong></p>
+      <ul>
         <li><strong>Wikidata</strong>: English, Russian and Arabic names for members not covered by the website, and spelling variants for search.</li>
-        <li><strong>{OK}</strong> (the Hasadna public knowledge workshop): a member ID mapping table. Used with attribution.</li>
+        <li><strong>{OK}</strong> (the Hasadna public knowledge workshop): a table matching Knesset member IDs to the website&apos;s IDs, used to find names and photos. Used with attribution.</li>
+      </ul>
+      <p><strong>Prepared or computed by the site</strong></p>
+      <ul>
+        <li><strong>By hand</strong>: parties and the factions they sat as, names of factions from earlier Knessets in other languages, and a few coalition exceptions, each with a reference to its evidence.</li>
+        <li><strong>Computed</strong>: results of votes after July 2021 (from roll-call records), coalition and opposition, keyword topics and all measures. The rules are on this page.</li>
+        <li><strong>Written by an AI model</strong> (Claude, by Anthropic): translations, summaries of bills&apos; explanatory notes, debates and reservations. They have not been reviewed and are labelled as such; see {link("/about/methodology#translation", "Translation")}.</li>
       </ul>
       <p className="small muted">Every vote links to its page on the Knesset website. Raw source responses are stored unchanged, so any number can be rechecked.</p></> },
     { id: "records", title: "Roll-call records and “absence”", body: <>
@@ -62,12 +74,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
   ];
   if (locale === "ar") return [
     { id: "sources", title: "المصادر", body: <>
+      <p>كل تصويت وسجل اسمي وعضو كنيست وكتلة واقتراح قانون في الموقع مأخوذ من <strong>مصادر الكنيست الرسمية</strong>. كل ما عدا ذلك مذكور أدناه حسب مصدره، ويوسمه الموقع حيث يُعرض.</p>
+      <p><strong>مصادر الكنيست الرسمية</strong></p>
       <ul>
-        <li><strong>المعطيات المفتوحة للكنيست (OData v4)</strong>: تصويتات الهيئة العامة، السجلات الاسمية، اقتراحات القوانين، المبادرون، أعضاء الكنيست، الكتل والعضوية فيها. المصدر الرئيسي.</li>
+        <li><strong>المعطيات المفتوحة للكنيست (OData v4)</strong>: تصويتات الهيئة العامة، السجلات الاسمية، اقتراحات القوانين، المبادرون، أعضاء الكنيست، الكتل والعضوية فيها، المناصب الحكومية (لتحديد {link("/about/methodology#coalition", "الائتلاف")})، التصنيف الرسمي للقوانين (لـ{link("/about/methodology#topics", "المواضيع")}) والملخصات الرسمية للقوانين. المصدر الرئيسي.</li>
         <li><strong>خدمة التصويتات القديمة للكنيست (Votes.svc)</strong>، معطيات حتى تموز/يوليو 2021: النتائج الرسمية وتصويتات غير موجودة في المصدر الرئيسي، وإشارات إلى أصوات لم تُحتسب في النتيجة الرسمية.</li>
         <li><strong>موقع الكنيست</strong>: الأسماء الرسمية لأعضاء الكنيست وللكتل بالإنجليزية والروسية والعربية، وصور أعضاء الكنيست.</li>
+        <li><strong>وثائق الكنيست</strong>: ملفات اقتراحات القوانين مع الشروح التي أرفقها المبادرون، محاضر جلسات الهيئة العامة («دفري هكنيست») وصيغة اللجنة لاقتراح القانون للقراءة الثانية مع التحفظات. منها تؤخذ أوصاف الاقتراحات والنقاشات والتحفظات.</li>
+      </ul>
+      <p><strong>مصادر أخرى</strong></p>
+      <ul>
         <li><strong>ويكي بيانات</strong>: أسماء بالإنجليزية والروسية والعربية لأعضاء كنيست لا يغطيهم الموقع، وصيغ كتابة بديلة للبحث.</li>
-        <li><strong>{OK}</strong> (ورشة المعرفة العامة «هسدنا»): جدول مطابقة لمعرّفات أعضاء الكنيست. يُستخدم مع ذكر المصدر.</li>
+        <li><strong>{OK}</strong> (ورشة المعرفة العامة «هسدنا»): جدول مطابقة بين معرّفات أعضاء الكنيست ومعرّفات الموقع، لإيجاد الأسماء والصور. يُستخدم مع ذكر المصدر.</li>
+      </ul>
+      <p><strong>ما أعدّه الموقع أو حسبه</strong></p>
+      <ul>
+        <li><strong>يدويًا</strong>: الأحزاب والكتل التي مثّلتها، أسماء كتل الدورات السابقة بلغات أخرى، وبعض استثناءات الائتلاف، ولكل منها إشارة إلى الدليل.</li>
+        <li><strong>بالحساب</strong>: نتائج التصويتات بعد تموز/يوليو 2021 (من السجلات الاسمية)، الائتلاف والمعارضة، المواضيع حسب الكلمات المفتاحية وكل المؤشرات. القواعد مشروحة في هذه الصفحة.</li>
+        <li><strong>بنموذج ذكاء اصطناعي</strong> (Claude من شركة Anthropic): الترجمات وتلخيص الشروح المرفقة باقتراحات القوانين والنقاشات والتحفظات. لم تُراجَع، وهي موسومة بذلك؛ انظر {link("/about/methodology#translation", "الترجمة")}.</li>
       </ul>
       <p className="small muted">لكل تصويت رابط إلى صفحته في موقع الكنيست. تُحفظ ردود المصادر الأصلية دون تغيير، بحيث يمكن التحقق من أي رقم من جديد.</p></> },
     { id: "records", title: "السجلات الاسمية و«الغياب»", body: <>
@@ -114,12 +138,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
   ];
   if (locale === "he") return [
     { id: "sources", title: "מקורות", body: <>
+      <p>כל הצבעה, רישום שמי, חבר כנסת, סיעה והצעת חוק באתר לקוחים <strong>ממקורות רשמיים של הכנסת</strong>. כל השאר מפורט להלן לפי מקורו, והאתר מסמן אותו במקום שבו הוא מוצג.</p>
+      <p><strong>מקורות רשמיים של הכנסת</strong></p>
       <ul>
-        <li><strong>המידע הפתוח של הכנסת (OData v4)</strong>: הצבעות במליאה, רישומים שמיים, הצעות חוק, יוזמים, חברי כנסת, סיעות וחברות בהן. המקור העיקרי.</li>
+        <li><strong>המידע הפתוח של הכנסת (OData v4)</strong>: הצבעות במליאה, רישומים שמיים, הצעות חוק, יוזמים, חברי כנסת, סיעות וחברות בהן, תפקידים בממשלה (לקביעת {link("/about/methodology#coalition", "הקואליציה")}), הסיווג הרשמי של החוקים (ל{link("/about/methodology#topics", "נושאים")}) ותקצירי חוקים רשמיים. המקור העיקרי.</li>
         <li><strong>שירות ההצבעות הישן של הכנסת (Votes.svc)</strong>, נתונים עד יולי 2021: תוצאות רשמיות והצבעות שחסרות במקור העיקרי, וסימון קולות שלא נכללו בתוצאה הרשמית.</li>
         <li><strong>אתר הכנסת</strong>: השמות הרשמיים של חברי הכנסת ושל הסיעות באנגלית, ברוסית ובערבית, ותמונות חברי הכנסת.</li>
+        <li><strong>מסמכי הכנסת</strong>: קובצי הצעות החוק עם דברי ההסבר של היוזמים, פרוטוקולי המליאה (״דברי הכנסת״) ונוסח הוועדה לקריאה השנייה עם ההסתייגויות. מהם נלקחים תיאורי ההצעות, הדיונים וההסתייגויות.</li>
+      </ul>
+      <p><strong>מקורות אחרים</strong></p>
+      <ul>
         <li><strong>ויקינתונים</strong>: שמות באנגלית, ברוסית ובערבית לחברי כנסת שאינם באתר, וגרסאות כתיב לחיפוש.</li>
-        <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">כנסת פתוחה</a></strong> (הסדנא לידע ציבורי): טבלת התאמה של מזהי חברי הכנסת. בשימוש עם ציון המקור.</li>
+        <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">כנסת פתוחה</a></strong> (הסדנא לידע ציבורי): טבלת התאמה בין מזהי חברי הכנסת למזהי האתר, לאיתור שמות ותמונות. בשימוש עם ציון המקור.</li>
+      </ul>
+      <p><strong>מה שהאתר הכין או חישב</strong></p>
+      <ul>
+        <li><strong>ידנית</strong>: המפלגות והסיעות שבהן ישבו, שמות סיעות של כנסות קודמות בשפות אחרות, וכמה חריגים בקואליציה, כל אחד עם הפניה לראיה.</li>
+        <li><strong>בחישוב</strong>: תוצאות הצבעות אחרי יולי 2021 (מהרישומים השמיים), קואליציה ואופוזיציה, נושאים לפי מילות מפתח וכל המדדים. הכללים מפורטים בדף זה.</li>
+        <li><strong>במודל בינה מלאכותית</strong> (Claude של Anthropic): תרגומים ותקצירים של דברי ההסבר, הדיונים וההסתייגויות. הם לא נבדקו ומסומנים ככאלה; ראו {link("/about/methodology#translation", "תרגום")}.</li>
       </ul>
       <p className="small muted">לכל הצבעה יש קישור לדף שלה באתר הכנסת. התשובות הגולמיות של המקורות נשמרות ללא שינוי, כך שאפשר לבדוק מחדש כל מספר.</p></> },
     { id: "records", title: "רישומים שמיים ו״היעדרות״", body: <>
@@ -166,12 +202,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
   ];
   return [
     { id: "sources", title: "Источники", body: <>
+      <p>Все голосования, поимённые записи, депутаты, фракции и законопроекты на сайте взяты из <strong>официальных источников Кнессета</strong>. Всё остальное перечислено ниже по происхождению, и на сайте это помечено там, где показано.</p>
+      <p><strong>Официальные источники Кнессета</strong></p>
       <ul>
-        <li><strong>Открытые данные Кнессета (OData v4)</strong>: голосования в пленуме, поимённые записи, законопроекты, инициаторы, депутаты, фракции и членство в них. Основной источник.</li>
+        <li><strong>Открытые данные Кнессета (OData v4)</strong>: голосования в пленуме, поимённые записи, законопроекты, инициаторы, депутаты, фракции и членство в них, посты в правительстве (по ним определяется {link("/about/methodology#coalition", "коалиция")}), официальная классификация законов (для {link("/about/methodology#topics", "тем")}) и официальные резюме законов. Основной источник.</li>
         <li><strong>Старый сервис голосований Кнессета (Votes.svc)</strong>, данные до июля 2021 года: официальные итоги и голосования, которых нет в основном источнике, а также пометки о голосах, не вошедших в официальный итог.</li>
         <li><strong>Сайт Кнессета</strong>: официальные имена депутатов и названия фракций на русском, английском и арабском языках, фотографии депутатов.</li>
+        <li><strong>Документы Кнессета</strong>: файлы законопроектов с пояснительными записками инициаторов, стенограммы заседаний пленума («Диврей ха-Кнессет») и версия законопроекта, подготовленная комиссией ко второму чтению, с оговорками. Из них берутся описания законопроектов, обсуждения и оговорки.</li>
+      </ul>
+      <p><strong>Другие источники</strong></p>
+      <ul>
         <li><strong>Викиданные</strong>: английские, русские и арабские имена для депутатов, которых нет в материалах сайта, а также варианты написания для поиска.</li>
-        <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">«Открытый Кнессет»</a></strong> (проект «Сикуй Хасадна» / Hasadna): таблица соответствия идентификаторов депутатов. Используется с указанием источника.</li>
+        <li><strong><a href="https://oknesset.org" target="_blank" rel="noopener">«Открытый Кнессет»</a></strong> (проект «Сикуй Хасадна» / Hasadna): таблица соответствия идентификаторов депутатов и идентификаторов сайта Кнессета, по которой находятся имена и фотографии. Используется с указанием источника.</li>
+      </ul>
+      <p><strong>Подготовлено или вычислено сайтом</strong></p>
+      <ul>
+        <li><strong>Вручную</strong>: партии и фракции, которыми они были представлены, названия фракций прежних созывов на других языках и несколько исключений в составе коалиции — у каждого есть ссылка на подтверждение.</li>
+        <li><strong>Вычислено</strong>: итоги голосований после июля 2021 года (по поимённым записям), коалиция и оппозиция, темы по ключевым словам и все показатели. Правила описаны на этой странице.</li>
+        <li><strong>Написано моделью ИИ</strong> (Claude, компания Anthropic): переводы, пересказы пояснительных записок, обсуждений и оговорок. Они не проверены и так и помечены; см. {link("/about/methodology#translation", "Перевод")}.</li>
       </ul>
       <p className="small muted">У каждого голосования есть ссылка на его карточку на сайте Кнессета. Исходные ответы источников сохраняются без изменений, чтобы любую цифру можно было перепроверить.</p></> },
     { id: "records", title: "Поимённые записи и «отсутствие»", body: <>
