@@ -7,6 +7,16 @@ import { RECESS_UNTIL } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 import styles from "./home.module.css";
 
+/** k random items, so the search examples change between visits instead of always suggesting the same names. */
+function pick<T>(xs: readonly T[], k: number): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a.slice(0, k);
+}
+
 // U1: a start page for first-time visitors: one search box for any language, the laws the coalition and opposition
 // fought over (the question a voter asks), topics as the way in to "how did my party vote on...", and the sections.
 export default async function Home({ searchParams }: PageProps<"/[lang]">) {
@@ -24,6 +34,8 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
   const top = [...topics.data].sort((a, b) => b.bills - a.bills).slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
   const recess = today < RECESS_UNTIL;
+  const ex = d.exampleQueries;
+  const examples = pick([...pick(ex.members, 1), ...pick(ex.parties, 1), ...pick(ex.topics, 2)], 4);
 
   return (
     <div className={styles.home}>
@@ -34,7 +46,7 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
                    labels={{ placeholder: d.searchPh, label: t.d.nav.searchLabel, button: t.d.common.find, members: t.d.search.members, parties: t.d.search.factions, topics: t.d.search.topics, all: t.d.common.find }} />
         <p className="small muted">
           {d.examples}{" "}
-          {d.exampleQueries.map((q, n) => <span key={q}>{n > 0 && " · "}<Link href={`/search?q=${encodeURIComponent(q)}`}>{q}</Link></span>)}
+          {examples.map((q, n) => <span key={q}>{n > 0 && " · "}<Link href={`/search?q=${encodeURIComponent(q)}`}>{q}</Link></span>)}
         </p>
         {status && (
           <p className={`small ${styles.fresh}`}>

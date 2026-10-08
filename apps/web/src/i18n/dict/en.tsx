@@ -104,7 +104,21 @@ export const en: Dict = {
     lead: "How every party and member of Israel's parliament voted on each bill — from official Knesset data, in English, Russian, Hebrew and Arabic.",
     searchPh: "Member, party, topic or bill — in any language",
     examples: "Try:",
-    exampleQueries: ["Netanyahu", "budget", "Likud", "housing"],
+    // one member, one party and two topics are shown at random on each visit; every one was checked to return results
+    exampleQueries: {
+      members: [
+        "Netanyahu", "Lapid", "Gantz", "Bennett", "Lieberman", "Deri", "Gafni", "Smotrich", "Sa'ar", "Edelstein",
+        "Merav Michaeli", "Mansour Abbas", "Ayman Odeh", "Tibi", "Shaked", "Kahlon", "Olmert", "Tzipi Livni", "Yachimovich", "Amir Peretz",
+      ],
+      parties: [
+        "Likud", "Yesh Atid", "Shas", "Yisrael Beiteinu", "United Torah Judaism", "Labor", "Meretz", "Ra'am", "Hadash", "Blue and White",
+      ],
+      topics: [
+        "budget", "draft", "housing", "education", "health", "pensions", "transport", "public transport", "environment", "water",
+        "agriculture", "tourism", "culture", "sport", "elections", "Jerusalem", "immigration", "taxes", "army", "police",
+        "disability", "energy", "children", "elderly", "students", "communications", "banking", "local authorities", "Negev", "Galilee",
+      ],
+    },
     topicsTitle: "How parties voted by topic",
     topicsAll: "All topics →",
     finalTitle: "Latest final votes",
