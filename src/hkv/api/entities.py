@@ -719,23 +719,24 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
                   motion_type: Annotated[list[MotionType] | None, Query()] = None, split_only: bool = False,
                   limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     r = faction_pk(conn, faction_id)
-    where, params = ["true"], {"fid": r["pk"], "limit": limit + 1}
+    where, params = ["true"], {"fid": r["pk"], "limit": limit + 1}   # vote filters, applied inside the CTE (see member_votes_cte)
     if stage:
         where.append("coalesce(k.stage, v.stage) = ANY(%(stage)s)"); params["stage"] = stage
     if motion_type:
         where.append("coalesce(k.motion_type, v.motion_type) = ANY(%(motion)s)"); params["motion"] = motion_type
-    if split_only:
-        where.append("greatest(c.f, c.a, c.ab) < c.f + c.a + c.ab")
     if cursor:
         c_on, c_id = decode_cursor(cursor)
         where.append("(v.occurred_on, v.knesset_vote_id) < (%(c_on)s::date, %(c_id)s)"); params.update(c_on=c_on, c_id=c_id)
+    after = "greatest(c.f, c.a, c.ab) < c.f + c.a + c.ab" if split_only else "true"
     rows = conn.execute(f"""
-        WITH c AS (SELECT vote_id, count(*) FILTER (WHERE choice = 'for') f, count(*) FILTER (WHERE choice = 'against') a,
-                          count(*) FILTER (WHERE choice = 'abstain') ab, count(*) FILTER (WHERE participation = 'present_not_voting') p,
-                          count(*) n FROM ballot WHERE faction_id = %(fid)s GROUP BY vote_id)
+        WITH c AS MATERIALIZED (
+            SELECT b.vote_id, count(*) FILTER (WHERE b.choice = 'for') f, count(*) FILTER (WHERE b.choice = 'against') a,
+                   count(*) FILTER (WHERE b.choice = 'abstain') ab, count(*) FILTER (WHERE b.participation = 'present_not_voting') p,
+                   count(*) n
+            FROM ballot b JOIN vote v ON v.id = b.vote_id LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+            WHERE b.faction_id = %(fid)s AND {' AND '.join(where)} GROUP BY b.vote_id)
         SELECT v.knesset_vote_id AS vid, v.occurred_on, c.f, c.a, c.ab, c.p, c.n FROM c JOIN vote v ON v.id = c.vote_id
-        LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
-        WHERE {' AND '.join(where)} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
+        WHERE {after} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([x["vid"] for x in rows],))}
     data = [FactionVote(vote=summaries[x["vid"]], majority=majority_of(x["f"], x["a"], x["ab"]),
