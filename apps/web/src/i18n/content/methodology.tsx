@@ -70,7 +70,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       </ul></> },
     { id: "corrections", title: "Mistakes and corrections", body: <>
       <p>Much of the text on the site was written or translated by an AI model and has not been reviewed by a person, so it may contain mistakes: an inaccurate translation, a wrong number, an argument summarised badly or put on the wrong side. Vote counts, roll-call records and factions come from official data, but they can be wrong too, in the source or in our processing.</p>
-      <p><strong>If you find a mistake, please let us know.</strong> Next to a translated title or summary there is a &ldquo;suggest a correction&rdquo; link. For anything else, including the Hebrew summaries and the arguments of the sides, use &ldquo;report a mistake&rdquo; under the summary or the {link("/suggest", "report form")} (it is also linked at the bottom of every page). Every message reaches the site&apos;s author and is checked before anything on the site changes; you can leave a contact if you want an answer.</p></> },
+      <p><strong>Your help is welcome.</strong> Next to a translated title or summary there is a &ldquo;suggest a correction&rdquo; link. For anything else, including the Hebrew summaries and the arguments of the sides, {link("/suggest", "write to the author")}: the link is under every summary and at the bottom of every page. The author reads every message and checks it before anything on the site changes; leave a contact if you would like an answer.</p></> },
     { id: "updates", title: "Updates", body: <>
       <p>Data is updated automatically: every night, and every two hours on plenum days (Monday–Wednesday). Each update rereads the last 30 days of votes to pick up source corrections. The date of the latest update is at the bottom of every page.</p>
       <p className="small muted">Terms are explained in the {link("/about/glossary", "glossary")}.</p></> },
@@ -137,7 +137,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       </ul></> },
     { id: "corrections", title: "الأخطاء والتصحيحات", body: <>
       <p>كثير من نصوص الموقع كتبه أو ترجمه نموذج ذكاء اصطناعي ولم يراجعه إنسان، لذا قد يحتوي على أخطاء: ترجمة غير دقيقة، أو رقم خاطئ، أو حجة لُخّصت بشكل سيئ أو نُسبت إلى الجانب الخطأ. نتائج التصويت والسجلات الاسمية والكتل مأخوذة من البيانات الرسمية، لكنها قد تكون خاطئة أيضًا، في المصدر أو في معالجتنا.</p>
-      <p><strong>إذا وجدتم خطأ، نرجو إبلاغنا.</strong> بجانب كل عنوان أو ملخص مترجم رابط «اقترح تصحيحًا». ولأي شيء آخر، بما في ذلك الملخصات العبرية وحجج الجانبين، استخدموا رابط «الإبلاغ عن خطأ» تحت الملخص أو {link("/suggest", "نموذج الإبلاغ")} (وهو موجود أيضًا أسفل كل صفحة). تصل كل رسالة إلى مؤلف الموقع ويُتحقَّق منها قبل أن يتغيّر أي شيء في الموقع؛ يمكنكم ترك وسيلة تواصل إن أردتم ردًا.</p></> },
+      <p><strong>يسعدنا تعاونكم.</strong> بجانب كل عنوان أو ملخص مترجم رابط «اقترح تصحيحًا». ولأي شيء آخر، بما في ذلك الملخصات العبرية وحجج الجانبين، {link("/suggest", "راسلوا مؤلف الموقع")}: الرابط موجود تحت كل ملخص وأسفل كل صفحة. يقرأ المؤلف كل رسالة ويتحقق منها قبل أن يتغيّر أي شيء في الموقع؛ اتركوا وسيلة تواصل إن أردتم ردًا.</p></> },
     { id: "updates", title: "التحديث", body: <>
       <p>تُحدَّث المعطيات تلقائيًا: كل ليلة، وكل ساعتين في أيام جلسات الهيئة العامة (الاثنين–الأربعاء). في كل تحديث تُقرأ من جديد تصويتات آخر 30 يومًا لالتقاط تصحيحات المصدر. تاريخ آخر تحديث مذكور أسفل كل صفحة.</p>
       <p className="small muted">المصطلحات مشروحة في {link("/about/glossary", "قاموس المصطلحات")}.</p></> },
@@ -204,7 +204,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       </ul></> },
     { id: "corrections", title: "טעויות ותיקונים", body: <>
       <p>חלק גדול מהטקסט באתר נכתב או תורגם בידי מודל בינה מלאכותית ולא נבדק בידי אדם, ולכן ייתכנו בו טעויות: תרגום לא מדויק, מספר שגוי, טיעון שסוכם לא טוב או שויך לצד הלא נכון. תוצאות ההצבעות, הרישומים השמיים והסיעות לקוחים מנתונים רשמיים, אך גם הם עלולים להיות שגויים, במקור או בעיבוד שלנו.</p>
-      <p><strong>אם מצאתם טעות, נשמח לשמוע.</strong> בגרסאות האנגלית, הרוסית והערבית יש ליד כל שם או תקציר מתורגם קישור „הציעו תיקון“. לכל דבר אחר, כולל התקצירים בעברית וטיעוני הצדדים, השתמשו בקישור „דיווח על טעות“ שמתחת לתקציר או ב{link("/suggest", "טופס הדיווח")} (יש אליו קישור גם בתחתית כל דף). כל הודעה מגיעה למחבר האתר ונבדקת לפני שמשהו באתר משתנה; אפשר להשאיר פרטי קשר אם תרצו תשובה.</p></> },
+      <p><strong>נשמח לעזרתכם.</strong> בגרסאות האנגלית, הרוסית והערבית יש ליד כל שם או תקציר מתורגם קישור „הציעו תיקון“. לכל דבר אחר, כולל התקצירים בעברית וטיעוני הצדדים, {link("/suggest", "כתבו למחבר האתר")}: הקישור נמצא מתחת לכל תקציר ובתחתית כל דף. המחבר קורא כל הודעה ובודק אותה לפני שמשהו באתר משתנה; השאירו פרטי קשר אם תרצו תשובה.</p></> },
     { id: "updates", title: "עדכון", body: <>
       <p>הנתונים מתעדכנים אוטומטית: בכל לילה, וכל שעתיים בימי מליאה (שני–רביעי). בכל עדכון נקראות מחדש ההצבעות של 30 הימים האחרונים, כדי לקלוט תיקונים במקור. תאריך העדכון האחרון מופיע בתחתית כל דף.</p>
       <p className="small muted">המונחים מוסברים {link("/about/glossary", "במילון המונחים")}.</p></> },
@@ -271,7 +271,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       </ul></> },
     { id: "corrections", title: "Ошибки и исправления", body: <>
       <p>Большая часть текста на сайте написана или переведена моделью ИИ и не проверена человеком, поэтому в нём возможны ошибки: неточный перевод, неверное число, плохо пересказанный довод или довод, отнесённый не к той стороне. Итоги голосований, поимённые записи и фракции взяты из официальных данных, но и в них возможны ошибки — в источнике или в нашей обработке.</p>
-      <p><strong>Если вы нашли ошибку, пожалуйста, сообщите.</strong> Рядом с переведённым названием или резюме есть ссылка «предложить исправление». Обо всём остальном, в том числе об ивритских пересказах и доводах сторон, — ссылка «сообщить об ошибке» под пересказом или {link("/suggest", "форма сообщения")} (она есть и внизу каждой страницы). Каждое сообщение получает автор сайта, и ошибку проверяют, прежде чем на сайте что-то изменится; оставьте контакт, если хотите получить ответ.</p></> },
+      <p><strong>Будем рады вашей помощи.</strong> Рядом с переведённым названием или резюме есть ссылка «предложить исправление». Обо всём остальном, в том числе об ивритских пересказах и доводах сторон, {link("/suggest", "напишите автору")}: ссылка есть под каждым пересказом и внизу каждой страницы. Автор читает каждое сообщение и проверяет его, прежде чем на сайте что-то изменится; оставьте контакт, если хотите получить ответ.</p></> },
     { id: "updates", title: "Обновление", body: <>
       <p>Данные обновляются автоматически: каждую ночь и каждые два часа в дни заседаний пленума (понедельник–среда). При каждом обновлении перечитываются голосования за последние 30 дней, чтобы подхватить исправления источника. Дата последнего обновления указана внизу каждой страницы.</p>
       <p className="small muted">Термины объяснены в {link("/about/glossary", "словаре")}.</p></> },
