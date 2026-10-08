@@ -156,6 +156,8 @@ export const en: Dict = {
     quorum: (cast) => `${cast} of 120 members voted. The plenum has no quorum: a decision passes by a simple majority of those voting. A special majority (61 votes) is needed only for no-confidence motions and some provisions of Basic Laws.`,
     question: "What was put to the vote",
     bill: "Bill:",
+    aboutBill: "About the law and the debate",
+    debateMore: "All arguments and speakers are on the bill page",
     resultTitle: "Result from roll-call records",
     noRecords: (why) => `No roll-call records: ${why}.`,
     officialTotals: (f, a, ab) => `Official result: ${f} for, ${a} against, ${ab} abstained`,

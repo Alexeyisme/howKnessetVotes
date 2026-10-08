@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { BallotTable, type BallotRow } from "@/components/BallotTable";
-import { Title, titleText } from "@/components/Title";
+import { Sides } from "@/components/Sides";
+import { Summary, Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
-import { getBallots, getVote, NotFound, type Ballot, type Counts, type VoteDetail } from "@/lib/api";
+import { getBallots, getBill, getVote, NotFound, type Ballot, type BillDetail, type Counts, type VoteDetail } from "@/lib/api";
 import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
 import { getT, type T } from "@/i18n/server";
 import styles from "./vote.module.css";
@@ -17,11 +18,51 @@ async function load(idParam: string) {
   if (!Number.isInteger(id) || id <= 0) notFound();
   try {
     const [vote, ballots] = await Promise.all([getVote(id), getBallots(id)]);
-    return { vote: vote.data, ballots: ballots.data };
+    return { vote: vote.data, ballots: ballots.data, bill: await finalBill(vote.data) };
   } catch (e) {
     if (e instanceof NotFound) notFound();
     throw e;
   }
+}
+
+/** On a final vote on one bill: the bill, for what it says and what the debate said (as on the home page cards). The
+ *  vote page still renders without it. */
+async function finalBill(vote: VoteDetail): Promise<BillDetail | null> {
+  if (vote.stage !== "third" || vote.motion_type !== "adopt_bill" || vote.bills.length !== 1) return null;
+  return getBill(vote.bills[0].id).then((r) => r.data, () => null);
+}
+
+/** What the law does (the official summary, else the sponsors' explanatory notes) and the two sides of the plenum
+ *  debate; when the debate has no argument for one side, its summary instead. The full debate is on the bill page. */
+async function AboutBill({ bill, vote }: { bill: BillDetail; vote: VoteDetail }) {
+  const t = await getT();
+  const sides = vote.bills[0].sides;
+  const page = `/votes/${vote.id}`;
+  const about = bill.summary_he ? { he: bill.summary_he, text: bill.summary, origin: bill.summary_origin, title: t.d.bill.summaryTitle }
+    : bill.explanation_he ? { he: bill.explanation_he, text: bill.explanation, origin: bill.explanation_origin, title: t.d.bill.explanationTitle } : null;
+  const bothSides = !!(sides?.argument_for && sides.argument_against);
+  if (!about && !bothSides && !bill.debate) return null;
+  return (
+    <section className="card" aria-labelledby="about">
+      <h2 id="about" className="section-title">{t.d.vote.aboutBill}</h2>
+      {about && (
+        <>
+          <h3 className={styles.sub}>{about.title}</h3>
+          <Summary he={about.he} text={about.text} origin={about.origin} page={page} />
+          {!bill.summary_he && <p className="small muted">{t.d.bill.explanationNote}</p>}
+        </>
+      )}
+      {(bothSides || bill.debate) && (
+        <>
+          <h3 className={styles.sub}>{t.d.bill.debateTitle}</h3>
+          {bothSides ? <Sides sides={sides!} />
+            : <Summary he={bill.debate!.summary.text_he} text={bill.debate!.summary.text} origin={bill.debate!.summary.text_origin} page={page} />}
+          {sides && <p className="small muted num" style={{ marginTop: 6 }}>{t.d.sides.counts(sides.speakers, sides.reservations)}</p>}
+        </>
+      )}
+      <p className="small" style={{ marginTop: 8 }}><Link href={`/bills/${bill.id}`}>{t.d.vote.debateMore} →</Link></p>
+    </section>
+  );
 }
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/votes/[id]">): Promise<Metadata> {
@@ -98,7 +139,7 @@ function ballotRows(vote: VoteDetail, ballots: Ballot[], t: T): BallotRow[] {
 }
 
 export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]">) {
-  const { vote, ballots } = await load((await params).id);
+  const { vote, ballots, bill } = await load((await params).id);
   const t = await getT();
   const d = t.d.vote;
   const time = t.time(vote.occurred_at);
@@ -152,6 +193,8 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           </p>
         )}
       </section>
+
+      {bill && <AboutBill bill={bill} vote={vote} />}
 
       {!hasRollCall && (
         <section className="card" aria-labelledby="res">

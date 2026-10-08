@@ -35,3 +35,7 @@
 
 .details summary { cursor: pointer; margin-bottom: 0; }
 .details[open] summary { margin-bottom: 12px; }
+
+/* the "about the law" card: the summary and the debate under small headings */
+.sub { font-size: 1rem; font-weight: 650; margin: 14px 0 6px; }
+.sub:first-of-type { margin-top: 4px; }
