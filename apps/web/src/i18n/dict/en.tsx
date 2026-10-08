@@ -366,7 +366,7 @@ export const en: Dict = {
   },
   suggest: {
     title: "Suggest a correction",
-    lead: "Law titles are translated automatically and marked as such. A correction goes to an editor; nothing changes on the site until they accept it. No account needed.",
+    lead: "Titles and summaries are translated automatically and marked as such. A correction goes to an editor; nothing changes on the site until they accept it. No account needed.",
     original: "Original", textLabel: "Corrected translation", noteLabel: "Note (optional)",
     send: "Send", thanks: "Thank you! The correction has been passed to an editor.", error: "Could not send. Please try again later.", back: "Back",
   },
