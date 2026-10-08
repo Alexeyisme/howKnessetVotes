@@ -84,6 +84,8 @@ Acceptance: a visitor can answer "did Shas vote for the 2025 budget?" from the p
 
 ### R2 — Party × topic matrix (M, before elections)
 
+**Removed 2026-10-09** (built, then taken down at the owner's decision): a party's majority "for" the bills of a topic says nothing without knowing what each bill does. `/compass` redirects to `/topics`. Do not bring back topic-level for/against summaries (this also rules out the R1 "where they stand" strip above).
+
 A new `/compass` (or on `/topics`) page: rows = parties of the chosen Knesset (ordered coalition → opposition), columns = the ~12 largest topics, cell = the party's majority on final votes (blue/red/grey with the count on hover/tap). Use the existing `/topics/{slug}` data; one request per topic, cached.
 
 - Default to the current Knesset; term switch at the top.

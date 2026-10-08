@@ -55,9 +55,14 @@ class SearchMember(PersonNames):
     name_he: str
 
 
+FTS_CONFIG = {"ru": "russian", "en": "english", "ar": "arabic"}   # must match the indexes of migration 0019
+BILL_LIMIT = 20
+
+
 class SearchResult(BaseModel):
     topics: list[TopicSummary]
     bills: list[BillSummary]
+    bills_total: int | None = None   # all matching bills when `bills` is cut at the limit (translated-title search)
     members: list[SearchMember]
     factions: list[FactionRef]
     script: Literal["hebrew", "cyrillic", "latin", "arabic", "number", "other"]
@@ -158,6 +163,7 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
     script = detect_script(q)
     topics: list[TopicSummary] = []
     bills: list = []
+    bills_total: int | None = None
     members: list = []
     factions: list[FactionRef] = []
     if script in ("cyrillic", "latin", "arabic"):
@@ -174,13 +180,19 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                WHERE fl.language = %(lang)s AND ({norm}(fl.name) LIKE %(like)s OR {norm}(fl.short_name) LIKE %(like)s OR similarity({norm}(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
-        # bills by their translated titles (text_translation, R4): "capital market" finds the bill
-        bills = [bill_summary(r) for r in conn.execute(
-            f"""SELECT * FROM ({BILL_SELECT} WHERE EXISTS (
-                   SELECT 1 FROM text_translation x WHERE x.language = %(lang)s AND x.text ILIKE %(like)s
-                     AND x.source_sha256 = title_sha(b.title_he))
-                   AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) q
-                ORDER BY last_vote_on DESC NULLS LAST LIMIT 20""", {"lang": lang, "like": f"%{q.strip()}%"})]
+        # bills by their translated titles (text_translation, R4), every word in any form: "налоги" finds "налоговый"
+        # (stemmed prefix, index from migration 0019). A query of stop words only has no terms and finds no bills.
+        tsq = " & ".join(f"{w}:*" for w in re.findall(r"[^\W_]+", q))
+        if tsq:
+            match = f"""EXISTS (SELECT 1 FROM text_translation x WHERE x.language = %(lang)s
+                          AND to_tsvector('{FTS_CONFIG[lang]}'::regconfig, x.text) @@ to_tsquery('{FTS_CONFIG[lang]}'::regconfig, %(tsq)s)
+                          AND x.source_sha256 = title_sha(b.title_he))
+                        AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"""
+            p = {"lang": lang, "tsq": tsq}
+            bills = [bill_summary(r) for r in conn.execute(
+                f"SELECT * FROM ({BILL_SELECT} WHERE {match}) q ORDER BY last_vote_on DESC NULLS LAST LIMIT {BILL_LIMIT}", p)]
+            if len(bills) == BILL_LIMIT:
+                bills_total = conn.execute(f"SELECT count(*) AS n FROM bill b WHERE {match}", p).fetchone()["n"]
         # members by their names in that language and variants (Wikidata alternative labels), typo-tolerant
         members = [dict(r) for r in conn.execute(
             f"""SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, {norm}(a.full_name))) AS score
@@ -223,5 +235,5 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
         num = int(q.strip())
         bills = [bill_summary(r) for r in conn.execute(
             f"{BILL_SELECT} WHERE b.knesset_bill_id = %(n)s OR b.private_number = %(n)s OR b.bill_number = %(n)s LIMIT 20", {"n": num})]
-    return {"data": SearchResult(topics=topics, bills=bills, members=[SearchMember(**m) for m in members], factions=factions, script=script),
+    return {"data": SearchResult(topics=topics, bills=bills, bills_total=bills_total, members=[SearchMember(**m) for m in members], factions=factions, script=script),
             "meta": Meta(filters={"q": q})}

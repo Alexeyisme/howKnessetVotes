@@ -16,7 +16,7 @@ export const en: Dict = {
     label: "Sections", votes: "Votes", topics: "Topics", bills: "Bills", members: "Members", factions: "Parties",
     searchLabel: "Search", searchPh: "Search: topic, bill, member", language: "Language",
     match: "Who votes like me",
-    compass: "Compass", compare: "Compare",
+    compare: "Compare",
   },
   footer: {
     asOf: (updated, last, votes, ballots) => `Data updated ${updated}; latest vote ${last}. ${votes} votes, ${ballots} roll-call records.`,
@@ -129,7 +129,6 @@ export const en: Dict = {
     browse: "Browse",
     tiles: [
       { href: "/match", title: "Who votes like me?", text: "12 contested laws: answer, and see which party voted the way you would" },
-      { href: "/compass", title: "Compass", text: "Every party on every topic, on one screen" },
       { href: "/compare", title: "Compare", text: "Two parties or two members: how often they vote the same way" },
       { href: "/members", title: "Members", text: "How each member voted, and when they broke with their party" },
       { href: "/factions", title: "Parties", text: "Members, cohesion and votes of each party" },
@@ -298,8 +297,9 @@ export const en: Dict = {
   },
   search: {
     title: "Search", ph: "Name, party, topic, bill title or number",
-    hint: "Members, parties and topics can be searched in English, Russian, Hebrew or Arabic (e.g. “netanyahu”, “likud”, “transport”). Bill titles are in Hebrew, typos tolerated. A number finds a bill.",
+    hint: "Members, parties and topics can be searched in English, Russian, Hebrew or Arabic (e.g. “netanyahu”, “likud”, “transport”). Bills by the words of their title in any form (“tax” also finds “taxation”); in Hebrew, typos tolerated. A number finds a bill.",
     topics: "Topics", factions: "Parties", members: "Members", bills: "Bills",
+    billsShown: (n, total) => `The latest ${n} of ${total.toLocaleString("en-GB")}: add a word to narrow the search`,
   },
   glossary: {
     title: "Glossary",
@@ -339,12 +339,6 @@ export const en: Dict = {
     finalVotes: "Final votes: how the list's majority voted",
     history: "Across Knessets",
     allVotes: "All votes of the list →",
-  },
-  compass: {
-    title: "Party compass",
-    lead: "Each cell: how the party's majority voted on final readings of bills in that topic — blue for, red against, grey split. Coalition parties vote for government bills, so “contested only” keeps the votes where the coalition and opposition split.",
-    all: "All final votes", contestedOnly: "Contested only", party: "Party", empty: "No votes",
-    cell: (f, a, n) => `${f} for, ${a} against of ${n}`,
   },
   compare: {
     title: "Compare",

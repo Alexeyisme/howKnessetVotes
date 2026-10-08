@@ -313,6 +313,7 @@ export interface TopicDetail extends TopicSummary {
 export interface SearchResult {
   topics: TopicSummary[];
   bills: BillSummary[];
+  bills_total?: number | null;
   members: (PersonNames & { id: number })[];
   factions: (FactionNames & { id: number; term: number })[];
   script: string;

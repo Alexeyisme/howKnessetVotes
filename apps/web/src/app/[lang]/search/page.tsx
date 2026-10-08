@@ -66,6 +66,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/[lang]/se
       )}
       {r && r.bills.length > 0 && (
         <section className="card"><h2 className="section-title">{d.bills}</h2>
+          {r.bills_total != null && r.bills_total > r.bills.length && <p className="small muted">{d.billsShown(r.bills.length, r.bills_total)}</p>}
           {r.bills.map((b) => (
             <p key={b.id} style={{ padding: "4px 0" }}>
               <Link href={`/bills/${b.id}`} style={{ display: "block" }}><Title he={b.title_he} t={b} compact /></Link>

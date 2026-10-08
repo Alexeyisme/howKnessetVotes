@@ -269,3 +269,16 @@ def test_turnstile_and_per_visitor_limit(client, url, monkeypatch):
         assert client.post("/api/v1/suggestions", json=body, headers=a).status_code == 201
     assert client.post("/api/v1/suggestions", json=body, headers=a).status_code == 429
     assert client.post("/api/v1/suggestions", json=body, headers=b).status_code == 201   # another visitor is not blocked
+
+
+def test_search_translated_titles_in_any_word_form(client, url):
+    """Russian search stems and matches word prefixes: "налоги" finds a title with "налоговых"; every word must match."""
+    with psycopg.connect(url) as conn:
+        conn.execute("""INSERT INTO text_translation (source_sha256, language, text) VALUES (%s, 'ru', %s)
+                        ON CONFLICT (source_sha256, language) DO UPDATE SET text = excluded.text""",
+                     (sha256(TITLE), "Законопроект о налоговых льготах для поселений, 2024"))
+    def ids(q):
+        return [b["id"] for b in client.get("/api/v1/search", params={"q": q, "lang": "ru"}).json()["data"]["bills"]]
+    assert ids("налоги") == [BILL]
+    assert ids("Налоговые льготы") == [BILL]
+    assert ids("налоги пенсии") == []
