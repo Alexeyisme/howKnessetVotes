@@ -41,6 +41,7 @@ log = logging.getLogger(__name__)
 PROPOSAL_GROUPS = [1, 51, 2, 3]
 MODEL = "claude-sonnet-5"
 MAX_PDF_PAGES = 100
+NOTES_WINDOW_PAGES = 60
 MAX_PDF_BYTES = 25_000_000      # the API takes 32 MB per request, base64 adds a third
 MAX_NOTES_CHARS = 60_000        # longer notes (arrangements laws) are cut: the description is a few sentences anyway
 FETCH_DELAY_S = 0.3
@@ -129,6 +130,23 @@ def pdf_pages(data: bytes) -> int:
         return 0
 
 
+def notes_pages(data: bytes, pages: int = NOTES_WINDOW_PAGES) -> bytes:
+    """A long government booklet cut to `pages` pages from the first one with explanatory notes, as a PDF; the notes
+    of a big law run for dozens of pages, and the description is a few sentences anyway."""
+    from pypdf import PdfReader, PdfWriter
+    reader = PdfReader(BytesIO(data))
+    start = next((i for i, page in enumerate(reader.pages)
+                  if re.search(r"דברי\s*הסבר|הסבר\s*דברי", page.extract_text() or "")), None)
+    if start is None:
+        raise NotesError("pdf_too_long")
+    writer = PdfWriter()
+    for page in reader.pages[start:start + pages]:
+        writer.add_page(page)
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
 def prepare(bill_id: str, title: str, document_id: int, data: bytes) -> Item:
     """Item for the summariser; NotesError when the file cannot be used."""
     sha = hashlib.sha256(data).hexdigest()
@@ -136,7 +154,7 @@ def prepare(bill_id: str, title: str, document_id: int, data: bytes) -> Item:
         if len(data) > MAX_PDF_BYTES:
             raise NotesError("pdf_too_large")
         if pdf_pages(data) > MAX_PDF_PAGES:   # a whole booklet: 1.5–2.1M tokens, over the API's limit
-            raise NotesError("pdf_too_long")
+            data = notes_pages(data)          # the pages from the first "דברי הסבר" on (budgets, arrangements laws)
         return Item(bill_id, title, document_id, sha, pdf=data)
     if data[:2] == b"PK":
         text = docx_text(data)
