@@ -143,6 +143,24 @@ def test_suggestions(client, url):
     assert client.post("/api/v1/suggestions", json={**body, "source_sha256": "zz"}).status_code == 422
 
 
+def test_mistake_report_is_forwarded(client, url, monkeypatch):
+    """A report without a source hash is stored with its contact and sent to the owner's chat; a bot's is not."""
+    sent: list[str] = []
+    monkeypatch.setattr("hkv.api.suggestions.notify", sent.append)
+    body = {"language": "he", "suggested_text": "המספר בתקציר שגוי", "contact": " me@example.org ", "page": "/he/bills/1"}
+    assert client.post("/api/v1/suggestions", json=body).status_code == 201
+    with psycopg.connect(url) as conn:
+        assert conn.execute("SELECT source_sha256, contact FROM translation_suggestion WHERE language = 'he'").fetchone() == (None, "me@example.org")
+    assert len(sent) == 1
+    assert "Mistake report (he)" in sent[0] and "https://knessetvotes.org/he/bills/1" in sent[0]
+    assert "המספר בתקציר שגוי" in sent[0] and "Contact: me@example.org" in sent[0]
+    assert client.post("/api/v1/suggestions", json={**body, "website": "spam"}).status_code == 201
+    assert len(sent) == 1
+    fix = {"source_sha256": sha256(TITLE), "language": "en", "suggested_text": "Better title"}
+    assert client.post("/api/v1/suggestions", json=fix).status_code == 201
+    assert "Translation correction (en)" in sent[1] and f"Current translation:\n{MARK}" in sent[1]
+
+
 SUMMARY = "החוק מאריך את הוראת השעה בשנה וחצי, עד 31 בדצמבר 2026."
 
 

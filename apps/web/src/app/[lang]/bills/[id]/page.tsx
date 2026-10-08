@@ -72,6 +72,7 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
           <p className="small muted" style={{ marginTop: 6 }}>
             {d.explanationNote}
             {bill.explanation_source_url && <> · <a href={bill.explanation_source_url} rel="noopener">{d.explanationSource}</a></>}
+            {" · "}<Link href={`/suggest?page=/bills/${bill.id}`}>{t.d.common.report}</Link>
           </p>
         </section>
       )}

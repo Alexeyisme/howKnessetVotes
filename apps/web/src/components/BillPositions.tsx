@@ -79,6 +79,7 @@ export async function Debate({ debate, page }: { debate: BillDebate; page: strin
         {d.debateNote}{debate.truncated && <> {d.debateTruncated}</>}{" "}
         {d.debateSources(debate.sources.length)}:{" "}
         {debate.sources.map((u, n) => <span key={u}>{n > 0 && ", "}<a href={u} rel="noopener">{n + 1}</a></span>)}
+        {" · "}<Link href={`/suggest?page=${page}`}>{t.d.common.report}</Link>
       </p>
     </section>
   );
@@ -130,6 +131,7 @@ export async function Reservations({ r, page }: { r: BillReservations; page: str
       <p className="small muted" style={{ marginTop: 8 }}>
         {r.total > 0 && <>{d.reservationsNote}{!r.numbers_checked && <> {d.reservationsUnchecked}</>} </>}
         <a href={r.source_url} rel="noopener">{d.reservationsSource}</a>
+        {" · "}<Link href={`/suggest?page=${page}`}>{t.d.common.report}</Link>
       </p>
     </section>
   );

@@ -97,7 +97,7 @@ The site is served under `/ru`, `/en` and `/he`; any path without a language red
 
 ## Alerts
 
-A failing update or backup triggers `hkv-alert@<unit>` ([scripts/alert.sh](../scripts/alert.sh)). It logs to the journal and sends the last log lines to Telegram via @knessetvotes_bot (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `/srv/hkv/.env`). Tested end to end on 2026-10-04.
+A failing update or backup triggers `hkv-alert@<unit>` ([scripts/alert.sh](../scripts/alert.sh)). It logs to the journal and sends the last log lines to Telegram via @knessetvotes_bot (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `/srv/hkv/.env`). Tested end to end on 2026-10-04. The same bot forwards every visitor correction and mistake report (`POST /api/v1/suggestions`, the `/suggest` page) as it arrives; the API container gets the two variables from `.env`, and the rows stay in `translation_suggestion` (status `open` until reviewed).
 
 ## Restore
 

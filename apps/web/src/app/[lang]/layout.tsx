@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
+import { ReportLink } from "@/components/ReportLink";
 import { SearchBox } from "@/components/SearchBox";
 import { rubik } from "@/fonts";
 import { getStatus } from "@/lib/api";
@@ -120,7 +121,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <a href="/docs">{d.footer.api}</a>
           </p>
           <p style={{ marginTop: 6 }}>
-            {d.footer.contact} <a href="https://t.me/alexeyisme" target="_blank" rel="noopener" dir="ltr">@alexeyisme</a>
+            <ReportLink locale={t.locale} label={d.footer.report} />
           </p>
         </footer>
       </body>
