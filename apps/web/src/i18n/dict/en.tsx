@@ -370,7 +370,7 @@ export const en: Dict = {
     original: "Original", textLabel: "Corrected translation", noteLabel: "Note (optional)",
     send: "Send", thanks: "Thank you! The correction has been passed to an editor.", error: "Could not send. Please try again later.", back: "Back",
     reportTitle: "Write to the author",
-    reportLead: "Spotted an inaccuracy, have an idea or a question? The site's author reads every message, and your notes help make the site better. No account needed.",
+    reportLead: "Found the site useful? Have an idea or a question, or spotted an inaccuracy? Write in: the site's author reads every message and is glad of kind words as well as corrections. No account needed.",
     reportTextLabel: "Your message",
     contactLabel: "How to reply to you (email or Telegram, optional)",
     reportThanks: "Thank you! The author has received your message.",

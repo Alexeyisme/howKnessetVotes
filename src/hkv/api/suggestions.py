@@ -51,7 +51,7 @@ def ip_hash(request: Request) -> str:
 
 def message(body: SuggestionIn, current: str | None) -> str:
     """Plain text for the chat (no parse mode, so nothing a visitor writes can break the formatting)."""
-    head = "Translation correction" if body.source_sha256 else "Mistake report"
+    head = "Translation correction" if body.source_sha256 else "Message to the author"
     lines = [f"knessetvotes.org: {head} ({body.language})"]
     if body.page:
         lines.append(SITE + body.page if body.page.startswith("/") else body.page)

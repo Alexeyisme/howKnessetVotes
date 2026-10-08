@@ -152,7 +152,7 @@ def test_mistake_report_is_forwarded(client, url, monkeypatch):
     with psycopg.connect(url) as conn:
         assert conn.execute("SELECT source_sha256, contact FROM translation_suggestion WHERE language = 'he'").fetchone() == (None, "me@example.org")
     assert len(sent) == 1
-    assert "Mistake report (he)" in sent[0] and "https://knessetvotes.org/he/bills/1" in sent[0]
+    assert "Message to the author (he)" in sent[0] and "https://knessetvotes.org/he/bills/1" in sent[0]
     assert "המספר בתקציר שגוי" in sent[0] and "Contact: me@example.org" in sent[0]
     assert client.post("/api/v1/suggestions", json={**body, "website": "spam"}).status_code == 201
     assert len(sent) == 1
