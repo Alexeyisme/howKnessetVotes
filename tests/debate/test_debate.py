@@ -119,6 +119,7 @@ def test_transcript_variants():
         speakers, _ = speeches([("third", seg, True) for _, seg in segments(turns("\n".join(lines)), [title])])
         assert [x.name for x in speakers] == ["גלעד קריב"], lines[0]
     assert not matches("הצעת חוק לתיקון פקודת מס הכנסה (מס' 249), התשע\"ח–2018", ["הצעת חוק לתיקון פקודת מס הכנסה (מס' 248), התשע\"ח-2018"])
+    assert matches("הצעת חוק התקציב לשנת הכספים 2005, התשס\"ה-", ["חוק התקציב לשנת הכספים 2005, התשס\"ה-2005"])   # a cut year
 
 
 def test_fit_cuts_every_speech_to_one_cap():

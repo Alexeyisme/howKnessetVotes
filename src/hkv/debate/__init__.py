@@ -177,6 +177,11 @@ def _title_key(title: str) -> str:
     return re.sub(r"^(?:הצעת|הצעות)\s+", "", t)
 
 
+def _numbers(title: str) -> list[str]:
+    """Amendment and section numbers of a title; years are left out (a transcript may cut "התשס\"ה-2005" short)."""
+    return [d for d in _DIGITS.findall(title) if len(d) < 4]
+
+
 def matches(topic: str, titles: Sequence[str]) -> bool:
     """An agenda item is the bill's when its title is the bill's (up to punctuation and a slight rewording), or it
     is a joint debate whose title contains it."""
@@ -187,7 +192,7 @@ def matches(topic: str, titles: Sequence[str]) -> bool:
             continue
         if k == tk or tk in k:
             return True
-        if _DIGITS.findall(k) == _DIGITS.findall(tk) and difflib.SequenceMatcher(None, k, tk).ratio() >= TITLE_MATCH:
+        if _numbers(k) == _numbers(tk) and difflib.SequenceMatcher(None, k, tk).ratio() >= TITLE_MATCH:
             return True
     return False
 
