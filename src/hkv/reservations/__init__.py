@@ -51,6 +51,8 @@ _START = re.compile(r"הסתייגויות\s*ובקשות\s*רשות\s*דיבו�
 _START_REVERSED = re.compile(r"דיבור\s*רשות\s*ובקשות\s*הסתייגויות")   # PDFs extracted in visual order
 _SPEAK = re.compile(r"^\s*בקשות\s*רשות\s*דיבור\s*$", re.M)
 _NUMBERED = re.compile(r"^\s*(\d{1,4})\s*\.(?!\d)", re.M)
+_NONE_FILED = re.compile(r"ללא\s*[–-]?\s*הסתייגויות|הסתייג\S{0,5}\s*ללא")   # also the 18th Knesset's scrambled order
+_SCANNED_CHARS = 2000         # a PDF with less text than this is scanned pages: names cannot be checked against it
 _PROPOSES = re.compile(r"מציע(?:ה|ים|ות)?\b")   # "קבוצת יש עתיד מציעה:"; reversed lines keep their words
 
 
@@ -71,14 +73,14 @@ def document_text(data: bytes) -> str:
 
 
 def section_pages(data: bytes) -> tuple[bytes, str] | None:
-    """The PDF pages from the last reservations heading to the end, as a PDF of their own, and their text."""
+    """The PDF pages from the last reservations heading to the end, as a PDF of their own, and their text. Where the
+    heading cannot be found in the text (scanned pages; the 18th Knesset's PDFs come out in a scrambled visual
+    order), the whole document, which is short; None when it is too long for that."""
     from pypdf import PdfReader, PdfWriter
 
     reader = PdfReader(BytesIO(data))
     texts = [page.extract_text() or "" for page in reader.pages]
-    starts = [i for i, t in enumerate(texts) if _START.search(t) or _START_REVERSED.search(t)]
-    if not starts:
-        return None
+    starts = [i for i, t in enumerate(texts) if _START.search(t) or _START_REVERSED.search(t)] or [0]
     if len(texts) - starts[-1] > MAX_PDF_PAGES:
         raise ReservationsError("too_long")
     writer = PdfWriter()
@@ -159,13 +161,15 @@ class Item:
     text: str                    # the section as text (for the checks; for the model too unless pdf)
     numbers_checked: bool        # the text has the printed numbers
     pdf: bytes | None = None     # the section's pages, when the text has no usable numbers
+    none_filed: bool = False     # the cover says the bill was submitted without reservations: no model needed
 
     def prompt(self) -> str | list:
         if self.pdf is None:
             return gershayim(f"The bill: {self.title}\n\n{self.text}")
         return [{"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
                                                 "data": base64.standard_b64encode(self.pdf).decode("ascii")}},
-                {"type": "text", "text": gershayim(f"The bill: {self.title}\n\nThe pages above are the reservations section.")}]
+                {"type": "text", "text": gershayim(f"The bill: {self.title}\n\nThe pages above end with the reservations "
+                                                   f"section (הסתייגויות ובקשות רשות דיבור); read only that section.")}]
 
 
 class Extractor(Protocol):
@@ -211,9 +215,24 @@ def _hebrew_prose(text: str, lo: int, hi: int) -> bool:
     return lo <= len(text) <= hi and len(_HEBREW.findall(text)) >= len(text) / 3
 
 
+def _label_key(label: str) -> str:
+    return re.sub(r"^(?:קבוצות|קבוצת|חברי הכנסת|חברת הכנסת|חבר הכנסת)\s+", "", he_norm(label))
+
+
 def merge_proposers(out: dict) -> dict:
     """The same proposer listed twice (the model repeats a label it met again further down) becomes one, with the
-    members of both."""
+    members of both; a block naming a proposer slightly differently ("העבודה" for "קבוצת העבודה") points to it; a
+    gist that is not a sentence of Hebrew prose is dropped (the counts stand without it)."""
+    out = _merge(out)
+    keys = {_label_key(p["label"]): p["label"] for p in out["proposers"]}
+    blocks = [{**b, "proposers": [p if p in keys.values() else keys.get(_label_key(p), p) for p in b["proposers"]]}
+              for b in out.get("blocks") or []]
+    proposers = [{**p, "gist": p.get("gist") if _hebrew_prose((p.get("gist") or "").strip(), 10, 600)
+                  and complete_sentence(p["gist"]) else ""} for p in out["proposers"]]
+    return {**out, "proposers": proposers, "blocks": blocks}
+
+
+def _merge(out: dict) -> dict:
     merged: dict[str, dict] = {}
     for p in out.get("proposers") or []:
         if p["label"] in merged:
@@ -253,7 +272,9 @@ def check(item: Item, out: dict) -> str | None:
         return "unnumbered_without_proposal"
     squashed, words = _squash(item.text), set(re.findall(r"\w+", he_norm(item.text)))
     names = [n for p in proposers for n in p["members"]] + list(out.get("speak_requests") or [])
-    absent = [n for n in names if not n.strip() or (_squash(n) not in squashed and not set(re.findall(r"\w+", he_norm(n))) <= words)]
+    scanned = item.pdf is not None and len(item.text) < _SCANNED_CHARS
+    absent = [n for n in names if not n.strip() or (not scanned and _squash(n) not in squashed
+                                                     and not set(re.findall(r"\w+", he_norm(n))) <= words)]
     if absent:
         return f"name_not_in_text:{absent[0][:40]}"
     if blocks:
@@ -262,9 +283,9 @@ def check(item: Item, out: dict) -> str | None:
         if not complete_sentence(out["summary"]):
             return "summary_cut_off"
         used = {p for b in blocks for p in b["proposers"]}
-        if any(p["label"] in used and not _hebrew_prose((p.get("gist") or "").strip(), 10, 400) for p in proposers):
+        if any(p["label"] in used and p.get("gist") and not _hebrew_prose(p["gist"].strip(), 10, 600) for p in proposers):
             return "bad_gist"
-        if any(p["label"] in used and not complete_sentence(p["gist"]) for p in proposers):
+        if any(p["label"] in used and p.get("gist") and not complete_sentence(p["gist"]) for p in proposers):
             return "gist_cut_off"
     return None
 
@@ -304,7 +325,10 @@ def _fail(conn: psycopg.Connection, bill_id, reason: str, **details) -> None:
 
 def prepare(bill_id, title: str, document_id: int, data: bytes) -> Item:
     sha = hashlib.sha256(data).hexdigest()
-    sec = section(document_text(data))
+    text = document_text(data)
+    sec = section(text)
+    if sec is None and _NONE_FILED.search(text):   # the cover page: submitted without reservations
+        return Item(bill_id, title, document_id, sha, "", numbers_checked=True, none_filed=True)
     if sec is not None and (expected_numbers(sec) or not _PROPOSES.search(sec)):   # numbered, or none filed
         if len(sec) > MAX_CHARS:
             raise ReservationsError("too_long")
@@ -328,7 +352,12 @@ def sync(conn: psycopg.Connection, extractor: Extractor, cache_dir: Path | None 
     for bill_id, title, on, doc_id, url in candidates(conn, limit, retry_failed, contested_only):
         counts["pending"] += 1
         try:
-            items.append((prepare(bill_id, title, doc_id, fetch(url, cache_dir)), on))
+            it = prepare(bill_id, title, doc_id, fetch(url, cache_dir))
+            if it.none_filed:   # nothing to read: stored as zero, no request
+                store(conn, it, {"proposers": [], "blocks": [], "speak_requests": [], "summary": ""}, Roster(conn, on), None)
+                counts["stored"] += 1
+            else:
+                items.append((it, on))
         except SourceBlocked:
             raise
         except ReservationsError as e:
@@ -371,7 +400,7 @@ def numbered_blocks(it: Item, out: dict) -> list[dict]:
     return [b if b["last"] else {**b, "first": (n := next(extra)), "last": n} for b in out["blocks"]]
 
 
-def store(conn: psycopg.Connection, it: Item, out: dict, roster: Roster, model: str) -> None:
+def store(conn: psycopg.Connection, it: Item, out: dict, roster: Roster, model: str | None) -> None:
     out = {**out, "blocks": numbered_blocks(it, out)}
     total = len({n for b in out["blocks"] for n in range(b["first"], b["last"] + 1)})
     conn.execute("""INSERT INTO bill_reservations (bill_id, document_id, file_sha256, total, numbers_checked, summary_he, model)

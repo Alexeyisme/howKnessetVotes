@@ -60,7 +60,7 @@ def main(argv: list[str] | None = None) -> int:
     co = sub.add_parser("coalition", help="government posts from OData, then governments and coalition/opposition per faction")
     co.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     tr = sub.add_parser("translate", help="machine translations of bill and vote titles and bill summaries (Claude API; ANTHROPIC_API_KEY)")
-    tr.add_argument("--lang", default="en,ru", help="comma-separated: en, ru, ar")
+    tr.add_argument("--lang", default=os.environ.get("HKV_TRANSLATE_LANGS", "en,ru,ar"), help="comma-separated: en, ru, ar (default as hkv update)")
     tr.add_argument("--limit", type=int, help="translate at most N pending titles per language (newest first)")
     tr.add_argument("--stub", action="store_true", help="mark instead of translating (dry run without an API key)")
     tr.add_argument("--retry-failed", action="store_true", help="also retry titles whose translation failed the checks before")

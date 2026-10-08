@@ -100,6 +100,17 @@ def test_unnumbered_and_duplicates():
     assert check(item(), merge_proposers(twice)) is None and len(merge_proposers(twice)["proposers"]) == 2
 
 
+def test_none_filed_and_labels():
+    from hkv.reservations import merge_proposers, prepare
+    cover = docx(["הצעת חוק לקריאה השנייה ולקריאה השלישית", "הצעת החוק מוגשת – ללא הסתייגויות – לקריאה השנייה ולקריאה השלישית"])
+    assert prepare("b", "t", 1, cover).none_filed
+    short = {**GOOD, "blocks": [{**b, "proposers": [p.replace("קבוצת ", "") for p in b["proposers"]]} for b in GOOD["blocks"]]}
+    assert check(item(), short) == "unknown_proposer_in_block"
+    assert check(item(), merge_proposers(short)) is None                    # "העבודה" -> "קבוצת העבודה"
+    cut = {**GOOD, "proposers": [{**GOOD["proposers"][0], "gist": "מוצע להעלות את הגיל ל"}, GOOD["proposers"][1]]}
+    assert merge_proposers(cut)["proposers"][0]["gist"] == "" and check(item(), merge_proposers(cut)) is None
+
+
 def test_gershayim():
     from hkv.llm import gershayim
     assert gershayim('צה"ל ובג"ץ, "ציטוט"') == 'צה״ל ובג״ץ, "ציטוט"'   # only between Hebrew letters

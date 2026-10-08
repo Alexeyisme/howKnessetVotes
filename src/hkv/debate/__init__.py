@@ -174,16 +174,24 @@ def matches(topic: str, titles: Sequence[str]) -> bool:
 
 
 def segments(stream: list[Turn], titles: Sequence[str]) -> list[tuple[str, list[Turn]]]:
-    """(agenda title, its turns) for every agenda item of the bill in the transcript."""
+    """(agenda title, its turns) for every agenda item of the bill in the transcript. Titles printed one after the
+    other with nobody speaking in between are one joint debate (budget days: the budget, the arrangements law and
+    their companion bills are debated together under the last of them), so the bill gets the whole joint debate."""
     out: list[tuple[str, list[Turn]]] = []
     current: list[Turn] | None = None
+    spoken = True                      # someone spoke since the last title
     for t in stream:
         if t.kind == "topic":
-            current = None
-            if matches(t.label, titles):
+            if spoken:                 # a new agenda item, not the next title of a joint one
+                current = None
+            spoken = False
+            if current is None and matches(t.label, titles):
                 current = []
                 out.append((t.label, current))
-        elif current is not None:
+            continue
+        if t.kind != "text":
+            spoken = True
+        if current is not None:
             current.append(t)
     return out
 
@@ -440,8 +448,9 @@ def _fail(conn: psycopg.Connection, bill_id, reason: str, **details) -> None:
 
 
 def _transcripts(conn: psycopg.Connection, session_id) -> list[tuple[int, str]]:
+    # DOC only: older sittings list a video (VDO) and a player link (URL) in the same group
     return conn.execute("""SELECT knesset_document_id, url FROM plenum_document WHERE session_id = %s AND group_type_id = %s
-                           ORDER BY knesset_document_id""", (session_id, TRANSCRIPT_GROUP)).fetchall()
+                           AND format = 'DOC' ORDER BY knesset_document_id""", (session_id, TRANSCRIPT_GROUP)).fetchall()
 
 
 def prepare(conn: psycopg.Connection, bill_id, title: str, vote_id,

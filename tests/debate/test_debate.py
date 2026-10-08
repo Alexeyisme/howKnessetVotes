@@ -73,6 +73,16 @@ def test_matches_titles():
     assert not matches("הצעת חוק אחרת לגמרי, התשפ\"ו–2026", [TITLE])
 
 
+def test_joint_debate():
+    """Budget days: several titles in a row, then one debate for all of them."""
+    stream = turns("\n".join(["<< הצח >> הצעת חוק התקציב לשנת הכספים 2026 << הצח >>", "(קריאה שנייה ושלישית)",
+                              f"<< הצח >> {TITLE} << הצח >>", "<< דובר >> גלעד קריב (העבודה): << דובר >>", KARIV_SPEECH,
+                              "<< הצח >> הצעת חוק אחרת לגמרי << הצח >>", "<< דובר >> משה טור פז (יש עתיד): << דובר >>", "אחר."]))
+    budget = segments(stream, ["הצעת חוק התקציב לשנת הכספים 2026"])
+    assert [t.label for t in budget[0][1] if t.kind == "speech"] == ["גלעד קריב (העבודה)"]   # the joint debate
+    assert [t.label for t in segments(stream, [TITLE])[0][1] if t.kind == "speech"] == ["גלעד קריב (העבודה)"]
+
+
 def test_docx_transcript():
     stream = turns("\n".join(TRANSCRIPT))
     segs = segments(stream, [TITLE])
