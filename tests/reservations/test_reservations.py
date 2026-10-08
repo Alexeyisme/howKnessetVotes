@@ -111,6 +111,13 @@ def test_none_filed_and_labels():
     assert merge_proposers(cut)["proposers"][0]["gist"] == "" and check(item(), merge_proposers(cut)) is None
 
 
+def test_scrambled_names():
+    from hkv.reservations import _scrambled_in, _squash
+    text = _squash("ניצן הורוביץ,אילן גילאון, הבה גלאוןז, דב חנין, דיכטררהםאב, בלילא")
+    assert _scrambled_in(_squash("זהבה גלאון"), text) and _scrambled_in(_squash("אברהם דיכטר"), text)
+    assert not _scrambled_in(_squash("יצחק הורוביץ"), text)
+
+
 def test_gershayim():
     from hkv.llm import gershayim
     assert gershayim('צה"ל ובג"ץ, "ציטוט"') == 'צה״ל ובג״ץ, "ציטוט"'   # only between Hebrew letters
@@ -141,6 +148,8 @@ def test_sync_and_api(url, cache):
         assert sync(conn, FakeExtractor(GOOD), cache, contested_only=False)["pending"] == 0      # not retried by itself
         assert sync(conn, FakeExtractor(GOOD), cache, contested_only=False, retry_failed=True) == {"pending": 1, "stored": 1, "failed": 0}
         assert conn.execute("SELECT status FROM data_issue WHERE issue_type = 'reservations_failed'").fetchall() == [("resolved",)]
+        from hkv.reservations import recheck
+        assert recheck(conn, cache) == {"rechecked": 0, "stored": 0}           # nothing open any more
     with TestClient(create_app(url)) as client:
         r = client.get(f"/api/v1/bills/{BILL}", params={"lang": "en"}).json()["data"]["reservations"]
     assert (r["total"], r["numbers_checked"], r["source_url"]) == (4, True, "https://fs.knesset.gov.il/25/law/25_ls2_77.docx")

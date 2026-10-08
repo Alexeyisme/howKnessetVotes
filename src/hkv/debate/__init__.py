@@ -58,6 +58,7 @@ TITLE_MATCH = 0.9
 _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
 _DOCX_TAG = re.compile(r"^\s*<< (\S+) >>\s*(.*?)\s*<< \1 >>\s*$")
+_BROKEN_MARKER = re.compile(r"<(?!<)([^<>\n]{2,300})\n([^<>\n]{1,300})>")
 _LEGACY_TAG = re.compile(r"^\s*<([^<>]{2,400})>\s*$")
 _SPEAKER_LINE = re.compile(r"^[^.!?<>]{3,90}:$")
 _LABEL = re.compile(r"^(?P<name>.+?)\s*(?:\((?P<aff>[^()]*(?:\([^()]*\)[^()]*)*)\))?\s*:?\s*$")
@@ -90,6 +91,7 @@ def transcript_text(data: bytes) -> str:
 
 def turns(text: str) -> list[Turn]:
     """The transcript as a flat list of agenda items, speaker labels and paragraphs."""
+    text = _BROKEN_MARKER.sub(r"<\1 \2>", text)   # a long title's hidden marker broken over two lines
     lines = [ln.strip() for ln in text.split("\n")]
     if any(_DOCX_TAG.match(ln) for ln in lines[:2000] if "<<" in ln):
         return _tagged(lines, docx=True)
@@ -139,15 +141,30 @@ def _tagged(lines: list[str], docx: bool) -> list[Turn]:
 
 
 def _untagged(lines: list[str]) -> list[Turn]:
-    toc = {lines[i + 1] for i, ln in enumerate(lines[:-1]) if ln.startswith("HYPERLINK") and lines[i + 1]}
-    titles = {t for t in toc if not t.endswith(":") and not t.startswith("PAGEREF")}
+    """Transcripts without markers. The table of contents names the agenda items: as Word fields (a HYPERLINK line,
+    then the title) in old .doc files, or as "title" + page number glued together in some 2018 .docx files
+    ("…התשע\"ח–2018112"). A body line that is one of those titles, up to spacing, starts an agenda item; a long
+    title may be broken over two lines in the body."""
+    titles = {he_norm(lines[i + 1]) for i, ln in enumerate(lines[:-1])
+              if ln.startswith("HYPERLINK") and lines[i + 1] and not lines[i + 1].startswith("PAGEREF")}
+    for ln in lines:   # "title" + page number: every split of up to four trailing digits is a candidate
+        for k in range(1, 5):
+            if len(ln) > 10 + k and ln[-k:].isdigit():
+                titles.add(he_norm(ln[:-k]))
+    titles = {t for t in titles if t and not t.endswith(":")}
     last_toc = max((i for i, ln in enumerate(lines) if ln.startswith(("HYPERLINK", "PAGEREF"))), default=-1)
     out: list[Turn] = []
-    for ln in lines[last_toc + 1:]:
-        if not ln:
-            continue
-        if ln in titles:
+    body = [ln for ln in lines[last_toc + 1:] if ln]
+    i = 0
+    while i < len(body):
+        ln = body[i]
+        joined = f"{ln} {body[i + 1]}" if i + 1 < len(body) else ""
+        i += 1
+        if not ln.endswith(":") and len(ln) < 400 and he_norm(ln) in titles:
             out.append(Turn("topic", ln))
+        elif joined and len(joined) < 400 and he_norm(joined) in titles:
+            out.append(Turn("topic", joined))
+            i += 1
         elif _SPEAKER_LINE.match(ln):
             out.append(Turn(_speaker_kind(ln), ln.rstrip(":").strip()))
         else:
@@ -168,7 +185,9 @@ def matches(topic: str, titles: Sequence[str]) -> bool:
         tk = _title_key(t)
         if not tk:
             continue
-        if k == tk or tk in k or difflib.SequenceMatcher(None, k, tk).ratio() >= TITLE_MATCH:
+        if k == tk or tk in k:
+            return True
+        if _DIGITS.findall(k) == _DIGITS.findall(tk) and difflib.SequenceMatcher(None, k, tk).ratio() >= TITLE_MATCH:
             return True
     return False
 

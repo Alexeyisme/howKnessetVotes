@@ -19,6 +19,7 @@ are only checked for consistency (1..N, no gap, no overlap), and the row says so
 from __future__ import annotations
 
 import base64
+from collections import Counter
 import hashlib
 import json
 import logging
@@ -215,6 +216,24 @@ def _hebrew_prose(text: str, lo: int, hi: int) -> bool:
     return lo <= len(text) <= hi and len(_HEBREW.findall(text)) >= len(text) / 3
 
 
+def _scrambled_in(name: str, text: str) -> bool:
+    """The name's letters as a contiguous run of the text in any order: the 18th Knesset's PDFs come out with letters
+    displaced ("זהבה גלאון" -> "הבה גלאוןז", "אברהם דיכטר" -> "דיכטררהםאב"); a wrong name still fails."""
+    n = len(name)
+    if not n or n > len(text):
+        return False
+    want, have = Counter(name), Counter(text[:n])
+    for i in range(n, len(text) + 1):
+        if have == want:
+            return True
+        if i < len(text):
+            have[text[i]] += 1
+            have[text[i - n]] -= 1
+            if not have[text[i - n]]:
+                del have[text[i - n]]
+    return False
+
+
 def _label_key(label: str) -> str:
     return re.sub(r"^(?:קבוצות|קבוצת|חברי הכנסת|חברת הכנסת|חבר הכנסת)\s+", "", he_norm(label))
 
@@ -274,7 +293,8 @@ def check(item: Item, out: dict) -> str | None:
     names = [n for p in proposers for n in p["members"]] + list(out.get("speak_requests") or [])
     scanned = item.pdf is not None and len(item.text) < _SCANNED_CHARS
     absent = [n for n in names if not n.strip() or (not scanned and _squash(n) not in squashed
-                                                     and not set(re.findall(r"\w+", he_norm(n))) <= words)]
+                                                     and not set(re.findall(r"\w+", he_norm(n))) <= words
+                                                     and not _scrambled_in(_squash(n), squashed))]
     if absent:
         return f"name_not_in_text:{absent[0][:40]}"
     if blocks:
@@ -389,6 +409,32 @@ def sync(conn: psycopg.Connection, extractor: Extractor, cache_dir: Path | None 
             counts["stored"] += 1
         conn.commit()
     log.info("reservations: %s", counts)
+    return counts
+
+
+def recheck(conn: psycopg.Connection, cache_dir: Path | None = None) -> dict[str, int]:
+    """No requests: run the current checks on the model outputs kept in open reservations_failed issues and store the
+    ones that pass now (after a check was fixed, as for the 18th Knesset's scrambled names)."""
+    counts = {"rechecked": 0, "stored": 0}
+    rows = conn.execute(
+        f"""SELECT i.entity_id, b.title_he, d.knesset_document_id, d.url, i.details->'output',
+                   (SELECT max(v.occurred_on) FROM vote v JOIN vote_subject vs ON vs.vote_id = v.id
+                    LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id WHERE vs.bill_id = b.id AND {FINAL_VOTE})
+            FROM data_issue i JOIN bill b ON b.id = i.entity_id
+            JOIN bill_document d ON d.knesset_document_id = (i.details->>'document')::int
+            WHERE i.issue_type = 'reservations_failed' AND i.status = 'open' AND jsonb_typeof(i.details->'output') = 'object'""").fetchall()
+    for bill_id, title, doc_id, url, out, on in rows:
+        counts["rechecked"] += 1
+        try:
+            it = prepare(bill_id, title, doc_id, fetch(url, cache_dir))
+        except ReservationsError:
+            continue
+        out = merge_proposers(out)
+        if check(it, out) is None:
+            store(conn, it, out, Roster(conn, on), "recheck")
+            counts["stored"] += 1
+        conn.commit()
+    log.info("reservations recheck: %s", counts)
     return counts
 
 

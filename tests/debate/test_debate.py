@@ -107,6 +107,20 @@ def test_legacy_transcripts():
     assert [s.name for s in speakers] == ["גלעד קריב"]
 
 
+def test_transcript_variants():
+    """2018 .docx without markers ("title" + page number in the contents), a title broken over two lines in the body,
+    a hidden marker broken over two lines, and amendment numbers that must agree."""
+    docx_toc = ["הצעת חוק חינוך מיוחד (תיקון מס' 11), התשע\"ח–2018112", "גלעד קריב (העבודה):113", "פתיחה",
+                "הצעת חוק חינוך מיוחד (תיקון מס' 11), התשע\"ח–2018", "גלעד קריב (העבודה):", "א" * 200]
+    cut = TITLE.index(" ", 40)   # bodies break a long title at a space
+    two_lines = ["HYPERLINK \\l \"_Toc1\"", TITLE, "PAGEREF _Toc1 \\h", "פתיחה", TITLE[:cut], TITLE[cut + 1:], "גלעד קריב (העבודה):", "א" * 200]
+    marker = ["<מסמכים שהונחו על שולחן הכנסת>", "<קריאה:>", f"<{TITLE[:cut]}", f"{TITLE[cut + 1:]}>", "<גלעד קריב (העבודה):>", "א" * 200]
+    for lines, title in ((docx_toc, "הצעת חוק חינוך מיוחד (תיקון מס' 11), התשע\"ח-2018"), (two_lines, TITLE), (marker, TITLE)):
+        speakers, _ = speeches([("third", seg, True) for _, seg in segments(turns("\n".join(lines)), [title])])
+        assert [x.name for x in speakers] == ["גלעד קריב"], lines[0]
+    assert not matches("הצעת חוק לתיקון פקודת מס הכנסה (מס' 249), התשע\"ח–2018", ["הצעת חוק לתיקון פקודת מס הכנסה (מס' 248), התשע\"ח-2018"])
+
+
 def test_fit_cuts_every_speech_to_one_cap():
     spoken = [Speech(0, "third", "א" * 100), Speech(1, "third", "ב" * 1000), Speech(2, "third", "ג" * 10)]
     texts, cut = fit(spoken, budget=300)
