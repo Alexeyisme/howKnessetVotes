@@ -390,11 +390,18 @@ def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Q
     return {"data": [member_summary(r) for r in rows], "meta": Meta(filters={"term": term, "q": q, "faction": faction})}
 
 
-# Strict majority of the OTHER members of the member's faction who cast a vote (architecture.md §10).
-MEMBER_VOTES_CTE = f"""
-    WITH mine AS (
-        SELECT b.vote_id, b.faction_id, b.choice, b.participation FROM ballot b WHERE b.person_id = %(pid)s
-    ), maj AS (
+def member_votes_cte(vote_where: str = "true") -> str:
+    """Strict majority of the OTHER members of the member's faction who cast a vote (architecture.md §10).
+
+    `vote_where` filters the votes first (columns of `v` vote and `k` vote_option_kind), so the majority is counted only
+    for them. Filtering afterwards made "final votes" take 3–16 s (2026-10-09): the planner cannot estimate the
+    coalesce(k.stage, v.stage) filters, expects one row and recounted the majority of every ballot per vote."""
+    return f"""
+    WITH mine AS MATERIALIZED (
+        SELECT b.vote_id, b.faction_id, b.choice, b.participation FROM ballot b
+        JOIN vote v ON v.id = b.vote_id LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
+        WHERE b.person_id = %(pid)s AND {vote_where}
+    ), maj AS MATERIALIZED (
         SELECT m.vote_id, o.f, o.a, o.ab FROM mine m CROSS JOIN LATERAL (
             SELECT count(*) FILTER (WHERE x.choice = 'for') f, count(*) FILTER (WHERE x.choice = 'against') a,
                    count(*) FILTER (WHERE x.choice = 'abstain') ab
@@ -408,6 +415,9 @@ MEMBER_VOTES_CTE = f"""
                     WHEN 2 * maj.ab > maj.f + maj.a + maj.ab THEN 'abstain' END AS majority
         FROM mine m LEFT JOIN maj USING (vote_id)
     )"""
+
+
+MEMBER_VOTES_CTE = member_votes_cte()
 
 
 PHOTO_HEADERS = {"Cache-Control": "public, max-age=31536000, immutable"}
@@ -497,7 +507,7 @@ def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, d
                  deviated: bool = False, topic: Annotated[str | None, Query(description="topic slug of a bill the vote is about")] = None,
                  limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     pid = person_id(conn, member_id)
-    where, params = ["true"], {"pid": pid, "limit": limit + 1}
+    where, params = ["true"], {"pid": pid, "limit": limit + 1}   # vote filters, applied inside the CTE
     if topic:
         where.append("""EXISTS (SELECT 1 FROM vote_subject s JOIN bill_topic bt ON bt.bill_id = s.bill_id JOIN topic t ON t.id = bt.topic_id
                                 WHERE s.vote_id = v.id AND t.slug = %(topic)s AND bt.review_state <> 'rejected')"""); params["topic"] = topic
@@ -509,18 +519,16 @@ def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, d
         where.append("coalesce(k.stage, v.stage) = ANY(%(stage)s)"); params["stage"] = stage
     if motion_type:
         where.append("coalesce(k.motion_type, v.motion_type) = ANY(%(motion)s)"); params["motion"] = motion_type
-    if deviated:
-        where.append("cmp.choice IS NOT NULL AND cmp.majority IS NOT NULL AND cmp.choice <> cmp.majority")
     if cursor:
         c_on, c_id = decode_cursor(cursor)
         where.append("(v.occurred_on, v.knesset_vote_id) < (%(c_on)s::date, %(c_id)s)"); params.update(c_on=c_on, c_id=c_id)
-    rows = conn.execute(f"""{MEMBER_VOTES_CTE}
+    after = "cmp.choice IS NOT NULL AND cmp.majority IS NOT NULL AND cmp.choice <> cmp.majority" if deviated else "true"
+    rows = conn.execute(f"""{member_votes_cte(' AND '.join(where))}
         SELECT v.knesset_vote_id AS vid, v.occurred_on, cmp.choice, cmp.participation, cmp.f, cmp.a, cmp.ab, cmp.majority,
                f.knesset_faction_id, f.name_he AS faction_name, f.term_number AS faction_term
         FROM cmp JOIN vote v ON v.id = cmp.vote_id
-        LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
         LEFT JOIN faction f ON f.id = cmp.faction_id
-        WHERE {' AND '.join(where)} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
+        WHERE {after} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([r["vid"] for r in rows],))}
     attach_sides(conn, list(summaries.values()))
