@@ -119,6 +119,9 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/docs">{d.footer.api}</a>
           </p>
+          <p style={{ marginTop: 6 }}>
+            {d.footer.contact} <a href="https://t.me/alexeyisme" target="_blank" rel="noopener" dir="ltr">@alexeyisme</a>
+          </p>
         </footer>
       </body>
     </html>

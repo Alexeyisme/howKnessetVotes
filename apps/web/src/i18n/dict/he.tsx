@@ -19,6 +19,7 @@ export const he: Dict = {
     sources: "מקורות: המידע הפתוח של הכנסת, אתר הכנסת (שמות ותמונות של חברי הכנסת), ויקינתונים,",
     oknesset: "כנסת פתוחה",
     methodology: "מתודולוגיה", glossary: "מילון מונחים", translation: "על התרגום", api: "API",
+    contact: "יצירת קשר: אלכסיי קיסליצין, טלגרם",
   },
   common: {
     show: "הצג", find: "חיפוש", nothingFound: "לא נמצאו תוצאות.", noVotes: "אין הצבעות.", earlier: "מוקדמות יותר ←",

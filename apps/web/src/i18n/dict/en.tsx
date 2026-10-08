@@ -23,6 +23,7 @@ export const en: Dict = {
     sources: "Sources: Knesset open data, the Knesset website (member names and photos), Wikidata,",
     oknesset: "Open Knesset",
     methodology: "Methodology", glossary: "Glossary", translation: "About the translation", api: "API",
+    contact: "Contact: Alexey Kislitsin, Telegram",
   },
   common: {
     show: "Show", find: "Search", nothingFound: "Nothing found.", noVotes: "No votes.", earlier: "Earlier →",
