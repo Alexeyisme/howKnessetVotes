@@ -263,7 +263,7 @@ def _merge(out: dict) -> dict:
     return {**out, "proposers": list(merged.values())}
 
 
-def check(item: Item, out: dict) -> str | None:
+def check(item: Item, out: dict, roster: Roster | None = None) -> str | None:
     """Why the extraction must not be stored, or None. Blocks numbered 0 are reservations printed without a number
     (all of them in some documents, a "לאחרי סעיף 11" addition in others); the numbered ones are checked."""
     proposers, blocks = out.get("proposers") or [], out.get("blocks") or []
@@ -291,10 +291,12 @@ def check(item: Item, out: dict) -> str | None:
         return "unnumbered_without_proposal"
     squashed, words = _squash(item.text), set(re.findall(r"\w+", he_norm(item.text)))
     names = [n for p in proposers for n in p["members"]] + list(out.get("speak_requests") or [])
-    scanned = item.pdf is not None and len(item.text) < _SCANNED_CHARS
-    absent = [n for n in names if not n.strip() or (not scanned and _squash(n) not in squashed
-                                                     and not set(re.findall(r"\w+", he_norm(n))) <= words
-                                                     and not _scrambled_in(_squash(n), squashed))]
+    # Where the model read the PDF pages, their text is no witness (scanned, or the 18th Knesset's scattered letters):
+    # a name must then be a member serving on the date; elsewhere it must be in the text.
+    from_pages = item.pdf is not None
+    absent = [n for n in names if not n.strip() or not (
+        _squash(n) in squashed or set(re.findall(r"\w+", he_norm(n))) <= words or _scrambled_in(_squash(n), squashed)
+        or (from_pages and (roster is None and len(item.text) < _SCANNED_CHARS or roster is not None and roster.find(n))))]
     if absent:
         return f"name_not_in_text:{absent[0][:40]}"
     if blocks:
@@ -400,7 +402,7 @@ def sync(conn: psycopg.Connection, extractor: Extractor, cache_dir: Path | None 
                 results.append(e)
     for (it, on), out in zip(items, results, strict=True):
         out = out if isinstance(out, Exception) else merge_proposers(out)
-        why = "model_error:" + repr(out)[:300] if isinstance(out, Exception) else check(it, out)
+        why = "model_error:" + repr(out)[:300] if isinstance(out, Exception) else check(it, out, Roster(conn, on))
         if why:
             _fail(conn, it.bill_id, why, document=it.document_id, output=None if isinstance(out, Exception) else out)
             counts["failed"] += 1
@@ -430,7 +432,7 @@ def recheck(conn: psycopg.Connection, cache_dir: Path | None = None) -> dict[str
         except ReservationsError:
             continue
         out = merge_proposers(out)
-        if check(it, out) is None:
+        if check(it, out, Roster(conn, on)) is None:
             store(conn, it, out, Roster(conn, on), "recheck")
             counts["stored"] += 1
         conn.commit()
