@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from hkv.api.common import Conn, Meta, Stage
-from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, bill_summary
+from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, attach_bill_sides, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
 
@@ -124,6 +124,7 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
                                     faction_ru=r["ru"], votes=r["votes"], majority_for=r["maj_for"], majority_against=r["maj_against"],
                                     other=r["votes"] - r["maj_for"] - r["maj_against"]) for r in rows],
         recent_bills=[bill_summary(b) for b in bills])
+    attach_bill_sides(conn, detail.recent_bills)
     return {"data": detail, "meta": Meta(filters={"slug": slug, "term": term, "stage": stages, "contested": contested}, note=(
         TOPIC_NOTE + " Faction counts: votes on these bills (as a whole in the chosen stages, and article votes in second reading "
         "when 'second' is chosen) where the faction's casting members had a strict majority for or against. Reservation and "

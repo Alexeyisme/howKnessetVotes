@@ -9,7 +9,7 @@ from fastapi import Depends, Request
 from psycopg import Connection
 from pydantic import BaseModel, ConfigDict, Field
 
-from hkv.api.names import BallotFactionNames, FactionNames, PersonNames, TitleTranslations
+from hkv.api.names import BallotFactionNames, FactionNames, PersonNames, ProseText, TitleTranslations
 
 DEFAULT_DB = "postgresql://knesset:knesset@localhost:5433/knesset"
 VOTE_CARD = "https://main.knesset.gov.il/Activity/plenum/Votes/Pages/vote.aspx?voteId={}"
@@ -42,9 +42,24 @@ class OfficialTotals(BaseModel):
     source: str
 
 
+class SideArgument(ProseText):
+    speakers: int  # how many speakers made this point
+
+
+class DebateSides(BaseModel):
+    """The plenum fight over a bill in brief, for cards (L7): each side's argument made by the most speakers, how many
+    members spoke and how many reservations were filed. The arguments come in pairs or not at all: a debate summary
+    sometimes has arguments for one side only, and a card must not show one side alone."""
+    argument_for: SideArgument | None
+    argument_against: SideArgument | None
+    speakers: int | None      # members who spoke in the debate; None when there is no debate summary
+    reservations: int | None  # reservations filed to the second reading; None when they were not extracted
+
+
 class BillRef(TitleTranslations):
     id: int
     title_he: str
+    sides: DebateSides | None = None  # final votes only (attach_sides)
 
 
 class BlocCounts(BaseModel):
@@ -197,3 +212,30 @@ def blocs(r: dict) -> Blocs | None:
     return Blocs(coalition=BlocCounts(for_=r["coalition_for"], against=r["coalition_against"], abstain=r["coalition_abstain"]),
                  opposition=BlocCounts(for_=r["opposition_for"], against=r["opposition_against"], abstain=r["opposition_abstain"]),
                  contested=r["contested"])
+
+
+def debate_sides(conn, bill_ids: list[int]) -> dict[int, DebateSides]:
+    """DebateSides by Knesset bill id, for the bills that have a debate summary or reservations."""
+    out = {}
+    for r in conn.execute(
+        """SELECT b.knesset_bill_id AS id, d.arguments, r.total AS reservations,
+                  (SELECT count(DISTINCT s.person_id) FROM bill_debate_speaker s WHERE s.bill_id = d.bill_id) AS speakers
+           FROM bill b LEFT JOIN bill_debate d ON d.bill_id = b.id LEFT JOIN bill_reservations r ON r.bill_id = b.id
+           WHERE b.knesset_bill_id = ANY(%s) AND (d.bill_id IS NOT NULL OR r.bill_id IS NOT NULL)""", (bill_ids,)):
+        top: dict[str, dict] = {}
+        for a in r["arguments"] or []:  # ties keep the model's order
+            if a["side"] not in top or len(a["speakers"]) > len(top[a["side"]]["speakers"]):
+                top[a["side"]] = a
+        args = {side: SideArgument(text_he=a["text_he"], speakers=len(a["speakers"])) for side, a in top.items()} if len(top) == 2 else {}
+        out[r["id"]] = DebateSides(argument_for=args.get("for"), argument_against=args.get("against"),
+                                   speakers=r["speakers"] if r["arguments"] is not None else None, reservations=r["reservations"])
+    return out
+
+
+def attach_sides(conn, votes: list[VoteSummary]) -> None:
+    """Put the bill's DebateSides on the bills of final votes only: on every reservation vote it would repeat itself."""
+    finals = [v for v in votes if v.motion_type == "adopt_bill" and v.stage == "third"]
+    found = debate_sides(conn, list({b.id for v in finals for b in v.bills})) if finals else {}
+    for v in finals:
+        for b in v.bills:
+            b.sides = found.get(b.id)

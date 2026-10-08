@@ -11,7 +11,8 @@ from typing import Annotated, ClassVar, Literal
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from hkv.api.common import VOTE_SELECT, BillRef, Conn, Meta, MotionType, Stage, VoteSummary, vote_summary
+from hkv.api.common import (VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_sides, debate_sides,
+                            vote_summary)
 from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
                            TitleTranslations, TopicLabels, with_names)
 from hkv.debate import FINAL_VOTE
@@ -89,6 +90,7 @@ class MemberVote(BaseModel):
     faction: FactionRef | None
     faction_majority: Literal["for", "against", "abstain", "mixed", "none"]
     deviates: bool | None  # None when there is no comparable faction majority
+    speeches: int | None = None  # final votes on a bill with a debate summary: the member's speeches in that debate
 
 
 class PartyRef(BaseModel):
@@ -176,6 +178,7 @@ class BillSummary(TitleTranslations):
     last_vote_on: dt.date | None
     passed_third_reading: bool
     source_url: str
+    sides: DebateSides | None = None  # in lists (attach_bill_sides)
 
 
 class BillTopic(TopicLabels):
@@ -520,14 +523,32 @@ def member_votes(member_id: int, conn: Conn, date_from: dt.date | None = None, d
         WHERE {' AND '.join(where)} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([r["vid"] for r in rows],))}
+    attach_sides(conn, list(summaries.values()))
+    speeches = member_speeches(conn, pid, list(summaries.values()))
     data = [MemberVote(
         vote=summaries[r["vid"]], choice=r["choice"], participation=r["participation"],
         faction=faction_ref(r["knesset_faction_id"], r["faction_name"], r["faction_term"]),
         faction_majority=r["majority"] or ("none" if r["f"] is None or (r["f"] + r["a"] + r["ab"]) < MIN_COLLEAGUES else "mixed"),
         deviates=None if r["choice"] is None or r["majority"] is None else r["choice"] != r["majority"],
+        speeches=speeches.get(r["vid"]),
     ) for r in rows]
     return {"data": data, "meta": Meta(filters={"id": member_id, "deviated": deviated, "stage": stage, "motion_type": motion_type, "topic": topic}),
             "next_cursor": encode_cursor(rows[-1]["occurred_on"], rows[-1]["vid"]) if more else None}
+
+
+def member_speeches(conn, pid, votes: list[VoteSummary]) -> dict[int, int]:
+    """Vote id -> the member's speeches in the plenum debate on the vote's bill (0: did not speak), for final votes on
+    bills with a debate summary."""
+    bills = {b.id: v.id for v in votes for b in v.bills if b.sides is not None and b.sides.speakers is not None}
+    if not bills:
+        return {}
+    out: dict[int, int] = {}
+    for r in conn.execute(
+        """SELECT b.knesset_bill_id AS id, coalesce(sum(s.speeches), 0) AS n FROM bill b
+           LEFT JOIN bill_debate_speaker s ON s.bill_id = b.id AND s.person_id = %s
+           WHERE b.knesset_bill_id = ANY(%s) GROUP BY 1""", (pid, list(bills))):
+        out[bills[r["id"]]] = max(out.get(bills[r["id"]], 0), r["n"])
+    return out
 
 
 # -- compare (U7) -------------------------------------------------------------------------------------
@@ -728,6 +749,12 @@ BILL_SELECT = """
     FROM bill b LEFT JOIN bill_status s ON s.knesset_status_id = b.status_id"""
 
 
+def attach_bill_sides(conn, bills: list[BillSummary]) -> None:
+    found = debate_sides(conn, [b.id for b in bills]) if bills else {}
+    for b in bills:
+        b.sides = found.get(b.id)
+
+
 def bill_summary(r: dict) -> BillSummary:
     return BillSummary(id=r["id"], title_he=r["title_he"], term=r["term"], origin=r["origin"], status_he=r["status_he"],
                        votes=r["votes"], last_vote_on=r["last_vote_on"], passed_third_reading=r["third"], source_url=BILL_URL.format(r["id"]))
@@ -757,7 +784,9 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
         outer.append("(last_vote_on, id) < (%(c_on)s::date, %(c_id)s)"); params.update(c_on=c_on, c_id=c_id)
     rows = conn.execute(f"SELECT * FROM ({inner}) x WHERE {' AND '.join(outer)} ORDER BY last_vote_on DESC, id DESC LIMIT %(limit)s", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
-    return {"data": [bill_summary(r) for r in rows], "meta": Meta(filters={"q": q, "term": term, "third_reading": third_reading, "topic": topic}),
+    data = [bill_summary(r) for r in rows]
+    attach_bill_sides(conn, data)
+    return {"data": data, "meta": Meta(filters={"q": q, "term": term, "third_reading": third_reading, "topic": topic}),
             "next_cursor": encode_cursor(rows[-1]["last_vote_on"], rows[-1]["id"]) if more else None}
 
 

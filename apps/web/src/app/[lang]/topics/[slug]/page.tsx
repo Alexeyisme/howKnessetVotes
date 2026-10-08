@@ -55,7 +55,8 @@ export default async function TopicPage({ params, searchParams }: PageProps<"/[l
           {x.recent_bills.map((b) => (
             <li key={b.id} style={{ padding: "8px 16px", borderBottom: "1px solid var(--hairline)" }}>
               <Link href={`/bills/${b.id}`} style={{ display: "block", fontWeight: 600, color: "var(--ink)" }}><Title he={b.title_he} t={b} compact /></Link>
-              <span className="small muted">{t.d.common.term(b.term)}{b.last_vote_on && d.lastVote(t.date(b.last_vote_on))}{b.passed_third_reading && ` · ${t.d.common.passed}`}</span>
+              <span className="small muted">{t.d.common.term(b.term)}{b.last_vote_on && d.lastVote(t.date(b.last_vote_on))}{b.passed_third_reading && ` · ${t.d.common.passed}`}
+                {b.sides?.speakers || b.sides?.reservations ? ` · ${t.d.sides.counts(b.sides.speakers, b.sides.reservations)}` : null}</span>
             </li>
           ))}
         </ul>

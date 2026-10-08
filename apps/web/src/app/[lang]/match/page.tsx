@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { MatchQuiz, type MatchParty, type MatchVote } from "@/components/MatchQuiz";
-import { getVote, listVotes } from "@/lib/api";
+import { MatchQuiz, type MatchParty, type MatchSide, type MatchVote } from "@/components/MatchQuiz";
+import { getVote, listVotes, type ProseText } from "@/lib/api";
 import { verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 
@@ -33,7 +33,13 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
       stands[f.faction_id] = f.majority;
       if (!parties.has(f.faction_id)) parties.set(f.faction_id, { id: f.faction_id, name: t.faction(f), alignment: f.alignment ?? null });
     }
-    return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands };
+    const sides = v.bills.find((b) => b.sides?.argument_for && b.sides.argument_against)?.sides;
+    const side = (a: ProseText & { speakers: number }): MatchSide => {
+      const tr = t.locale !== "he" ? a.text : null;
+      return { text: tr ?? a.text_he, he: !tr, made: t.d.sides.made(a.speakers) };
+    };
+    return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands,
+             sides: sides?.argument_for && sides.argument_against ? { for: side(sides.argument_for), against: side(sides.argument_against) } : null };
   });
   const answers = typeof sp.a === "string" ? sp.a : "";
 
@@ -48,7 +54,8 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
                                progress: votes.map((_, i) => d.progress(i + 1, votes.length)),
                                agree: Array.from({ length: votes.length + 1 }, (_, m) => Array.from({ length: m + 1 }, (_, n) => d.agree(n, m))),
                                noAnswers: d.noAnswers, again: d.again, share: d.share, copied: d.copied, yours: d.yours, passed: d.passed,
-                               alignment: t.d.alignment, choice: t.d.choice }} />
+                               alignment: t.d.alignment, choice: t.d.choice, sidesFor: t.d.sides.for, sidesAgainst: t.d.sides.against,
+                               sidesNote: t.d.sides.note }} />
         </>
       )}
     </div>

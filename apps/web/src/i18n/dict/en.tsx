@@ -303,6 +303,16 @@ export const en: Dict = {
     note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
     short: (c, o) => `Coalition ${c.for}:${c.against} · Opposition ${o.for}:${o.against}`,
   },
+  sides: {
+    for: "Supporters said", against: "Opponents said",
+    made: (n) => `Speakers who made this point: ${n}`,
+    counts: (speakers, reservations) => [
+      speakers ? `${speakers} ${s(speakers, "member", "members")} spoke` : null,
+      reservations ? `${reservations} ${s(reservations, "reservation", "reservations")}` : null,
+    ].filter(Boolean).join(" · "),
+    note: "An automatic summary of the plenum debate: the argument each side made most often.",
+    speeches: (n) => `Speeches in the debate: ${n}`,
+  },
   parties: {
     title: "Parties",
     lead: "Each party across Knessets: the list it ran as each time, how many members it had, and whether it was in the coalition. A joint list counts for every party in it.",

@@ -1,4 +1,5 @@
 import Link from "./Link";
+import { Sides } from "./Sides";
 import { Title } from "./Title";
 import type { VoteSummary } from "@/lib/api";
 import { missingRollCallText, verdict } from "@/lib/labels";
@@ -8,7 +9,8 @@ import styles from "./VoteCard.module.css";
 const PLENUM = 120;
 
 /** One vote as a card: the outcome in words first, the Hebrew title second, then one bar for the whole plenum (so a
- *  5:0 vote is visibly a low-turnout vote) and, when the blocs differed, the coalition/opposition line. Used wherever
+ *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line, and on final votes the
+ *  two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
 export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary; showMotion?: boolean }) {
   const t = await getT();
@@ -17,6 +19,8 @@ export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary
   const out = verdict(vote, t);
   const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null, showMotion && vote.motion_type ? t.d.motion[vote.motion_type] : null]
     .filter(Boolean).join(" · ");
+  const sides = vote.bills.find((b) => b.sides)?.sides;
+  const sideCounts = sides ? t.d.sides.counts(sides.speakers, sides.reservations) : "";
   const segments = [
     { key: "for", n: rc.for, cls: styles.for, label: t.d.breakdown.for },
     { key: "abstain", n: rc.abstain, cls: styles.abstain, label: t.d.breakdown.abstain },
@@ -48,6 +52,8 @@ export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary
         {vote.blocs?.contested && (
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.short(vote.blocs.coalition, vote.blocs.opposition)}</span>
         )}
+        {sides && <Sides sides={sides} />}
+        {sideCounts && <span className="small muted num">{sideCounts}</span>}
       </Link>
     </li>
   );

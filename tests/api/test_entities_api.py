@@ -86,3 +86,42 @@ def test_bills(client):
     assert [(i["person_id"], i["role"]) for i in b2["initiators"]] == ([(30660, "initiator")] if known else [])
     assert client.get("/api/v1/bills/1").status_code == 404
     assert client.get("/api/v1/members/1").status_code == 404
+
+
+def test_debate_sides_on_cards(client):
+    """L7 cards: the bill's most-made argument per side, only when both sides have one; on final votes only."""
+    from psycopg.types.json import Jsonb
+    with client.app.state.pool.connection() as conn:
+        bill = conn.execute("SELECT id FROM bill WHERE knesset_bill_id = 2229019").fetchone()["id"]
+        vote = conn.execute("SELECT id FROM vote WHERE knesset_vote_id = 46699").fetchone()["id"]
+        speaker = conn.execute(
+            """SELECT p.id, p.knesset_person_id FROM ballot b JOIN person p ON p.id = b.person_id WHERE b.vote_id = %s
+               ORDER BY p.knesset_person_id LIMIT 1""", (vote,)).fetchone()
+        conn.execute("""INSERT INTO bill_debate (bill_id, vote_id, document_ids, file_sha256, segment_titles, chars, truncated, summary_he, arguments)
+                        VALUES (%s, %s, '{}', '{}', '{}', 0, false, 'סיכום', %s)""",
+                     (bill, vote, Jsonb([{"side": "for", "text_he": "בעד", "speakers": [0]}])))
+        conn.execute("""INSERT INTO bill_debate_speaker (bill_id, ordinal, label_he, name_he, person_id, speeches, chars, stages)
+                        VALUES (%s, 0, 'דובר', 'דובר', %s, 2, 100, '{third}')""", (bill, speaker["id"]))
+    try:
+        listed = {b["id"]: b for b in client.get("/api/v1/bills").json()["data"]}
+        sides = listed[2229019]["sides"]
+        assert sides == {"argument_for": None, "argument_against": None, "speakers": 1, "reservations": None}  # one side only
+        assert listed[2196976]["sides"] is None
+
+        with client.app.state.pool.connection() as conn:
+            conn.execute("UPDATE bill_debate SET arguments = %s WHERE bill_id = %s", (Jsonb([
+                {"side": "for", "text_he": "בעד א", "speakers": [0]}, {"side": "against", "text_he": "נגד", "speakers": [0]},
+                {"side": "for", "text_he": "בעד ב", "speakers": [0, 1]}]), bill))
+        votes = {v["id"]: v for v in client.get("/api/v1/votes").json()["data"]}
+        sides = votes[46699]["bills"][0]["sides"]
+        assert (sides["argument_for"]["text_he"], sides["argument_for"]["speakers"]) == ("בעד ב", 2)  # the most speakers
+        assert sides["argument_against"]["text_he"] == "נגד"
+        assert votes[46700]["bills"][0]["sides"] is None  # second reading: not a final vote
+        assert client.get("/api/v1/votes/46699").json()["data"]["bills"][0]["sides"] == sides
+
+        mine = {m["vote"]["id"]: m for m in client.get(f"/api/v1/members/{speaker['knesset_person_id']}/votes").json()["data"]}
+        assert mine[46699]["speeches"] == 2 and mine[46699]["vote"]["bills"][0]["sides"] == sides
+        assert mine.get(46700, {}).get("speeches") is None
+    finally:
+        with client.app.state.pool.connection() as conn:
+            conn.execute("DELETE FROM bill_debate WHERE bill_id = %s", (bill,))

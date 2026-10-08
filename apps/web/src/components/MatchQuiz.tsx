@@ -7,14 +7,19 @@
 import { useEffect, useMemo, useState } from "react";
 import styles from "./MatchQuiz.module.css";
 
-export interface MatchVote { id: number; date: string; title_he: string; title: string | null; outcome: string; line: string; stands: Record<number, "for" | "against"> }
+/** One side's most-made argument in the plenum debate (L7), as display strings; `he`: the text is the Hebrew original. */
+export interface MatchSide { text: string; he: boolean; made: string }
+export interface MatchVote {
+  id: number; date: string; title_he: string; title: string | null; outcome: string; line: string; stands: Record<number, "for" | "against">;
+  sides: { for: MatchSide; against: MatchSide } | null;
+}
 export interface MatchParty { id: number; name: string; alignment: string | null }
 /** Plain strings only (functions cannot cross into a client component): progress[i] for question i+1, agree[m][n]
  *  for "n of m". Both are bounded by the number of questions, so the server precomputes them. */
 export interface MatchLabels {
   question: string; yes: string; no: string; skip: string; progress: string[]; resultTitle: string;
   agree: string[][]; noAnswers: string; again: string; share: string; copied: string; yours: string; passed: string;
-  alignment: Record<string, string>; choice: Record<string, string>;
+  alignment: Record<string, string>; choice: Record<string, string>; sidesFor: string; sidesAgainst: string; sidesNote: string;
 }
 
 type Answer = "f" | "a" | "s";
@@ -66,6 +71,21 @@ export function MatchQuiz({ votes, parties, initial, locale, labels }:
         <h2 className={styles.question}>{labels.question}</h2>
         <p className={`he ${styles.title}`} lang="he" dir="rtl">{current.title_he}</p>
         {current.title && <p className={styles.translation} dir="auto">{current.title}</p>}
+        {/* both sides' main argument, so the answer can rest on more than the title */}
+        {current.sides && (
+          <div className={styles.sides}>
+            {(["for", "against"] as const).map((k) => {
+              const x = current.sides![k];
+              return (
+                <div key={k} className={`${styles.side} ${k === "for" ? styles.sideFor : styles.sideAgainst}`}>
+                  <span className={styles.sideHead}>{k === "for" ? labels.sidesFor : labels.sidesAgainst}<span className={styles.tag} title={labels.sidesNote}>auto</span></span>
+                  <span lang={x.he ? "he" : undefined} dir={x.he ? "rtl" : "auto"}>{x.text}</span>
+                  <span className={styles.made}>{x.made}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
         <div className={styles.buttons}>
           <button type="button" className={styles.yes} onClick={() => setAnswers([...answers, "f"])}>{labels.yes}</button>
           <button type="button" className={styles.no} onClick={() => setAnswers([...answers, "a"])}>{labels.no}</button>

@@ -99,6 +99,7 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
               <span className="small muted">
                 {v.faction ? <FactionName f={v.faction} /> : t.d.common.factionUnknown}: {t.d.majority[v.faction_majority]}
               </span>
+              {v.speeches ? <span className="small">{t.d.sides.speeches(v.speeches)}</span> : null}
             </VoteLine>
           ))}
         </VoteList>

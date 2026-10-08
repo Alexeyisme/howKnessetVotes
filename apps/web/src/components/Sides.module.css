@@ -1,0 +1,15 @@
+.sides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+@media (max-width: 560px) { .sides { grid-template-columns: 1fr; } }
+
+.side { display: grid; gap: 3px; align-content: start; padding: 10px 12px; border-radius: 10px; font-size: 0.875rem; line-height: 1.45; color: var(--ink); }
+.for { background: color-mix(in srgb, var(--vote-for) 10%, var(--surface)); }
+.against { background: color-mix(in srgb, var(--vote-against) 10%, var(--surface)); }
+
+/* the side's colour is in the dot, not the text: small coloured text on a tinted ground fails contrast */
+.head { font-weight: 600; font-size: 0.8125rem; }
+.head::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 6px; vertical-align: 1px; }
+.for .head::before { background: var(--vote-for); }
+.against .head::before { background: var(--vote-against); }
+.tag { margin-inline-start: 6px; font-size: 0.6875rem; font-weight: 400; color: var(--muted); border: 1px solid var(--border); border-radius: 4px; padding: 0 4px; }
+
+.made { font-size: 0.75rem; color: var(--muted); }

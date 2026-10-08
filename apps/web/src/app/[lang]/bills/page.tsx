@@ -43,6 +43,7 @@ export default async function BillsPage({ searchParams }: PageProps<"/[lang]/bil
               {t.d.common.term(b.term)} · {t.d.common.votesCount(b.votes)}{b.last_vote_on && ` · ${t.d.common.lastVote(t.date(b.last_vote_on))}`}
               {b.passed_third_reading && ` · ${t.d.common.passedThird}`}
               {b.status_he && <> · <He>{b.status_he}</He></>}
+              {b.sides?.speakers || b.sides?.reservations ? ` · ${t.d.sides.counts(b.sides.speakers, b.sides.reservations)}` : null}
             </span>
           </li>
         ))}

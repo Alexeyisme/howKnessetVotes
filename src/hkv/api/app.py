@@ -18,7 +18,8 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, Meta,
-                            MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, counts, majority, vote_summary)
+                            MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, attach_sides, counts, majority,
+                            vote_summary)
 from hkv.api.entities import router
 from hkv.api.names import with_names
 from hkv.api.suggestions import router as suggestions_router
@@ -98,7 +99,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
         more = len(rows) > limit
         rows = rows[:limit]
         next_cursor = base64.urlsafe_b64encode(json.dumps([rows[-1]["occurred_on"].isoformat(), rows[-1]["id"]]).encode()).decode() if more else None
-        return {"data": [vote_summary(r) for r in rows], "meta": Meta(filters=filters, note=COUNTS_NOTE), "next_cursor": next_cursor}
+        data = [vote_summary(r) for r in rows]
+        attach_sides(conn, data)
+        return {"data": data, "meta": Meta(filters=filters, note=COUNTS_NOTE), "next_cursor": next_cursor}
 
     @app.get("/api/v1/votes/{vote_id}", response_model=VoteDetailResponse)
 
@@ -108,6 +111,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         if row is None:
             raise HTTPException(404, "vote not found")
         detail = vote_summary(row)
+        attach_sides(conn, [detail])
         off = conn.execute(
             """SELECT for_count, against_count, abstain_count, is_accepted, source FROM vote_result_official o
                JOIN vote v ON v.id = o.vote_id WHERE v.knesset_vote_id = %s""", (vote_id,)).fetchone()

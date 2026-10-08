@@ -41,7 +41,7 @@ export interface VoteSummary extends Titled {
   stage: Stage | null;
   method: string;
   status: string;
-  bills: ({ id: number; title_he: string } & Titled)[];
+  bills: ({ id: number; title_he: string; sides?: DebateSides | null } & Titled)[];
   roll_call: Counts;
   blocs?: Blocs | null;
   source_url: string;
@@ -160,6 +160,7 @@ export interface MemberVote {
   faction: FactionRef | null;
   faction_majority: Majority;
   deviates: boolean | null;
+  speeches?: number | null;  // final votes on a bill with a debate summary: this member's speeches in it (0: did not speak)
 }
 
 export interface PartyRef { slug: string; name_he: string; name_ru: string; name_en: string; name_ar?: string | null }
@@ -199,6 +200,7 @@ export interface BillSummary extends Titled {
   last_vote_on: string | null;
   passed_third_reading: boolean;
   source_url: string;
+  sides?: DebateSides | null;
 }
 
 export interface BillDetail extends BillSummary {
@@ -220,6 +222,14 @@ export interface BillDetail extends BillSummary {
 
 /** A machine-written Hebrew text of ours with its translation in the requested language (L7 steps 2–3). */
 export interface ProseText { text_he: string; text?: string | null; text_origin?: "machine" | "editor" | null }
+
+/** L7 cards: each side's argument made by the most speakers (both or neither), members who spoke, reservations filed. */
+export interface DebateSides {
+  argument_for: (ProseText & { speakers: number }) | null;
+  argument_against: (ProseText & { speakers: number }) | null;
+  speakers: number | null;
+  reservations: number | null;
+}
 
 /** A member as a document prints them, resolved to a member and their faction where possible (faction_name: short
  *  name in the requested language). */
