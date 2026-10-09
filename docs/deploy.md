@@ -3,14 +3,16 @@
 One Hetzner Cloud server runs the whole site.
 
 - **Server:** `hkv-1`, CPX22 (2 vCPU, 4 GB), Helsinki, Ubuntu 24.04. Its address is not in the repo: it is in your `~/.ssh/config` (see Access) and in `hcloud server list`.
-- **Stack:** [infra/compose.prod.yaml](../infra/compose.prod.yaml) runs four services:
+- **Stack:** [infra/compose.prod.yaml](../infra/compose.prod.yaml) runs these services:
   - `db` (Postgres 17);
   - `api` (FastAPI; runs migrations on start);
-  - `web` (Next.js);
+  - `web` and `web-2` (Next.js, the same image twice: a Node process renders on one core only);
+  - `cache` (nginx: keeps each page's HTML for 60 s and spreads requests over `web` and `web-2`,
+    [infra/nginx-cache.conf](../infra/nginx-cache.conf); see [Capacity](#capacity));
   - `umami` (page-view statistics, see [Statistics](#statistics-umami));
   - `caddy` (HTTPS with automatic Let's Encrypt certificates; `/api/*`, `/docs` and `/openapi.json`
     go to the API, `/u/script.js` and `/u/api/send` to Umami, `stats.knessetvotes.org` to the Umami dashboard,
-    everything else goes to the web app).
+    everything else goes to `cache` and on to the web app).
 - **Code** lives in `/srv/hkv` and is owned by the `deploy` user.
 - **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title and bill-summary translations — with it set, every `hkv update` translates the titles and official summaries that are new since the last run with `HKV_TRANSLATE_MODEL`, default Haiku 4.5, into `HKV_TRANSLATE_LANGS` (default `en,ru,ar` since 2026-10-07; it was `en,ru` before) and makes no request when nothing is new; the backlog was loaded once with `hkv translate --lang en,ru` on 2026-10-05; titles that failed the checks are retried only with `hkv translate --retry-failed`). One update translates at most `HKV_UPDATE_TRANSLATE_LIMIT` (60) texts per language and kind and describes at most `HKV_UPDATE_NOTES_LIMIT` (20) bills from their explanatory notes and summarises the debate and the reservations of at most `HKV_UPDATE_POSITIONS_LIMIT` (5) bills each (contested final votes), so a backlog cannot hold it past its 2-hour limit (it did on 2026-10-07, when Arabic was added); a backlog goes as one Message Batch with `hkv translate --batch` / `hkv notes --batch` / `hkv debate --batch` / `hkv reservations --batch` (manual job, see below), and the log warns when a run hit the cap. They are not in git. The Cloudflare Turnstile keys for the contact form (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`) are set from your machine with [scripts/set-turnstile.sh](../scripts/set-turnstile.sh), which asks for them and writes them to `.env` over SSH. With both set, the form shows the widget and the API verifies its token; empty keys turn the check off. `HKV_IP_SALT` (any random string, e.g. `openssl rand -hex 32`) salts the per-visitor hash behind the form's daily limit, so stored hashes cannot be reversed by trying every IPv4 address; changing it only resets that day's counts. After changing `infra/Caddyfile`, restart Caddy (`scripts/prod.sh restart caddy`): the file is bind-mounted and rsync replaces it, so the running container keeps the old one.
 
@@ -140,6 +142,46 @@ The site is served under `/ru`, `/en` and `/he`; any path without a language red
 ## Alerts
 
 A failing update or backup triggers `hkv-alert@<unit>` ([scripts/alert.sh](../scripts/alert.sh)). It logs to the journal and sends the last log lines to Telegram via @knessetvotes_bot (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` in `/srv/hkv/.env`). Tested end to end on 2026-10-04. The same bot forwards every visitor correction and mistake report (`POST /api/v1/suggestions`, the `/suggest` page) as it arrives; the API container gets the two variables from `.env`, and the rows stay in `translation_suggestion` (status `open` until reviewed).
+
+## Capacity
+
+Load tests on 2026-10-09: the production stack on a local copy of the database (half the production votes, no
+translations), every container pinned to two CPUs and 4 GB of memory, as on `hkv-1`; k6 at a constant request rate for
+40 s per step, starting each step from cold processes and an empty cache, then 20 s at 10 requests/s to check that the
+site recovers. Three kinds of traffic:
+
+- **hot:** a link shared widely: the home page, the vote lists, a few laws and parties, the quiz;
+- **tail:** crawlers: any vote, member, bill or faction page in any language, almost never cached;
+- **mix:** half of each.
+
+| Traffic | Before (one Next.js process, no cache) | After |
+|---|---|---|
+| hot | fine up to 20 req/s; p95 2.6 s at 30; saturated at ~38 | 0 errors up to 80 req/s (median 5 ms); 1.6% errors at 120; with the cache warm, 300 req/s at p95 24 ms |
+| tail | fine up to 20 req/s; saturated at ~25 | the same: fine up to 25 req/s, saturated at ~27 |
+| mix | fine up to 20 req/s; saturated at ~28 | fine up to 30 req/s; at 40, 10% fast errors |
+| after an overload | down for minutes: the API kept working through requests nobody waited for | back within seconds at every step |
+
+What changed:
+
+- `cache` (nginx) keeps every page's HTML for 60 s, sends one request per page to Next.js while the others wait, and
+  serves the stale copy while it refreshes. Pages carry no Set-Cookie for this (the language cookie is set in the
+  browser, `components/LangCookie.tsx`). It never marks a Next.js server down and does not retry a slow render on the
+  other one: either made an overload worse in the tests.
+- `web-2`: a second Next.js process, so a cold page's render can use the second core. Its effect was not measured on
+  its own, and it does not raise the tail limit (below); with 2 GB of memory it made things worse (swapping).
+- `--limit-concurrency 48` on the API: past that it answers 503 at once.
+- `robots.txt` keeps crawlers off URL spaces without end (the correction form, search, paging and filters); the
+  correction links are `nofollow` and not prefetched. These were ~8% of production requests on 2026-10-09, when
+  crawlers made most of the traffic (~14 req/s).
+
+**The limit for uncached pages is the CPU.** At 25 req/s of crawler traffic Postgres used about one of the two cores and
+Next.js the other. Most of the database time is the member page's statistics (`GET /members/{id}`: 70 ms median,
+180 ms for a long-serving member, all of it the "against own faction" count recomputed over every ballot). A
+precomputed per-vote faction tally would remove most of it; a server with 4 vCPUs would roughly double the limit.
+
+Rerunning the tests: the scripts are not in the repo (they need a database copy and k6). In short: restore a dump into
+a separate database, start api, web, web-2, cache and caddy with `cpuset: "0,1"`, and run k6 `constant-arrival-rate`
+at rising rates; never against the production site.
 
 ## Restore
 

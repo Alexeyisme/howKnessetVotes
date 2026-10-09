@@ -1,7 +1,8 @@
 "use client";
 
 // U6: the roll call as a filterable list: by name (any language), by faction, and "against own faction's majority".
-// A table on wide screens, cards on phones (BallotTable.module.css). Rows arrive localized from the server.
+// A table on wide screens, cards on phones (BallotTable.module.css). Rows arrive localized from the server. The list
+// is folded (`summary` is its heading) and rendered only once opened: 120 rows are a quarter of the vote page's HTML.
 
 import NextLink from "next/link";
 import { useMemo, useState } from "react";
@@ -32,7 +33,9 @@ export interface BallotLabels {
   deviates: string; deviatesMark: string; shown: string;
 }
 
-export function BallotTable({ rows, factions, labels }: { rows: BallotRow[]; factions: { id: number; name: string }[]; labels: BallotLabels }) {
+export function BallotTable({ rows, factions, labels, summary, className }:
+  { rows: BallotRow[]; factions: { id: number; name: string }[]; labels: BallotLabels; summary: string; className?: string }) {
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [faction, setFaction] = useState("");
   const [deviates, setDeviates] = useState(false);
@@ -43,7 +46,9 @@ export function BallotTable({ rows, factions, labels }: { rows: BallotRow[]; fac
   const anyDeviates = rows.some((r) => r.deviates);
 
   return (
-    <div>
+    <details className={className} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary className="section-title">{summary}</summary>
+      {open && <>
       <div className={styles.filters}>
         <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder={labels.filterNamePh} aria-label={labels.filterName} dir="auto" />
         <select value={faction} onChange={(e) => setFaction(e.target.value)} aria-label={labels.filterFaction}>
@@ -76,6 +81,7 @@ export function BallotTable({ rows, factions, labels }: { rows: BallotRow[]; fac
           ))}
         </tbody>
       </table>
-    </div>
+      </>}
+    </details>
   );
 }

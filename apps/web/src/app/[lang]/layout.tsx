@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import Script from "next/script";
+import { LangCookie } from "@/components/LangCookie";
 import Link from "@/components/Link";
 import { ReportLink } from "@/components/ReportLink";
 import { SearchBox } from "@/components/SearchBox";
@@ -125,6 +126,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <ReportLink locale={t.locale} label={d.footer.report} />
           </p>
         </footer>
+        <LangCookie locale={t.locale} />
         {/* page-view counting (Umami, cookie-free; infra/compose.prod.yaml); it follows client-side navigation itself */}
         {process.env.UMAMI_WEBSITE_ID && <Script src="/u/script.js" data-website-id={process.env.UMAMI_WEBSITE_ID} strategy="afterInteractive" />}
       </body>

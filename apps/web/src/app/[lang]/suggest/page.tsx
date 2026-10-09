@@ -5,7 +5,8 @@ import { getT } from "@/i18n/server";
 
 export async function generateMetadata({ searchParams }: PageProps<"/[lang]/suggest">): Promise<Metadata> {
   const d = (await getT()).d.suggest;
-  return { title: typeof (await searchParams).sha === "string" ? d.title : d.reportTitle };
+  // one URL per translated title and per page: a form, not content for search engines
+  return { title: typeof (await searchParams).sha === "string" ? d.title : d.reportTitle, robots: { index: false, follow: false } };
 }
 
 // R4: a visitor's correction to a machine translation. Everything the form needs is in the URL (the hash of the

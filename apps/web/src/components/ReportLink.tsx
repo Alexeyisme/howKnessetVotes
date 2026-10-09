@@ -8,5 +8,5 @@ import { usePathname } from "next/navigation";
 export function ReportLink({ locale, label }: { locale: string; label: string }) {
   const path = usePathname().replace(/^\/(he|en|ru|ar)(?=\/|$)/, "") || "/";
   const page = path.startsWith("/suggest") ? "" : `?page=${encodeURIComponent(path)}`;
-  return <NextLink href={`/${locale}/suggest${page}`}>{label}</NextLink>;
+  return <NextLink href={`/${locale}/suggest${page}`} prefetch={false} rel="nofollow">{label}</NextLink>;
 }

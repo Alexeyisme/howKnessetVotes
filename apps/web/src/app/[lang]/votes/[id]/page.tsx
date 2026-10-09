@@ -223,11 +223,8 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
 
       {/* the full list is long (up to 120 rows); closed by default, the count tells what is inside */}
       {hasRollCall && (
-        <details className={`card ${styles.details}`}>
-          <summary className="section-title">{d.table(ballots.length)}</summary>
-          <BallotTable rows={rows} factions={factionOptions}
-                       labels={{ ...t.d.ballots, shown: t.d.ballots.shown("{n}", String(rows.length)) }} />
-        </details>
+        <BallotTable rows={rows} factions={factionOptions} summary={d.table(ballots.length)} className={`card ${styles.details}`}
+                     labels={{ ...t.d.ballots, shown: t.d.ballots.shown("{n}", String(rows.length)) }} />
       )}
 
       {/* the trust layer: raw tallies, official totals and the reconciliation, below the answer */}

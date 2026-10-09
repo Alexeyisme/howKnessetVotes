@@ -25,7 +25,7 @@ export async function Title({ he, t: tr, as = "span", compact = false, className
         {machine && (
           compact
             ? <span className={styles.tag} title={t.d.common.machine}>auto</span>
-            : <span className={styles.marker}> · {t.d.common.machine} · <Link href={suggest}>{t.d.common.suggest}</Link></span>
+            : <span className={styles.marker}> · {t.d.common.machine} · <Link href={suggest} prefetch={false} rel="nofollow">{t.d.common.suggest}</Link></span>
         )}
       </span>
     </Tag>
@@ -42,7 +42,7 @@ export async function Summary({ he, text, origin, page }: { he: string; text?: s
   return (
     <>
       <p dir="auto">{text}</p>
-      {origin === "machine" && <p className={styles.marker}>{t.d.common.machine} · <Link href={suggest}>{t.d.common.suggest}</Link></p>}
+      {origin === "machine" && <p className={styles.marker}>{t.d.common.machine} · <Link href={suggest} prefetch={false} rel="nofollow">{t.d.common.suggest}</Link></p>}
       <details className={styles.original}>
         <summary className="small muted">{t.d.common.hebrewOriginal}</summary>
         <He as="p">{he}</He>

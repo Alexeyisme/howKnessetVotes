@@ -42,8 +42,9 @@
 		}
 	}
 
+	# pages: through the HTML micro-cache to the two Next.js servers (infra/nginx-cache.conf)
 	handle {
-		reverse_proxy web:3000
+		reverse_proxy cache:8080
 	}
 
 	log

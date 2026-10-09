@@ -1,6 +1,6 @@
 // Locale routing (docs/roadmap.md L3). Every page lives under /ru, /en or /he. A path without a locale (old links,
 // the bare domain) redirects to the visitor's language: the last one they picked (cookie), else the browser's
-// Accept-Language, else Russian. Locale paths pass through with the locale remembered and the unprefixed path in a
+// Accept-Language, else Russian. Locale paths pass through with the unprefixed path in a
 // request header for the language switcher and hreflang links.
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -13,11 +13,9 @@ export function proxy(request: NextRequest) {
   if (isLocale(first)) {
     const headers = new Headers(request.headers);
     headers.set(PATH_HEADER, (pathname.slice(first.length + 1) || "/") + search);
-    const res = NextResponse.next({ request: { headers } });
-    if (request.cookies.get(LOCALE_COOKIE)?.value !== first) {
-      res.cookies.set(LOCALE_COOKIE, first, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
-    }
-    return res;
+    // the language is remembered by the page itself (components/LangCookie): a Set-Cookie here would keep the page
+    // out of the HTML cache (infra/nginx-cache.conf)
+    return NextResponse.next({ request: { headers } });
   }
 
   const cookie = request.cookies.get(LOCALE_COOKIE)?.value;

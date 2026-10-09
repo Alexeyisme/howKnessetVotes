@@ -4,6 +4,17 @@ name: hkv
 
 x-db-url: &db-url postgresql://knesset:${POSTGRES_PASSWORD:?set in .env}@db:5432/knesset
 
+# the Next.js server, run twice (web, web-2); only `web` builds the image
+x-web: &web
+  image: hkv-web
+  restart: unless-stopped
+  environment:
+    HKV_API_URL: http://api:8000
+    TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}       # read at request time by the /suggest page
+    UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}           # page-view counting (umami below); off when empty
+  depends_on:
+    api: { condition: service_healthy }
+
 services:
   db:
     image: postgres:17
@@ -33,7 +44,9 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}   # Cloudflare Turnstile check of the contact form; off when empty
       HKV_IP_SALT: ${HKV_IP_SALT:-}                     # salt of the contact form's per-visitor hash (openssl rand -hex 32)
-    command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 2 --proxy-headers --forwarded-allow-ips '*'"
+    # --limit-concurrency: past 48 open requests per worker, answer 503 at once. Without it an overload queued work for
+    # minutes after the traffic had gone, and the site stayed down (load tests, docs/deploy.md#capacity)
+    command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 2 --limit-concurrency 48 --proxy-headers --forwarded-allow-ips '*'"
     depends_on:
       db: { condition: service_healthy }
     healthcheck:
@@ -41,16 +54,23 @@ services:
       interval: 30s
       start_period: 30s
 
+  # Two Next.js processes, one per vCPU (a Node process renders on one core), behind the HTML micro-cache below
   web:
+    <<: *web
     build: ../apps/web
-    image: hkv-web
+
+  web-2:
+    <<: *web
+
+  # HTML micro-cache in front of web and web-2 (infra/nginx-cache.conf); Caddy sends page requests here
+  cache:
+    image: nginx:1.27-alpine
     restart: unless-stopped
-    environment:
-      HKV_API_URL: http://api:8000
-      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}       # read at request time by the /suggest page
-      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}           # page-view counting (umami below); off when empty
-    depends_on:
-      api: { condition: service_healthy }
+    volumes:
+      - ./nginx-cache.conf:/etc/nginx/conf.d/default.conf:ro
+    tmpfs:
+      - /var/cache/nginx:size=600m
+    depends_on: [web, web-2]
 
   # Page-view statistics for the owner (roadmap O6): cookie-free, no personal data kept. Its tables live in a separate
   # `umami` database of the same Postgres (created once, docs/deploy.md). The dashboard is stats.{SITE_DOMAIN}; the
@@ -79,7 +99,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [web, api, umami]
+    depends_on: [cache, api, umami]
 
   # scheduled job, started by the hkv-update systemd timer: scripts/prod.sh run --rm updater
   updater:
