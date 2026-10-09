@@ -293,6 +293,7 @@ export const ru = {
   },
   topic: {
     kicker: "Тема", aliases: "Также ищется по словам:",
+    votesTitle: "Голосования по законопроектам темы",
     bills: (n: number) => `Законопроекты темы (${n})`,
     lastVote: (d: string) => ` · последнее голосование ${d}`,
     allBills: "Все законопроекты темы →",

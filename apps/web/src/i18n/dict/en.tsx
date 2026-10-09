@@ -287,6 +287,7 @@ export const en: Dict = {
   },
   topic: {
     kicker: "Topic", aliases: "Also found by:",
+    votesTitle: "Votes on bills in this topic",
     bills: (n) => `Bills in this topic (${n})`,
     lastVote: (d) => ` · latest vote ${d}`,
     allBills: "All bills in this topic →",

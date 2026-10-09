@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { Title } from "@/components/Title";
+import { VoteFeed } from "@/components/VoteFeed";
 import { He } from "@/components/ui";
 import { getTopic, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
@@ -19,8 +20,9 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/topics/[sl
   return { title: (await getT()).topic(await load((await params).slug)) };
 }
 
-export default async function TopicPage({ params }: PageProps<"/[lang]/topics/[slug]">) {
+export default async function TopicPage({ params, searchParams }: PageProps<"/[lang]/topics/[slug]">) {
   const { slug } = await params;
+  const sp = await searchParams;
   const x = await load(slug);
   const t = await getT();
   const d = t.d.topic;
@@ -34,6 +36,12 @@ export default async function TopicPage({ params }: PageProps<"/[lang]/topics/[s
         <h1>{label}</h1>
         {aliases.length > 0 && <p className="small muted">{d.aliases} {aliases.join(", ")}</p>}
       </header>
+
+      {/* where the parties fought over the topic first; a topic with no contested final vote opens on its final votes */}
+      <section>
+        <h2 className="section-title">{d.votesTitle}</h2>
+        <VoteFeed base={`/topics/${slug}`} sp={sp} filter={{ topic: slug }} defaultView="contested" fallback="final" />
+      </section>
 
       <section>
         <h2 className="section-title">{d.bills(x.bills)}</h2>

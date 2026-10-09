@@ -283,6 +283,7 @@ export const he: Dict = {
   },
   topic: {
     kicker: "נושא", aliases: "נמצא גם לפי:",
+    votesTitle: "הצבעות על הצעות חוק בנושא",
     bills: (n) => `הצעות חוק בנושא (${n})`,
     lastVote: (d) => ` · הצבעה אחרונה ${d}`,
     allBills: "כל הצעות החוק בנושא ←",
