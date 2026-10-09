@@ -32,10 +32,29 @@
 		reverse_proxy api:8000
 	}
 
+	# Umami's tracker and its page-view endpoint, first-party so blockers of third-party trackers leave them alone.
+	# Only these two paths: the dashboard and its login are on stats.{$SITE_DOMAIN}.
+	@umami path /u/script.js /u/api/send
+	handle @umami {
+		uri strip_prefix /u
+		reverse_proxy umami:3000 {
+			header_up X-Real-IP {client_ip}
+		}
+	}
+
 	handle {
 		reverse_proxy web:3000
 	}
 
+	log
+}
+
+# Umami dashboard (page-view statistics), behind its own login
+stats.{$SITE_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy umami:3000 {
+		header_up X-Real-IP {client_ip}
+	}
 	log
 }
 

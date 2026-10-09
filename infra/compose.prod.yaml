@@ -47,8 +47,23 @@ services:
     environment:
       HKV_API_URL: http://api:8000
       TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}       # read at request time by the /suggest page
+      UMAMI_WEBSITE_ID: ${UMAMI_WEBSITE_ID:-}           # page-view counting (umami below); off when empty
     depends_on:
       api: { condition: service_healthy }
+
+  # Page-view statistics for the owner (roadmap O6): cookie-free, no personal data kept. Its tables live in a separate
+  # `umami` database of the same Postgres (created once, docs/deploy.md). The dashboard is stats.{SITE_DOMAIN}; the
+  # site loads the tracker and sends page views through knessetvotes.org/u/ (Caddyfile).
+  umami:
+    image: ghcr.io/umami-software/umami:3.4.0
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://knesset:${POSTGRES_PASSWORD}@db:5432/umami
+      APP_SECRET: ${UMAMI_APP_SECRET:-}
+      CLIENT_IP_HEADER: x-real-ip      # set by Caddy from CF-Connecting-IP; used only for the daily visitor hash
+      DISABLE_TELEMETRY: 1
+    depends_on:
+      db: { condition: service_healthy }
 
   caddy:
     image: caddy:2
@@ -63,7 +78,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    depends_on: [web, api]
+    depends_on: [web, api, umami]
 
   # scheduled job, started by the hkv-update systemd timer: scripts/prod.sh run --rm updater
   updater:

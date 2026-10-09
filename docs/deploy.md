@@ -7,8 +7,10 @@ One Hetzner Cloud server runs the whole site.
   - `db` (Postgres 17);
   - `api` (FastAPI; runs migrations on start);
   - `web` (Next.js);
+  - `umami` (page-view statistics, see [Statistics](#statistics-umami));
   - `caddy` (HTTPS with automatic Let's Encrypt certificates; `/api/*`, `/docs` and `/openapi.json`
-    go to the API, everything else goes to the web app).
+    go to the API, `/u/script.js` and `/u/api/send` to Umami, `stats.knessetvotes.org` to the Umami dashboard,
+    everything else goes to the web app).
 - **Code** lives in `/srv/hkv` and is owned by the `deploy` user.
 - **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title and bill-summary translations — with it set, every `hkv update` translates the titles and official summaries that are new since the last run with `HKV_TRANSLATE_MODEL`, default Haiku 4.5, into `HKV_TRANSLATE_LANGS` (default `en,ru,ar` since 2026-10-07; it was `en,ru` before) and makes no request when nothing is new; the backlog was loaded once with `hkv translate --lang en,ru` on 2026-10-05; titles that failed the checks are retried only with `hkv translate --retry-failed`). One update translates at most `HKV_UPDATE_TRANSLATE_LIMIT` (60) texts per language and kind and describes at most `HKV_UPDATE_NOTES_LIMIT` (20) bills from their explanatory notes and summarises the debate and the reservations of at most `HKV_UPDATE_POSITIONS_LIMIT` (5) bills each (contested final votes), so a backlog cannot hold it past its 2-hour limit (it did on 2026-10-07, when Arabic was added); a backlog goes as one Message Batch with `hkv translate --batch` / `hkv notes --batch` / `hkv debate --batch` / `hkv reservations --batch` (manual job, see below), and the log warns when a run hit the cap. They are not in git. The Cloudflare Turnstile keys for the contact form (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`) are set from your machine with [scripts/set-turnstile.sh](../scripts/set-turnstile.sh), which asks for them and writes them to `.env` over SSH. With both set, the form shows the widget and the API verifies its token; empty keys turn the check off. After changing `infra/Caddyfile`, restart Caddy (`scripts/prod.sh restart caddy`): the file is bind-mounted and rsync replaces it, so the running container keeps the old one.
 
@@ -20,6 +22,27 @@ One Hetzner Cloud server runs the whole site.
 - **Firewall:** the Hetzner firewall `hkv-web` allows tcp 22, 80 and 443, and icmp.
 - **DNS:** Cloudflare (registrar and DNS). The `A`/`AAAA` records for `knessetvotes.org` and `www`
   point at the server.
+
+## Statistics (Umami)
+
+Which pages people open, from where (referrer, country), in which language and on what device: the dashboard at
+**https://stats.knessetvotes.org** (Umami 3, self-hosted). It sets no cookies and keeps no IP addresses (a visitor is a
+salted hash that changes daily). Search terms show up as the `q=` query of `/search` pages. The tracker is first-party
+(`/u/script.js`, page views to `/u/api/send`) and counts client-side navigation too. Your own visits: in the browser
+console on knessetvotes.org run `localStorage.setItem("umami.disabled", 1)` to stop counting that browser.
+
+Its tables are in a separate `umami` database of the same Postgres; the nightly backup covers only `knesset`, so
+the statistics are not backed up (Hetzner server backups still copy the whole disk).
+
+One-time setup (done once per server):
+
+1. Cloudflare DNS: `A` record `stats` → <hkv-1 address>, proxied (like `www`).
+2. On the server, from `/srv/hkv`: `scripts/prod.sh exec db createdb -U knesset umami`, and add
+   `UMAMI_APP_SECRET=$(openssl rand -hex 32)` to `.env`.
+3. Deploy, then `scripts/prod.sh restart caddy` (new Caddyfile). Umami creates its tables on first start.
+4. Open https://stats.knessetvotes.org, log in as `admin` / `umami` and **change the password at once**
+   (Settings → Profile). Settings → Websites → Add: name `knessetvotes`, domain `knessetvotes.org`; copy its Website ID.
+5. Add `UMAMI_WEBSITE_ID=<id>` to `.env` and `scripts/prod.sh up -d web`. Empty = no tracker on the site.
 
 ## Deploy
 
