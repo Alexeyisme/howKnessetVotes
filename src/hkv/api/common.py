@@ -59,6 +59,7 @@ class DebateSides(BaseModel):
 class BillRef(TitleTranslations):
     id: int
     title_he: str
+    topics: list[str] = []            # topic slugs (rule-based or official), e.g. to spread a selection over topics
     sides: DebateSides | None = None  # final votes only (attach_sides)
 
 
@@ -173,7 +174,9 @@ VOTE_SELECT = f"""
     SELECT v.knesset_vote_id AS id, v.occurred_on, v.occurred_at, v.term_number, v.title_he, v.subject_he,
            coalesce(v.for_option_he, v.legacy_item_he) AS for_option_he,
            coalesce(k.motion_type, v.motion_type) AS motion_type, coalesce(k.stage, v.stage) AS stage, v.method, v.status,
-           coalesce((SELECT json_agg(json_build_object('id', b.knesset_bill_id, 'title_he', b.title_he) ORDER BY b.knesset_bill_id)
+           coalesce((SELECT json_agg(json_build_object('id', b.knesset_bill_id, 'title_he', b.title_he, 'topics', array(
+                         SELECT t.slug FROM bill_topic bt JOIN topic t ON t.id = bt.topic_id
+                         WHERE bt.bill_id = b.id AND bt.review_state <> 'rejected' ORDER BY t.sort)) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
            c.*, vb.coalition_for, vb.coalition_against, vb.coalition_abstain, vb.opposition_for, vb.opposition_against,
            vb.opposition_abstain, vb.contested

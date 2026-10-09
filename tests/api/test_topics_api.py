@@ -43,7 +43,8 @@ def test_topic_detail(client):
 
 
 def test_votes_and_bills_filter_by_topic(client):
-    assert [v["id"] for v in client.get("/api/v1/votes", params={"topic": "governance"}).json()["data"]] == [37689]
+    votes = client.get("/api/v1/votes", params={"topic": "governance"}).json()["data"]
+    assert [v["id"] for v in votes] == [37689] and "governance" in votes[0]["bills"][0]["topics"]  # topics on bill refs too
     assert [b["id"] for b in client.get("/api/v1/bills", params={"topic": "welfare"}).json()["data"]] == [2229019]
 
 

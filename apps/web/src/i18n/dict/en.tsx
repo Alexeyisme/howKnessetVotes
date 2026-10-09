@@ -346,7 +346,7 @@ export const en: Dict = {
   },
   match: {
     title: "Who votes like me?",
-    lead: (n, term) => `The ${n} final votes of the ${ord(term)} Knesset where the coalition and opposition split, with the most members voting. Say how you would have voted and see which party voted the same way. Nothing is stored.`,
+    lead: (n, term) => `The ${n} final votes of the ${ord(term)} Knesset where the coalition and opposition split, with the most members voting — but no more than one per day and two per topic (at least a month apart), so the laws of one package don't repeat. Say how you would have voted and see which party voted the same way. Nothing is stored.`,
     question: "Would you have passed this law?", yes: "For", no: "Against", skip: "Skip",
     progress: (i, n) => `${i} of ${n}`,
     resultTitle: "Parties that voted like you",

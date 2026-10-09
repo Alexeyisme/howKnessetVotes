@@ -41,7 +41,7 @@ export interface VoteSummary extends Titled {
   stage: Stage | null;
   method: string;
   status: string;
-  bills: ({ id: number; title_he: string; sides?: DebateSides | null } & Titled)[];
+  bills: ({ id: number; title_he: string; topics: string[]; sides?: DebateSides | null } & Titled)[];
   roll_call: Counts;
   blocs?: Blocs | null;
   source_url: string;
