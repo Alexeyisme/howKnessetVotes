@@ -105,6 +105,14 @@ def test_legacy_transcripts():
                             "גלעד קריב (העבודה):", "א" * 200])
     speakers, _ = speeches([("first", seg, True) for _, seg in segments(turns(untagged), [TITLE])])
     assert [s.name for s in speakers] == ["גלעד קריב"]
+    # a booklet of two sittings, each with its contents: the bill's debate is in the first one
+    toc = lambda n, *entries: [x for k, e in enumerate(entries) for x in (f'HYPERLINK \\l "_Toc{n}{k}"', e, f"PAGEREF _Toc{n}{k} \\h")]  # noqa: E731
+    booklet = legacy_text([*toc(1, TITLE, "גלעד קריב (העבודה):"), "ישיבה ראשונה", TITLE, "גלעד קריב (העבודה):", "א" * 200,
+                           *toc(2, "הצעת חוק אחרת, התשע\"ח–2018", "ל"), "ישיבה שנייה", "הצעת חוק אחרת, התשע\"ח–2018",
+                           "משה טור פז (יש עתיד):", "ב" * 200, "ל"])
+    speakers, _ = speeches([("first", seg, True) for _, seg in segments(turns(booklet), [TITLE])])
+    assert [s.name for s in speakers] == ["גלעד קריב"]
+    assert not any(t.kind == "topic" and t.label == "ל" for t in turns(booklet))
 
 
 def test_transcript_variants():
@@ -195,6 +203,8 @@ def test_redo(url, cache):
         assert sorted(sides) == ["against", "for"]
         assert conn.execute("SELECT count(*) FROM bill_debate_speaker").fetchone() == (3,)
         assert candidates(conn, contested_only=False, redo=True) == []
+        assert len(candidates(conn, contested_only=False, redo=True, bills=[BILL])) == 1     # named: redone whatever it is
+        assert candidates(conn, contested_only=False, redo=True, bills=[1]) == []
 
 
 def test_two_lists():

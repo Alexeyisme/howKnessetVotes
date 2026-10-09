@@ -9,7 +9,7 @@ import { getT } from "@/i18n/server";
 
 async function load(slug: string) {
   try {
-    return (await getTopic(slug, {})).data;
+    return (await getTopic(slug)).data;
   } catch (e) {
     if (e instanceof NotFound) notFound();
     throw e;

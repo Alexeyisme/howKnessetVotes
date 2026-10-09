@@ -305,9 +305,6 @@ export interface TopicDetail extends TopicSummary {
   aliases_ru: string[];
   aliases_en: string[];
   aliases_ar: string[];
-  term: number;
-  stage: string[];
-  factions: { faction: FactionRef; faction_ru: string | null; votes: number; majority_for: number; majority_against: number; other: number }[];
   recent_bills: BillSummary[];
 }
 export interface SearchResult {
@@ -330,5 +327,5 @@ export const compareMembers = (a: number, b: number) => get<{ data: Comparison; 
 export const compareFactions = (a: number, b: number) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ a: String(a), b: String(b) })}`);
 
 export const listTopics = () => get<{ data: TopicSummary[]; meta: Meta }>(`/api/v1/topics`);
-export const getTopic = (slug: string, p: Params) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}${qs(p)}`);
+export const getTopic = (slug: string) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}`);
 export const search = (q: string) => get<{ data: SearchResult; meta: Meta }>(`/api/v1/search${qs({ q })}`);

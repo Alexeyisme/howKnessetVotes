@@ -33,12 +33,9 @@ def test_bill_topics_are_marked_automatic(client):
     assert all(t["origin"] == "rule" and t["review_state"] == "unreviewed" and t["evidence"] for t in b["topics"])
 
 
-def test_topic_faction_stats_use_final_reading(client):
-    t = client.get("/api/v1/topics/family", params={"term": 25}).json()
-    stats = {f["faction"]["id"]: f for f in t["data"]["factions"]}
-    ballots_46699 = {r["MkId"] for r in SLICE["KNS_PlenumVoteResult"] if r["VoteID"] == 46699}
-    assert sum(f["votes"] for f in stats.values()) >= 1 and len(ballots_46699) == 5
-    assert all(f["votes"] == f["majority_for"] + f["majority_against"] + f["other"] for f in stats.values())
+def test_topic_detail(client):
+    t = client.get("/api/v1/topics/family").json()
+    assert [b["id"] for b in t["data"]["recent_bills"]] == [2229019] and "factions" not in t["data"]
     assert "official classification" in t["meta"]["note"] and "been reviewed" in t["meta"]["note"]
     assert t["data"]["label_en"] == "Family, children and equality" and t["data"]["label"] == t["data"]["label_he"] and t["data"]["aliases_en"]
     en = client.get("/api/v1/topics", params={"lang": "en"}).json()["data"]

@@ -1,7 +1,7 @@
 """Topics and search (architecture.md §9, §10).
 
-Topic assignments are rule-based and unreviewed; responses say so. Topic statistics use final-reading
-votes on the bill as a whole (stage third, motion adopt_bill) and inherit the topic from the bill.
+Topic assignments are rule-based and unreviewed; responses say so. A vote inherits the topics of its bill; the votes
+of a topic are listed by /api/v1/votes?topic=.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from hkv.api.common import Conn, Meta, Stage
+from hkv.api.common import Conn, Meta
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, attach_bill_sides, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
@@ -31,22 +31,10 @@ class TopicSummary(TopicLabels):
     bills: int
 
 
-class FactionTopicStats(BaseModel):
-    faction: FactionRef
-    faction_ru: str | None
-    votes: int                    # final-reading votes on topic bills in which the faction cast at least one vote
-    majority_for: int
-    majority_against: int
-    other: int                    # abstain majority, split, or no strict majority
-
-
 class TopicDetail(TopicSummary):
     aliases_ru: list[str]
     aliases_en: list[str]
     aliases_ar: list[str]
-    term: int
-    stage: list[str]
-    factions: list[FactionTopicStats]
     recent_bills: list[BillSummary]
 
 
@@ -88,34 +76,10 @@ def list_topics(conn: Conn):
 
 @router.get("/topics/{slug}", response_model=dict)
 @with_names
-def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[list[Stage] | None, Query()] = None,
-              contested: Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")] = False):
+def get_topic(slug: str, conn: Conn):
     t = conn.execute(f"{TOPIC_SELECT} WHERE t.slug = %s", (slug,)).fetchone()
     if t is None:
         raise HTTPException(404, "topic not found")
-    if term is None:
-        term = conn.execute("SELECT max(term_number) AS t FROM vote").fetchone()["t"]
-    stages = stage or ["third"]
-    rows = conn.execute(
-        f"""WITH v AS (
-               SELECT DISTINCT v.id FROM vote v
-               JOIN vote_subject vs ON vs.vote_id = v.id
-               JOIN bill_topic bt ON bt.bill_id = vs.bill_id AND bt.topic_id = %(topic)s AND bt.review_state <> 'rejected'
-               LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
-               {"JOIN vote_bloc vb ON vb.vote_id = v.id AND vb.contested" if contested else ""}
-               WHERE v.term_number = %(term)s AND v.status = 'valid' AND coalesce(k.stage, v.stage) = ANY(%(stages)s)
-                 AND coalesce(k.motion_type, v.motion_type) IN ('adopt_bill', 'adopt_section')
-           ), per AS (
-               SELECT b.faction_id, b.vote_id, count(*) FILTER (WHERE b.choice = 'for') f, count(*) FILTER (WHERE b.choice = 'against') a,
-                      count(*) FILTER (WHERE b.choice = 'abstain') ab
-               FROM ballot b JOIN v ON v.id = b.vote_id WHERE b.faction_id IS NOT NULL AND b.choice IS NOT NULL GROUP BY 1, 2
-           )
-           SELECT f.knesset_faction_id, f.name_he, f.term_number, coalesce(fl.short_name, fl.name) AS ru, count(*) AS votes,
-                  count(*) FILTER (WHERE 2 * per.f > per.f + per.a + per.ab) AS maj_for,
-                  count(*) FILTER (WHERE 2 * per.a > per.f + per.a + per.ab) AS maj_against
-           FROM per JOIN faction f ON f.id = per.faction_id LEFT JOIN faction_label fl ON fl.faction_id = f.id AND fl.language = 'ru'
-           GROUP BY 1, 2, 3, 4 ORDER BY count(*) DESC, 2""",
-        {"topic": t["id"], "term": term, "stages": stages}).fetchall()
     bills = conn.execute(
         f"""SELECT * FROM ({BILL_SELECT} WHERE EXISTS (SELECT 1 FROM bill_topic bt WHERE bt.bill_id = b.id AND bt.topic_id = %s AND bt.review_state <> 'rejected')
                AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) x ORDER BY last_vote_on DESC NULLS LAST LIMIT 20""",
@@ -124,16 +88,10 @@ def get_topic(slug: str, conn: Conn, term: int | None = None, stage: Annotated[l
     for r in conn.execute("SELECT language, alias FROM topic_alias WHERE topic_id = %s AND language IN ('ru', 'en', 'ar') ORDER BY alias", (t["id"],)):
         aliases[r["language"]].append(r["alias"])
     detail = TopicDetail(
-        **topic_summary(t).model_dump(), aliases_ru=aliases["ru"], aliases_en=aliases["en"], aliases_ar=aliases["ar"], term=term, stage=stages,
-        factions=[FactionTopicStats(faction=FactionRef(id=r["knesset_faction_id"], name_he=r["name_he"].strip(), term=r["term_number"]),
-                                    faction_ru=r["ru"], votes=r["votes"], majority_for=r["maj_for"], majority_against=r["maj_against"],
-                                    other=r["votes"] - r["maj_for"] - r["maj_against"]) for r in rows],
+        **topic_summary(t).model_dump(), aliases_ru=aliases["ru"], aliases_en=aliases["en"], aliases_ar=aliases["ar"],
         recent_bills=[bill_summary(b) for b in bills])
     attach_bill_sides(conn, detail.recent_bills)
-    return {"data": detail, "meta": Meta(filters={"slug": slug, "term": term, "stage": stages, "contested": contested}, note=(
-        TOPIC_NOTE + " Faction counts: votes on these bills (as a whole in the chosen stages, and article votes in second reading "
-        "when 'second' is chosen) where the faction's casting members had a strict majority for or against. Reservation and "
-        "procedural votes are excluded."))}
+    return {"data": detail, "meta": Meta(filters={"slug": slug}, note=TOPIC_NOTE)}
 
 
 _HEBREW = re.compile(r"[֐-׿]")

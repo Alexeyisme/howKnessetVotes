@@ -50,8 +50,10 @@ log = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
 TRANSCRIPT_GROUP = 28
-MAX_CHARS = 600_000           # speeches sent to the model; longer debates (filibusters) are cut evenly per speech
-                              # (150,000 until 2026-10-09: a cap of ~2,000 characters per speech left mostly greetings)
+MAX_CHARS = 1_300_000         # speeches sent to the model; longer debates (filibusters) are cut evenly per speech.
+                              # Transcripts run ~1.45 characters per token, so this is ~900k of Sonnet 5's 1M-token
+                              # context; the longest debate stored (1.17M characters, 2026-10) fits whole. Until
+                              # 2026-10-09 it was 150,000: a cap of ~2,000 characters per speech left mostly greetings.
 TRANSCRIPT_WAIT_DAYS = 120    # transcripts usually appear within days, sometimes two months later
 MAX_ARGUMENTS_PER_SIDE = 5
 TITLE_MATCH = 0.9
@@ -152,10 +154,19 @@ def _untagged(lines: list[str]) -> list[Turn]:
         for k in range(1, 5):
             if len(ln) > 10 + k and ln[-k:].isdigit():
                 titles.add(he_norm(ln[:-k]))
-    titles = {t for t in titles if t and not t.endswith(":")}
-    last_toc = max((i for i, ln in enumerate(lines) if ln.startswith(("HYPERLINK", "PAGEREF"))), default=-1)
+    titles = {t for t in titles if len(t) >= 5 and not t.endswith(":")}
+    # A booklet ("חוברת") holds several sittings, each with its own contents: skip the entries (HYPERLINK, the title,
+    # PAGEREF), not everything before the last contents, which lost all but the last sitting (2026-10-09).
+    toc = set()
+    for i, ln in enumerate(lines):
+        if ln.startswith("PAGEREF"):
+            toc.add(i)
+        elif ln.startswith("HYPERLINK"):
+            toc.add(i)
+            if i + 1 < len(lines) and not lines[i + 1].startswith("PAGEREF"):
+                toc.add(i + 1)
     out: list[Turn] = []
-    body = [ln for ln in lines[last_toc + 1:] if ln]
+    body = [ln for i, ln in enumerate(lines) if ln and i not in toc]
     i = 0
     while i < len(body):
         ln = body[i]
@@ -452,11 +463,17 @@ _REDO = f"""EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id AND (
 
 
 def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed: bool = False,
-               contested_only: bool = True, redo: bool = False) -> list[tuple]:
+               contested_only: bool = True, redo: bool = False, bills: Sequence[int] | None = None) -> list[tuple]:
     """(bill id, title, final vote id, final vote date) of bills with a final vote and no debate yet, most recent
     first; by default only where the coalition and opposition majorities differed on the final vote. With `redo`,
-    the bills whose stored debate should be summarised again instead (see _REDO)."""
-    have = _REDO if redo else "NOT EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id)"
+    the bills whose stored debate should be summarised again instead (see _REDO); `bills` (Knesset bill ids) limits
+    either to those bills, and with `redo` takes every one of them that has a debate (after a parser fix)."""
+    if redo:
+        have = "EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id)" if bills else _REDO
+    else:
+        have = "NOT EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id)"
+    if bills:
+        have += " AND b.knesset_bill_id = ANY(%(bills)s)"
     return conn.execute(
         f"""SELECT DISTINCT ON (v.occurred_on, b.id) b.id, b.title_he, v.id, v.occurred_on
             FROM vote v
@@ -468,7 +485,7 @@ def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed:
               AND (%(retry)s OR NOT EXISTS (SELECT 1 FROM data_issue i WHERE i.issue_type = 'debate_failed'
                                             AND i.status = 'open' AND i.entity_id = b.id))
             ORDER BY v.occurred_on DESC, b.id, v.occurred_at DESC NULLS LAST""" + (" LIMIT %(limit)s" if limit else ""),
-        {"retry": retry_failed, "limit": limit, "contested": contested_only}).fetchall()
+        {"retry": retry_failed, "limit": limit, "contested": contested_only, "bills": list(bills or [])}).fetchall()
 
 
 def sittings(conn: psycopg.Connection, bill_id) -> list[tuple]:
@@ -528,13 +545,13 @@ def prepare(conn: psycopg.Connection, bill_id, title: str, vote_id,
 
 def sync(conn: psycopg.Connection, summarizer: Summarizer, cache_dir: Path | None = None, limit: int | None = None,
          retry_failed: bool = False, batch: bool = False, contested_only: bool = True, loader=None,
-         today: dt.date | None = None, redo: bool = False) -> dict[str, int]:
+         today: dt.date | None = None, redo: bool = False, bills: Sequence[int] | None = None) -> dict[str, int]:
     """Summarise the debates that need it. With a `loader` (hkv.ingest.Loader), transcript links of the sittings
     that have none yet are fetched first. With `redo`, stored debates that were cut or left a side empty are
     summarised again; the old one is replaced only by a result that passes the checks."""
     today = today or dt.date.today()
     counts = {"pending": 0, "waiting": 0, "stored": 0, "failed": 0}
-    todo = [(r, sittings(conn, r[0])) for r in candidates(conn, limit, retry_failed, contested_only, redo)]
+    todo = [(r, sittings(conn, r[0])) for r in candidates(conn, limit, retry_failed, contested_only, redo, bills)]
     if loader is not None:
         missing = sorted({s[1] for _, ss in todo for s in ss if not _transcripts(conn, s[0])})
         if missing:
