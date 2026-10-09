@@ -1,5 +1,6 @@
 // Typed client for the hkv REST API (src/hkv/api/app.py). Server-side only.
 
+import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { getLocale } from "@/i18n/server";
 
@@ -108,6 +109,8 @@ async function get<T>(path: string): Promise<T> {
   // data changes a few times a day (scheduled update); a short cache keeps page views off the database
   const res = await fetch(url, { headers: { Accept: "application/json" }, next: { revalidate: 600 } });
   if (res.status === 404) throw new NotFound(path);
+  // the API answers 400 only to a malformed request from the URL (a broken paging cursor): a missing page, not a crash
+  if (res.status === 400) notFound();
   if (!res.ok) throw new Error(`API ${res.status} for ${path}`);
   return (await res.json()) as T;
 }
