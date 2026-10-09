@@ -22,6 +22,10 @@ export const RECESS_UNTIL = "2026-11-10";
 
 // Only votes on a bill as a whole and no-confidence motions: what most readers mean by "how did they vote".
 export const MAIN_MOTIONS: MotionType[] = ["adopt_bill", "no_confidence"];
+// a record so that a new motion type fails the build until it is listed here
+const MOTIONS: Record<MotionType, true> = { adopt_bill: true, reject_bill: true, adopt_section: true, reservation: true, no_confidence: true,
+  agenda: true, secondary_legislation: true, procedural: true, other: true, unknown: true };
+export const ALL_MOTIONS = Object.keys(MOTIONS) as MotionType[];
 
 // Methods that never produce a roll-call list; for any other method zero records means "not loaded (yet)".
 const NO_ROLL_CALL = new Set(["show_of_hands", "show_of_hands_counted", "secret"]);

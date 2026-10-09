@@ -9,7 +9,8 @@ from fastapi import Depends, Request
 from psycopg import Connection
 from pydantic import BaseModel, ConfigDict, Field
 
-from hkv.api.names import BallotFactionNames, FactionNames, PersonNames, ProseText, TitleTranslations
+from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
+                           TitleTranslations)
 
 DEFAULT_DB = "postgresql://knesset:knesset@localhost:5433/knesset"
 VOTE_CARD = "https://main.knesset.gov.il/Activity/plenum/Votes/Pages/vote.aspx?voteId={}"
@@ -56,11 +57,19 @@ class DebateSides(BaseModel):
     reservations: int | None  # reservations filed to the second reading; None when they were not extracted
 
 
+class BillAbout(SummaryTranslations, ExplanationTranslations):
+    """What a bill does, for cards: the official summary, or where there is none our description from the sponsors'
+    explanatory notes (as on the bill page, which labels it as their account). Exactly one of the two is set."""
+    summary_he: str | None = None
+    explanation_he: str | None = None
+
+
 class BillRef(TitleTranslations):
     id: int
     title_he: str
     topics: list[str] = []            # topic slugs (rule-based or official), e.g. to spread a selection over topics
     sides: DebateSides | None = None  # final votes only (attach_sides)
+    about: BillAbout | None = None    # final votes only (attach_sides)
 
 
 class BlocCounts(BaseModel):
@@ -235,10 +244,28 @@ def debate_sides(conn, bill_ids: list[int]) -> dict[int, DebateSides]:
     return out
 
 
+def bill_about(conn, bill_ids: list[int]) -> dict[int, BillAbout]:
+    """BillAbout by Knesset bill id, for the bills that have an official summary or a description of their notes."""
+    return {r["id"]: BillAbout(summary_he=r["summary_he"], explanation_he=r["explanation_he"]) for r in conn.execute(
+        """SELECT b.knesset_bill_id AS id, b.summary_he, CASE WHEN b.summary_he IS NULL THEN e.summary_he END AS explanation_he
+           FROM bill b LEFT JOIN bill_explanation e ON e.bill_id = b.id
+           WHERE b.knesset_bill_id = ANY(%s) AND (b.summary_he IS NOT NULL OR e.summary_he IS NOT NULL)""", (bill_ids,))}
+
+
+def attach_about(conn, votes: list[VoteSummary]) -> None:
+    """Put BillAbout on the bills of these votes, whatever their stage (a comparison lists every reading of a bill)."""
+    found = bill_about(conn, list({b.id for v in votes for b in v.bills})) if votes else {}
+    for v in votes:
+        for b in v.bills:
+            b.about = found.get(b.id)
+
+
 def attach_sides(conn, votes: list[VoteSummary]) -> None:
-    """Put the bill's DebateSides on the bills of final votes only: on every reservation vote it would repeat itself."""
+    """Put the bill's DebateSides and BillAbout on the bills of final votes only: on every reservation vote they would
+    repeat themselves."""
     finals = [v for v in votes if v.motion_type == "adopt_bill" and v.stage == "third"]
     found = debate_sides(conn, list({b.id for v in finals for b in v.bills})) if finals else {}
     for v in finals:
         for b in v.bills:
             b.sides = found.get(b.id)
+    attach_about(conn, finals)

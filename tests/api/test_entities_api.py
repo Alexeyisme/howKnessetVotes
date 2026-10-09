@@ -130,6 +130,51 @@ def test_debate_sides_on_cards(client):
             conn.execute("DELETE FROM bill_debate WHERE bill_id = %s", (bill,))
 
 
+def test_bill_about_on_final_vote_cards(client):
+    """Cards on final votes carry what the law does (the official summary); other stages do not repeat it."""
+    with client.app.state.pool.connection() as conn:
+        old = conn.execute("SELECT summary_he FROM bill WHERE knesset_bill_id = 2229019").fetchone()["summary_he"]
+        conn.execute("UPDATE bill SET summary_he = 'תקציר' WHERE knesset_bill_id = 2229019")
+    try:
+        votes = {v["id"]: v for v in client.get("/api/v1/votes", params={"lang": "ru"}).json()["data"]}
+        about = votes[46699]["bills"][0]["about"]
+        assert about["summary_he"] == "תקציר" and about["explanation_he"] is None
+        assert votes[46700]["bills"][0]["about"] is None  # second reading: not a final vote
+        assert client.get("/api/v1/votes/46699").json()["data"]["bills"][0]["about"]["summary_he"] == "תקציר"
+    finally:
+        with client.app.state.pool.connection() as conn:
+            conn.execute("UPDATE bill SET summary_he = %s WHERE knesset_bill_id = 2229019", (old,))
+
+def test_bill_about_on_every_compared_reading(client):
+    """A comparison lists every reading of a bill (here a preliminary one), and each carries what the law does."""
+    with client.app.state.pool.connection() as conn:
+        old = conn.execute("SELECT summary_he FROM bill WHERE knesset_bill_id = 2196976").fetchone()["summary_he"]
+        conn.execute("UPDATE bill SET summary_he = 'תקציר' WHERE knesset_bill_id = 2196976")
+    try:
+        diffs = client.get("/api/v1/compare/members", params={"a": DISSENTER, "b": LIKUD_IN_37689[1]}).json()["data"]["differences"]
+        assert [(d["vote"]["id"], d["vote"]["stage"]) for d in diffs] == [(37689, "preliminary")]
+        assert diffs[0]["vote"]["bills"][0]["about"]["summary_he"] == "תקציר"
+    finally:
+        with client.app.state.pool.connection() as conn:
+            conn.execute("UPDATE bill SET summary_he = %s WHERE knesset_bill_id = 2196976", (old,))
+
+
+@pytest.mark.parametrize('kind,a,b', [('members', DISSENTER, LIKUD_IN_37689[1]), ('factions', LIKUD, 1102)])
+def test_compare_contested_and_turnout_filters(client, kind, a, b):
+    """The /votes views apply to comparisons, the agreement rate included: only contested votes, a minimum turnout."""
+    url = f'/api/v1/compare/{kind}'
+    rate = lambda **p: client.get(url, params={'a': a, 'b': b, **p}).json()['data']['agreement']['denominator']
+    assert rate() == 1 and rate(min_cast=60) == 1 and rate(min_cast=120) == 0
+    assert rate(contested='true') == 0  # vote 37689 is not contested ...
+    with client.app.state.pool.connection() as conn:
+        conn.execute("""INSERT INTO vote_bloc SELECT id, 0, 0, 0, 0, 0, 0, true FROM vote WHERE knesset_vote_id = 37689""")
+    try:
+        assert rate(contested='true') == 1  # ... until the blocs differ on it
+    finally:
+        with client.app.state.pool.connection() as conn:
+            conn.execute("DELETE FROM vote_bloc WHERE vote_id = (SELECT id FROM vote WHERE knesset_vote_id = 37689)")
+
+
 def test_comparison_paging_preserves_global_rate_and_all_disagreements(client, monkeypatch):
     import datetime as dt
     from hkv.api import entities
@@ -145,6 +190,8 @@ def test_comparison_paging_preserves_global_rate_and_all_disagreements(client, m
             return [{'id': vid} for vid in params[0]]
 
     monkeypatch.setattr(entities, 'vote_summary', lambda row: template.model_copy(update={'id': row['id']}))
+    monkeypatch.setattr(entities, 'attach_about', lambda conn, votes: None)
+    monkeypatch.setattr(entities, 'attach_sides', lambda conn, votes: None)
     pages = []
     cursor = None
     while True:

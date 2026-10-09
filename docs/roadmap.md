@@ -45,6 +45,8 @@ The site answers the questions a voter asks, in plain words, before it shows tab
 - `/match` controls: Back, edit an answer from the results, progress kept in the URL (`step`), larger answer buttons fixed at the bottom on phones. Shared links are accepted only for contested final votes of one Knesset with at least 60 votes cast, each named once.
 - Comparison endpoints accept `limit` (1–100) and a keyset `cursor`; `differences_total`, `differences_offset` and `next_cursor` describe the full list of disagreements, while the agreement rate still covers all shared votes. `/compare` shows the range and total with links to older pages.
 - Web tests: `npm test` (quiz scoring) runs in CI.
+- What the law does, on cards: final-vote cards (home, /votes, topic and party pages), quiz questions and comparison cards show the start of the Knesset's official summary, or where there is none our description of the sponsors' notes, labelled as on the bill page (`about` on bill refs: final votes, every reading in a comparison). Official summaries exist only for laws that passed, so early readings of bills that died often have none.
+- `/compare` shows its disagreements as vote cards in the `/votes` views (main, contested, final, first, preliminary, all); the agreement rate follows the view (`contested` and `min_cast` on both comparison endpoints).
 
 ## Track 2 — Hebrew, English, Russian and Arabic
 

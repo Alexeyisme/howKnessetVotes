@@ -9,6 +9,7 @@
 .verdict[data-accepted="no"]::before { background: var(--vote-against); }
 
 .title { display: block; color: var(--ink-2); font-size: 0.9375rem; text-align: right; line-height: 1.4; }
+.about { display: grid; gap: 2px; color: var(--ink); font-size: 0.9375rem; line-height: 1.45; }
 
 /* the whole plenum (120 seats) is the track; cast votes fill it from the start, so turnout is visible at a glance */
 .bar { display: flex; gap: 2px; height: 8px; margin-top: 4px; background: var(--note-bg); border-radius: 4px; overflow: hidden; }

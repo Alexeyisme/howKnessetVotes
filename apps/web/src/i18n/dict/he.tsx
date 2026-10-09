@@ -343,6 +343,7 @@ export const he: Dict = {
     differences: (n) => `הצבעות שבהן נחלקו (${n})`,
   },
   match: {
+    aboutMore: "הנוסח המלא בעמוד הצעת החוק ←",
     back: "חזרה",
     edit: "עריכת תשובה",
     finish: "לתוצאות",

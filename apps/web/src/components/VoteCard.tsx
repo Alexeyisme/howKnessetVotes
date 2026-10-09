@@ -1,3 +1,4 @@
+import { About } from "./About";
 import Link from "./Link";
 import { Sides } from "./Sides";
 import { Title } from "./Title";
@@ -10,7 +11,7 @@ const PLENUM = 120;
 
 /** One vote as a card: the outcome in words first, the Hebrew title second, then one bar for the whole plenum (so a
  *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line, and on final votes the
- *  two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
+ *  start of the law's official summary and the two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
 export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode }) {
   const t = await getT();
@@ -20,6 +21,7 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
   const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null, showMotion && vote.motion_type ? t.d.motion[vote.motion_type] : null]
     .filter(Boolean).join(" · ");
   const sides = vote.bills.find((b) => b.sides)?.sides;
+  const described = vote.bills.find((b) => b.about);
   const sideCounts = sides ? t.d.sides.counts(sides.speakers, sides.reservations) : "";
   const segments = [
     { key: "for", n: rc.for, cls: styles.for, label: t.d.breakdown.for },
@@ -37,6 +39,7 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
           <span className="small muted">{rc.total_records > 0 ? t.d.rc.line(rc.for, rc.against, rc.abstain) : missingRollCallText(vote.method, t)}</span>
         )}
         <Title he={vote.title_he} t={vote} compact className={styles.title} />
+        {described?.about && <span className={styles.about}><About about={described.about} bill={described.id} max={240} compact /></span>}
         {cast > 0 && (
           <>
             <span className={styles.bar} role="img" aria-label={`${t.d.rc.line(rc.for, rc.against, rc.abstain)}; ${t.d.rc.cast120(cast)}`}>

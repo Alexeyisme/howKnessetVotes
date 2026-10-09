@@ -81,6 +81,7 @@ export function MatchQuiz({ votes, parties, initial, initialStep, locale, labels
       <h2 ref={heading} tabIndex={-1} className={styles.question}>{labels.question}</h2>
       <p className={`he ${styles.title}`} lang="he" dir="rtl">{current.title_he}</p>
       {current.title && <p className={styles.translation} dir="auto">{current.title}</p>}
+      {current.about && <div className={styles.about}>{current.about}</div>}
       {/* both sides' main argument, so the answer can rest on more than the title */}
       {current.sides && (
         <div className={styles.sides}>

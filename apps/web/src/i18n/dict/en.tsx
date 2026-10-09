@@ -347,6 +347,7 @@ export const en: Dict = {
     differences: (n) => `Votes where they differed (${n})`,
   },
   match: {
+    aboutMore: "Full text on the bill page →",
     back: "Back",
     edit: "Edit answer",
     finish: "See results",

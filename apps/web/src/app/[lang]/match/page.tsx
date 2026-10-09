@@ -4,6 +4,7 @@ import { MIN_COMPARABLE, type MatchParty, type MatchSide, type MatchVote, type S
 import { getVote, listVotes, type ProseText, type VoteSummary } from "@/lib/api";
 import { verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
+import { About } from "@/components/About";
 import Link from "@/components/Link";
 
 const QUESTIONS = 12;
@@ -73,12 +74,14 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
       stands[f.faction_id] = f.ambiguous_records ? "ambiguous" : f.majority;
       if (!parties.has(f.faction_id)) parties.set(f.faction_id, { id: f.faction_id, name: t.faction(f) });
     }
+    const described = v.bills.find((b) => b.about);
     const sides = v.bills.find((b) => b.sides?.argument_for && b.sides.argument_against)?.sides;
     const side = (a: ProseText & { speakers: number }): MatchSide => {
       const tr = t.locale !== "he" ? a.text : null;
       return { text: tr ?? a.text_he, he: !tr, made: t.d.sides.made(a.speakers) };
     };
     return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands,
+             about: described?.about ? <About about={described.about} bill={described.id} /> : null,
              sides: sides?.argument_for && sides.argument_against ? { for: side(sides.argument_for), against: side(sides.argument_against) } : null };
   });
   const answers = typeof sp.a === "string" && (shared || sp.q === currentIds) ? sp.a : "";

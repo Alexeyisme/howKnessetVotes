@@ -42,7 +42,7 @@ export interface VoteSummary extends Titled {
   stage: Stage | null;
   method: string;
   status: string;
-  bills: ({ id: number; title_he: string; topics: string[]; sides?: DebateSides | null } & Titled)[];
+  bills: ({ id: number; title_he: string; topics: string[]; sides?: DebateSides | null; about?: BillAbout | null } & Titled)[];
   roll_call: Counts;
   blocs?: Blocs | null;
   source_url: string;
@@ -227,6 +227,13 @@ export interface BillDetail extends BillSummary {
 export interface ProseText { text_he: string; text?: string | null; text_origin?: "machine" | "editor" | null }
 
 /** L7 cards: each side's argument made by the most speakers (both or neither), members who spoke, reservations filed. */
+/** What a bill does, on final votes: the official summary, or where there is none our description of the sponsors'
+ *  explanatory notes. Exactly one of the two Hebrew texts is set; the plain field is the page language's translation. */
+export interface BillAbout {
+  summary_he: string | null; summary?: string | null; summary_origin?: "machine" | "editor" | null;
+  explanation_he: string | null; explanation?: string | null; explanation_origin?: "machine" | "editor" | null;
+}
+
 export interface DebateSides {
   argument_for: (ProseText & { speakers: number }) | null;
   argument_against: (ProseText & { speakers: number }) | null;
@@ -329,8 +336,8 @@ export interface Comparison {
   stage: string[];
   motion_type: string[];
 }
-export const compareMembers = (a: number, b: number, cursor?: string) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/members${qs({ a: String(a), b: String(b), cursor })}`);
-export const compareFactions = (a: number, b: number, cursor?: string) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ a: String(a), b: String(b), cursor })}`);
+export const compareMembers = (a: number, b: number, p: Params = {}) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/members${qs({ ...p, a: String(a), b: String(b) })}`);
+export const compareFactions = (a: number, b: number, p: Params = {}) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ ...p, a: String(a), b: String(b) })}`);
 
 export const listTopics = () => get<{ data: TopicSummary[]; meta: Meta }>(`/api/v1/topics`);
 export const getTopic = (slug: string) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}`);

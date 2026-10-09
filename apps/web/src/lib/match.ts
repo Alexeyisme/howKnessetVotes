@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { Majority } from "./api";
 
 // R6 scoring, kept apart from the component so it can be tested (scripts/match.test.mjs).
@@ -10,6 +11,7 @@ export interface MatchParty { id: number; name: string }
 export interface MatchSide { text: string; he: boolean; made: string }
 export interface MatchVote {
   id: number; date: string; title_he: string; title: string | null; outcome: string; line: string; stands: Record<number, Stand>;
+  about?: ReactNode;  // what the law does: start of the official summary or the sponsors' notes, rendered on the server
   sides: { for: MatchSide; against: MatchSide } | null;
 }
 

@@ -349,6 +349,7 @@ export const ar: Dict = {
     differences: (n) => `التصويتات التي اختلفا فيها (${n})`,
   },
   match: {
+    aboutMore: "النص الكامل في صفحة مشروع القانون ←",
     back: "رجوع",
     edit: "تعديل الإجابة",
     finish: "عرض النتائج",

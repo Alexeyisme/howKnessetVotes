@@ -11,8 +11,8 @@ from typing import Annotated, ClassVar, Literal
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from hkv.api.common import (VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_sides, debate_sides,
-                            vote_summary)
+from hkv.api.common import (VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_about, attach_sides,
+                            debate_sides, vote_summary)
 from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
                            TitleTranslations, TopicLabels, with_names)
 from hkv.debate import FINAL_VOTE
@@ -583,6 +583,13 @@ class Comparison(BaseModel):
 
 
 DIFF_LIMIT = 100
+# The /votes "contested" view on comparisons too: the coalition and opposition majorities differed, at least min_cast cast.
+COMPARE_FILTERS = """
+             AND (NOT %(contested)s OR EXISTS (SELECT 1 FROM vote_bloc vb WHERE vb.vote_id = v.id AND vb.contested))
+             AND (%(min_cast)s::int IS NULL OR (SELECT count(*) FROM ballot z WHERE z.vote_id = v.id
+                                                AND z.choice IN ('for', 'against', 'abstain')) >= %(min_cast)s::int)"""
+Contested = Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")]
+MinCast = Annotated[int | None, Query(ge=0, le=120, description="at least this many for/against/abstain records")]
 
 
 def _compare(conn, rows: list[dict], stage: list[str], motion: list[str], limit: int = DIFF_LIMIT,
@@ -602,6 +609,8 @@ def _compare(conn, rows: list[dict], stage: list[str], motion: list[str], limit:
         remaining = [r for r in all_diffs if (r["occurred_on"], r["vid"]) < key]
     diffs = remaining[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([r["vid"] for r in diffs],))} if diffs else {}
+    attach_sides(conn, list(summaries.values()))  # final votes: the debate in brief, as on vote cards
+    attach_about(conn, list(summaries.values()))  # what each law does, at every reading listed
     return Comparison(agreement=rate(len(both) - len(all_diffs), len(both)),
                       differences=[CompareDiff(vote=summaries[r["vid"]], a=CompareSide(choice=r["a"]), b=CompareSide(choice=r["b"])) for r in diffs],
                       differences_total=len(all_diffs), differences_offset=len(all_diffs) - len(remaining),
@@ -613,20 +622,23 @@ def _compare(conn, rows: list[dict], stage: list[str], motion: list[str], limit:
 @with_names
 def compare_members(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
                     motion_type: Annotated[list[MotionType] | None, Query()] = None,
+                    contested: Contested = False, min_cast: MinCast = None,
                     limit: Annotated[int, Query(ge=1, le=100)] = DIFF_LIMIT, cursor: str | None = None):
     """Two MKs on the votes both cast: agreement rate and the votes where they chose differently.
     Default scope: votes on bills as a whole and no-confidence motions, any stage."""
     pa, pb = person_id(conn, a), person_id(conn, b)
     stages, motions = stage or [], motion_type or ["adopt_bill", "no_confidence"]
     rows = conn.execute(
-        """SELECT v.knesset_vote_id AS vid, v.occurred_on, x.choice AS a, y.choice AS b
+        f"""SELECT v.knesset_vote_id AS vid, v.occurred_on, x.choice AS a, y.choice AS b
            FROM ballot x JOIN ballot y ON y.vote_id = x.vote_id AND y.person_id = %(pb)s JOIN vote v ON v.id = x.vote_id
            LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
            WHERE x.person_id = %(pa)s AND x.choice IS NOT NULL AND y.choice IS NOT NULL
              AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
+             {COMPARE_FILTERS}
            ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
-        {"pa": pa, "pb": pb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
-    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+        {"pa": pa, "pb": pb, "stages": stages, "nostage": not stages, "motions": motions, "contested": contested, "min_cast": min_cast}).fetchall()
+    filters = {"a": a, "b": b, "stage": stages, "motion_type": motions, "contested": contested, "min_cast": min_cast}
+    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters=filters, note=(
         "agreement = votes where both chose the same of for/against/abstain / votes where both cast a vote."))}
 
 
@@ -634,6 +646,7 @@ def compare_members(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | N
 @with_names
 def compare_factions(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
                      motion_type: Annotated[list[MotionType] | None, Query()] = None,
+                     contested: Contested = False, min_cast: MinCast = None,
                      limit: Annotated[int, Query(ge=1, le=100)] = DIFF_LIMIT, cursor: str | None = None):
     """Two factions on the votes where each had a strict majority among its casting members: agreement rate and the
     votes where the majorities differed. Default scope: votes on bills as a whole and no-confidence motions."""
@@ -653,9 +666,11 @@ def compare_factions(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | 
            LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
            WHERE x.faction_id = %(fa)s AND x.m IS NOT NULL AND y.m IS NOT NULL
              AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
+             {COMPARE_FILTERS}
            ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
-        {"fa": fa, "fb": fb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
-    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+        {"fa": fa, "fb": fb, "stages": stages, "nostage": not stages, "motions": motions, "contested": contested, "min_cast": min_cast}).fetchall()
+    filters = {"a": a, "b": b, "stage": stages, "motion_type": motions, "contested": contested, "min_cast": min_cast}
+    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters=filters, note=(
         f"agreement = votes where both factions' casting members (at least {MIN_COLLEAGUES}) had the same strict majority / "
         "votes where both had one."))}
 

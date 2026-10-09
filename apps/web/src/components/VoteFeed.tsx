@@ -6,8 +6,8 @@ import { getT } from "@/i18n/server";
 import styles from "./VoteFeed.module.css";
 
 // "main": votes on bills as a whole and no-confidence motions. Reservations, article and procedural votes (most of
-// the rows) are one click away under "all votes".
-const FILTERS: { key: string; params: Record<string, string | string[]> }[] = [
+// the rows) are one click away under "all votes". Also the views of a comparison (/compare).
+export const FILTERS: { key: string; params: Record<string, string | string[]> }[] = [
   { key: "main", params: { motion_type: MAIN_MOTIONS } },
   { key: "contested", params: { stage: "third", motion_type: "adopt_bill", contested: "true", min_cast: "60" } },
   { key: "final", params: { stage: "third", motion_type: "adopt_bill" } },
@@ -51,12 +51,7 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
   return (
     <>
       {d.lead[view.key] && <p className="muted" style={{ marginBottom: 12 }}>{d.lead[view.key]}</p>}
-      <nav className={styles.filters} aria-label={d.filtersLabel}>
-        {FILTERS.map((f) => (
-          <Link key={f.key} href={href(f.key)} className={styles.chip} scroll={false}
-                aria-current={f.key === view.key ? "page" : undefined}>{d.filters[f.key]}</Link>
-        ))}
-      </nav>
+      <ViewChips current={view.key} href={href} />
       <VoteCards>
         {res.rows.map(({ vote, party }) => (
           <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"}
@@ -69,5 +64,18 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
         <p style={{ marginTop: 16 }}><Link href={href(view.key, { cursor: res.next })}>{t.d.common.earlier}</Link></p>
       )}
     </>
+  );
+}
+
+/** The view chips (main, contested, final, …), each a link built by `href(key)`. */
+export async function ViewChips({ current, href }: { current: string; href: (key: string) => string }) {
+  const d = (await getT()).d.votes;
+  return (
+    <nav className={styles.filters} aria-label={d.filtersLabel}>
+      {FILTERS.map((f) => (
+        <Link key={f.key} href={href(f.key)} className={styles.chip} scroll={false}
+              aria-current={f.key === current ? "page" : undefined}>{d.filters[f.key]}</Link>
+      ))}
+    </nav>
   );
 }
