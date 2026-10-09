@@ -1,5 +1,14 @@
 # howKnessetVotes
 
+**In English.** Public site and REST API showing how Knesset factions and individual members voted, by name.
+Each MK is shown with the faction they belonged to on the vote date, and every number links to its official source.
+Site: <https://knessetvotes.org> (Hebrew, English, Russian, Arabic beta). API docs: <https://knessetvotes.org/docs>.
+Stack: Python (FastAPI, psycopg), Postgres 17, Next.js. To run it locally, see "Run locally" in [CLAUDE.md](CLAUDE.md#run-locally).
+Notes in English: [docs/roadmap.md](docs/roadmap.md),
+[docs/deploy.md](docs/deploy.md). License: code MIT ([LICENSE](LICENSE)), data CC BY 4.0
+([LICENSE-DATA.md](LICENSE-DATA.md)). Security reports: [SECURITY.md](SECURITY.md).
+The rest of this README is in Russian.
+
 Публичный ресурс и REST API: как фракции и отдельные депутаты Кнессета голосовали по законопроектам. Поимённо, с историей фракций на дату голосования и ссылкой на официальный источник для каждой цифры.
 
 **Сайт: <https://knessetvotes.org>** · API: <https://knessetvotes.org/docs>

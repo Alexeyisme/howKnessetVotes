@@ -2,7 +2,7 @@
 
 One Hetzner Cloud server runs the whole site.
 
-- **Server:** `hkv-1`, CPX22 (2 vCPU, 4 GB), Helsinki, Ubuntu 24.04, address <hkv-1 address>.
+- **Server:** `hkv-1`, CPX22 (2 vCPU, 4 GB), Helsinki, Ubuntu 24.04. Its address is not in the repo: it is in your `~/.ssh/config` (see Access) and in `hcloud server list`.
 - **Stack:** [infra/compose.prod.yaml](../infra/compose.prod.yaml) runs four services:
   - `db` (Postgres 17);
   - `api` (FastAPI; runs migrations on start);
@@ -12,13 +12,28 @@ One Hetzner Cloud server runs the whole site.
     go to the API, `/u/script.js` and `/u/api/send` to Umami, `stats.knessetvotes.org` to the Umami dashboard,
     everything else goes to the web app).
 - **Code** lives in `/srv/hkv` and is owned by the `deploy` user.
-- **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title and bill-summary translations — with it set, every `hkv update` translates the titles and official summaries that are new since the last run with `HKV_TRANSLATE_MODEL`, default Haiku 4.5, into `HKV_TRANSLATE_LANGS` (default `en,ru,ar` since 2026-10-07; it was `en,ru` before) and makes no request when nothing is new; the backlog was loaded once with `hkv translate --lang en,ru` on 2026-10-05; titles that failed the checks are retried only with `hkv translate --retry-failed`). One update translates at most `HKV_UPDATE_TRANSLATE_LIMIT` (60) texts per language and kind and describes at most `HKV_UPDATE_NOTES_LIMIT` (20) bills from their explanatory notes and summarises the debate and the reservations of at most `HKV_UPDATE_POSITIONS_LIMIT` (5) bills each (contested final votes), so a backlog cannot hold it past its 2-hour limit (it did on 2026-10-07, when Arabic was added); a backlog goes as one Message Batch with `hkv translate --batch` / `hkv notes --batch` / `hkv debate --batch` / `hkv reservations --batch` (manual job, see below), and the log warns when a run hit the cap. They are not in git. The Cloudflare Turnstile keys for the contact form (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`) are set from your machine with [scripts/set-turnstile.sh](../scripts/set-turnstile.sh), which asks for them and writes them to `.env` over SSH. With both set, the form shows the widget and the API verifies its token; empty keys turn the check off. After changing `infra/Caddyfile`, restart Caddy (`scripts/prod.sh restart caddy`): the file is bind-mounted and rsync replaces it, so the running container keeps the old one.
+- **Secrets** are in `/srv/hkv/.env` (`POSTGRES_PASSWORD`, `SITE_DOMAIN`, `TELEGRAM_*`, and `ANTHROPIC_API_KEY` for the title and bill-summary translations — with it set, every `hkv update` translates the titles and official summaries that are new since the last run with `HKV_TRANSLATE_MODEL`, default Haiku 4.5, into `HKV_TRANSLATE_LANGS` (default `en,ru,ar` since 2026-10-07; it was `en,ru` before) and makes no request when nothing is new; the backlog was loaded once with `hkv translate --lang en,ru` on 2026-10-05; titles that failed the checks are retried only with `hkv translate --retry-failed`). One update translates at most `HKV_UPDATE_TRANSLATE_LIMIT` (60) texts per language and kind and describes at most `HKV_UPDATE_NOTES_LIMIT` (20) bills from their explanatory notes and summarises the debate and the reservations of at most `HKV_UPDATE_POSITIONS_LIMIT` (5) bills each (contested final votes), so a backlog cannot hold it past its 2-hour limit (it did on 2026-10-07, when Arabic was added); a backlog goes as one Message Batch with `hkv translate --batch` / `hkv notes --batch` / `hkv debate --batch` / `hkv reservations --batch` (manual job, see below), and the log warns when a run hit the cap. They are not in git. The Cloudflare Turnstile keys for the contact form (`TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY`) are set from your machine with [scripts/set-turnstile.sh](../scripts/set-turnstile.sh), which asks for them and writes them to `.env` over SSH. With both set, the form shows the widget and the API verifies its token; empty keys turn the check off. `HKV_IP_SALT` (any random string, e.g. `openssl rand -hex 32`) salts the per-visitor hash behind the form's daily limit, so stored hashes cannot be reversed by trying every IPv4 address; changing it only resets that day's counts. After changing `infra/Caddyfile`, restart Caddy (`scripts/prod.sh restart caddy`): the file is bind-mounted and rsync replaces it, so the running container keeps the old one.
 
 ## Access
 
 - **Hetzner Cloud:** `hcloud` CLI with context `hkv`. The user creates the token in the console.
-- **SSH:** `ssh -i ~/.ssh/hkv_hetzner deploy@<hkv-1 address>`. Root login is key-only and password
-  login is off.
+- **SSH:** `ssh hkv` (user `deploy`) and `ssh hkv-root`; the Israeli proxy server ([knesset-proxy.md](knesset-proxy.md)) is
+  `ssh hkv-il`. Root login is key-only and password login is off. The aliases live in your `~/.ssh/config`, so
+  server addresses stay out of this public repo:
+
+  ```text
+  Host hkv hkv-root
+      HostName <hkv-1 address>
+      IdentityFile ~/.ssh/hkv_hetzner
+  Host hkv
+      User deploy
+  Host hkv-root
+      User root
+  Host hkv-il
+      HostName <Israeli server address>
+      User root
+      IdentityFile ~/.ssh/hkv_hetzner
+  ```
 - **Firewall:** the Hetzner firewall `hkv-web` allows tcp 22, 80 and 443, and icmp.
 - **DNS:** Cloudflare (registrar and DNS). The `A`/`AAAA` records for `knessetvotes.org` and `www`
   point at the server.
@@ -36,7 +51,7 @@ the statistics are not backed up (Hetzner server backups still copy the whole di
 
 One-time setup (done once per server):
 
-1. Cloudflare DNS: `A` record `stats` → <hkv-1 address>, proxied (like `www`).
+1. Cloudflare DNS: `A` record `stats` → the server address (same as `knessetvotes.org`), proxied (like `www`).
 2. On the server, from `/srv/hkv`: `scripts/prod.sh exec db createdb -U knesset umami`, and add
    `UMAMI_APP_SECRET=$(openssl rand -hex 32)` to `.env`.
 3. Deploy, then `scripts/prod.sh restart caddy` (new Caddyfile). Umami creates its tables on first start.
@@ -50,7 +65,7 @@ One-time setup (done once per server):
 scripts/deploy.sh   # rsync of committed files, then docker compose up -d --build on the server
 ```
 
-The repo is private. The server holds no GitHub credentials and gets only the files that git tracks,
+The server holds no GitHub credentials and gets only the files that git tracks (`ssh hkv`, see Access),
 so **commit before deploying**. Files that are no longer tracked are removed from the server's code directories
 (`apps src db infra scripts tests docs`); `.env`, `backups/` and everything else there is left alone.
 
@@ -76,7 +91,7 @@ scripts/prod.sh ps | logs -f api      # on the server, from /srv/hkv
 ```
 
 Occasional manual jobs (run on the server from `/srv/hkv` as **root** — `deploy` has no passwordless sudo —
-e.g. `ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address>`; all are safe to repeat):
+e.g. `ssh hkv-root`; all are safe to repeat):
 
 ```sh
 sudo systemd-run --unit=hkv-names --uid=deploy --gid=deploy --working-directory=/srv/hkv /srv/hkv/scripts/prod.sh run --rm updater hkv names

@@ -5,8 +5,8 @@
 # replaced, the rest of .env is kept, mode stays 600, and the previous file is kept as .env.bak. They take effect
 # when the containers are recreated: the next scripts/deploy.sh.
 set -eu
-HOST="${HKV_HOST:-deploy@<hkv-1 address>}"
-SSH="ssh -i ${HKV_SSH_KEY:-$HOME/.ssh/hkv_hetzner}"
+HOST="${HKV_HOST:-hkv}"   # an alias in ~/.ssh/config (docs/deploy.md): the address is not kept in the repo
+SSH="ssh"
 
 valid() { printf '%s' "$1" | grep -Eq '^[A-Za-z0-9_-]{10,200}$'; }
 

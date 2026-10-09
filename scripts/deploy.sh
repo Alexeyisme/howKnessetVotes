@@ -1,12 +1,12 @@
 #!/bin/sh
 # Deploy the committed tree to the server and restart what changed: scripts/deploy.sh
-# Copies tracked files only (the repo is private, so the server holds no GitHub credentials), then removes files
-# under the code directories that are no longer tracked (moved or deleted pages would otherwise break the build).
+# Copies tracked files only (the server holds no GitHub credentials and needs none), then removes files under
+# the code directories that are no longer tracked (moved or deleted pages would otherwise break the build).
 # .env, backups/ and anything outside those directories on the server are left alone.
 set -eu
 cd "$(dirname "$0")/.."
-HOST="${HKV_HOST:-deploy@<hkv-1 address>}"
-SSH="ssh -i ${HKV_SSH_KEY:-$HOME/.ssh/hkv_hetzner}"
+HOST="${HKV_HOST:-hkv}"   # an alias in ~/.ssh/config (docs/deploy.md): the address is not kept in the repo
+SSH="ssh"
 
 CODE_DIRS="apps src db infra scripts tests docs"
 

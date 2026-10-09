@@ -21,7 +21,7 @@ through only from Israel. We don't know why the block started or how long it wil
 To see whether the block is still on, ask `hkv-1` to open the Knesset site directly, without the proxy:
 
 ```sh
-ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address> \
+ssh hkv-root \
   "curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' https://www.knesset.gov.il/"
 # 303 https://www.knesset.gov.il/maintenance-page-geo  = still blocked, the proxy is needed
 # 200                                                 = direct access works again (see "Undo" below)
@@ -88,14 +88,15 @@ hkv-1 (Hetzner, outside Israel)                         hkv-il-proxy (Kamatera, 
 
 | What | Where |
 |---|---|
-| Israeli server | Kamatera account, server `hkv-il-proxy`, <il-proxy address>, datacenter IL-TA (Tel Aviv). 1 vCPU, 1 GB RAM, 20 GB disk, Ubuntu 24.04, monthly plan, $4/month |
-| Logging in to it | `ssh -i ~/.ssh/hkv_hetzner root@<il-proxy address>` (same key as `hkv-1`) |
+| Israeli server | Kamatera account, server `hkv-il-proxy` (address: `HostName` of `hkv-il` in your `~/.ssh/config`), datacenter IL-TA (Tel Aviv). 1 vCPU, 1 GB RAM, 20 GB disk, Ubuntu 24.04, monthly plan, $4/month |
+| Logging in to it | `ssh hkv-il` (same key as `hkv-1`) |
 | Its root password | Only for the Kamatera web console (an emergency screen in the browser). It is in your macOS Keychain under "hkv-il-proxy root". SSH doesn't use it |
 | Kamatera from the command line | `cloudcli` on your Mac; its login is in `~/.cloudcli.yaml` (you entered it with `cloudcli init`) |
 | Proxy script | [scripts/knesset_proxy.py](../scripts/knesset_proxy.py) in the repo; installed copy at `/usr/local/bin/knesset_proxy.py` on the Israeli server |
 | Proxy service | [infra/il/knesset-proxy.service](../infra/il/knesset-proxy.service); installed at `/etc/systemd/system/` on the Israeli server |
 | Tunnel service | [infra/systemd/hkv-il-tunnel.service](../infra/systemd/hkv-il-tunnel.service); installed on `hkv-1`, runs as user `deploy` |
 | Tunnel key | `/home/deploy/.ssh/hkv_il_tunnel` on `hkv-1`; its public half is in `/home/tunnel/.ssh/authorized_keys` on the Israeli server |
+| Israeli server's address on `hkv-1` | Host alias `hkv-il-tunnel` in `/home/deploy/.ssh/config` (`Host hkv-il-tunnel` / `HostName <address>`), used by the tunnel unit |
 | Israeli server's identity | Pinned in `/home/deploy/.ssh/known_hosts` on `hkv-1`, so the tunnel won't connect to an impostor |
 | The setting | `HKV_KNESSET_PROXY` in `/srv/hkv/.env` on `hkv-1`, passed to the `updater` container by `infra/compose.prod.yaml` |
 | SSH settings | `/etc/ssh/sshd_config` on the Israeli server (Kamatera's image doesn't read `sshd_config.d`); the original is saved as `sshd_config.kamatera-orig` |
@@ -123,9 +124,9 @@ Usually you'll notice through a Telegram alert that the update failed. Run this 
 shows all three pieces and the latest update:
 
 ```sh
-ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address> 'echo "tunnel: $(systemctl is-active hkv-il-tunnel)";
+ssh hkv-root 'echo "tunnel: $(systemctl is-active hkv-il-tunnel)";
   echo "setting: $(grep -c "^HKV_KNESSET_PROXY=" /srv/hkv/.env)"; journalctl -u hkv-update -n 3 --no-pager -o cat'
-ssh -i ~/.ssh/hkv_hetzner root@<il-proxy address> 'echo "proxy: $(systemctl is-active knesset-proxy)";
+ssh hkv-il 'echo "proxy: $(systemctl is-active knesset-proxy)";
   journalctl -u knesset-proxy -n 5 --no-pager -o cat'
 ```
 
@@ -134,7 +135,7 @@ ends with `hkv.update done: N votes in window`, and the proxy log has recent `tu
 If an update is running right now, the log ends with a progress line instead (e.g. `hkv.update reference data`);
 wait a few minutes and check again.
 
-To rerun an update by hand after a fix: `ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address> 'systemctl start hkv-update'`.
+To rerun an update by hand after a fix: `ssh hkv-root 'systemctl start hkv-update'`.
 
 | What you see | What it means | What to do |
 |---|---|---|
@@ -145,7 +146,7 @@ To rerun an update by hand after a fix: `ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 a
 | Tunnel log: `Permission denied (publickey)` | The tunnel key is missing from the Israeli server | Restore the `authorized_keys` line (see "Rebuilding" below) |
 | Update log: proxy answered `502`; `proxy:` active | The Israeli server can't reach the Knesset (the Knesset is down, or it now blocks this address too) | On the Israeli server: `curl -sI https://www.knesset.gov.il/` |
 | Proxy log: `refused CONNECT …` for a Knesset host | The Knesset moved data to a domain outside `knesset.gov.il` | Add the domain to `ALLOWED` in `scripts/knesset_proxy.py`, copy it to `/usr/local/bin/` there, `systemctl restart knesset-proxy` |
-| `ssh` to <il-proxy address> times out | The Israeli server is off, or Kamatera has a problem (e.g. billing) | Kamatera web console: power state, then the browser console with the root password from Keychain |
+| `ssh hkv-il` times out | The Israeli server is off, or Kamatera has a problem (e.g. billing) | Kamatera web console: power state, then the browser console with the root password from Keychain |
 
 ## Rebuilding the Israeli server
 
@@ -168,20 +169,20 @@ Then:
    `/home/deploy/.ssh/hkv_il_tunnel.pub` from `hkv-1`.
 2. Turn off SSH password login there (`PasswordAuthentication no` in `/etc/ssh/sshd_config`, then
    `systemctl restart ssh`).
-3. Put the new address in [infra/systemd/hkv-il-tunnel.service](../infra/systemd/hkv-il-tunnel.service) and
-   copy the unit to `/etc/systemd/system/` on `hkv-1`.
+3. On `hkv-1`, put the new address as `HostName` of `Host hkv-il-tunnel` in `/home/deploy/.ssh/config` (the
+   [tunnel unit](../infra/systemd/hkv-il-tunnel.service) connects to that alias).
 4. On `hkv-1`, pin the new server's key: `ssh-keyscan -t ed25519 <new address>` and check it against
    `/etc/ssh/ssh_host_ed25519_key.pub` on the new server, then replace the line in
    `/home/deploy/.ssh/known_hosts`.
 5. `systemctl daemon-reload && systemctl restart hkv-il-tunnel` on `hkv-1`, then run the check above.
-6. Update the address here and in `CLAUDE.md`.
+6. Update `HostName` of `hkv-il` in your own `~/.ssh/config`.
 
 ## Undo
 
 When direct access works again (see the check at the top), turn the proxy off:
 
 ```sh
-ssh -i ~/.ssh/hkv_hetzner root@<hkv-1 address> 'sed -i "/^HKV_KNESSET_PROXY=/d" /srv/hkv/.env &&
+ssh hkv-root 'sed -i "/^HKV_KNESSET_PROXY=/d" /srv/hkv/.env &&
   systemctl disable --now hkv-il-tunnel'
 ```
 

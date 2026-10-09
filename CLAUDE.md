@@ -2,7 +2,8 @@
 
 Public site + REST API: how Knesset factions and individual MKs voted, by name, with the faction each MK
 belonged to *on the vote date* and a link to the official source for every number.
-Live at **https://knessetvotes.org** (API docs at `/docs`). Private repo `Alexeyisme/howKnessetVotes`.
+Live at **https://knessetvotes.org** (API docs at `/docs`). Public repo `Alexeyisme/howKnessetVotes`: code MIT
+(`LICENSE`), our data CC BY 4.0 (`LICENSE-DATA.md`). Never commit server addresses, keys or secrets.
 
 The owner writes in Russian or English — answer in the language of the message. Docs: `README.md` and
 `docs/architecture.md` are in Russian; `docs/roadmap.md`, `docs/deploy.md` and code comments are in English.
@@ -82,9 +83,10 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
 
 ## Production
 
-- One Hetzner server (`hkv-1`, <hkv-1 address>) running Docker Compose: db, api, web, caddy, plus an `updater`
-  container for jobs. SSH key `~/.ssh/hkv_hetzner`; user `deploy` (no passwordless sudo) — manual
-  `systemd-run` jobs go over `ssh root@…`. Examples in `docs/deploy.md`.
+- One Hetzner server (`hkv-1`) running Docker Compose: db, api, web, caddy, plus an `updater`
+  container for jobs. SSH aliases in `~/.ssh/config`: `hkv` (user
+  `deploy`, no passwordless sudo), `hkv-root`, `hkv-il` (server addresses are kept out of the repo, `docs/deploy.md`);
+  manual `systemd-run` jobs go over `ssh hkv-root`. Examples in `docs/deploy.md`.
 - **Deploy = `scripts/deploy.sh`** after committing (it rsyncs tracked files only and deletes untracked files in
   the code dirs). Check CI first: `gh run list --limit 1`. Deploying changes the public site — confirm with the
   owner unless they asked for it.
@@ -103,5 +105,5 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + bui
 - The plenum has no quorum: low-turnout votes are real, not missing data (the vote page explains this).
 - The Knesset is in recess until the 26th Knesset convenes on 2026-11-10 (roadmap O7: new term readiness).
 - Since 2026-10-05 the Knesset blocks requests from outside Israel (redirect to `maintenance-page-geo`); updates
-  reach it through an SSH tunnel to a $4 proxy server in Israel (Kamatera `hkv-il-proxy`, <il-proxy address>;
+  reach it through an SSH tunnel to a $4 proxy server in Israel (Kamatera `hkv-il-proxy`;
   `HKV_KNESSET_PROXY`, [docs/knesset-proxy.md](docs/knesset-proxy.md)).

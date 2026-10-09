@@ -6,10 +6,12 @@ Wants=network-online.target
 [Service]
 # Listens on the gateway of the hkv_default Docker network, reachable by job containers but not the internet.
 # The tunnel user on the Israeli server may only forward to 127.0.0.1:8890 (knesset_proxy.py).
+# `hkv-il-tunnel` is a host alias in /home/deploy/.ssh/config on hkv-1 (HostName = the Israeli server's address), so the
+# address stays out of the repo (docs/knesset-proxy.md).
 User=deploy
 ExecStart=/usr/bin/ssh -N -i /home/deploy/.ssh/hkv_il_tunnel \
   -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
-  -L 172.18.0.1:8890:127.0.0.1:8890 tunnel@<il-proxy address>
+  -L 172.18.0.1:8890:127.0.0.1:8890 tunnel@hkv-il-tunnel
 Restart=always
 RestartSec=30
 

@@ -219,7 +219,7 @@ New item:
 - **`KNS_DocumentBill`** has proposal documents per bill (DOC/PDF) with explanatory notes.
 - **History**: `KNS_PlenumVote` starts at Id 6 (2003-10-20) and `KNS_PlenumVoteResult` has
   ballots from then on. Legacy `Votes.svc` covers 2003 – 2021-07-13.
-- **Access from the server**: all of the above are reachable from Hetzner Helsinki (<hkv-1 address>).
+- **Access from the server**: all of the above are reachable from Hetzner Helsinki (`hkv-1`).
   60 paced requests all returned 200.
 
 ## Source research (2026-10-06): bill descriptions and the coalition–opposition fight

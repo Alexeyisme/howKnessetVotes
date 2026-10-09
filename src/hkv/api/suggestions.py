@@ -55,7 +55,9 @@ def client_ip(request: Request) -> str:
 
 
 def ip_hash(request: Request) -> str:
-    return hashlib.sha256(f"{client_ip(request)}|{dt.date.today().isoformat()}".encode()).hexdigest()
+    """Salted with a server secret: without it every IPv4 address could be tried against a stored hash."""
+    salt = os.environ.get("HKV_IP_SALT", "")
+    return hashlib.sha256(f"{salt}|{client_ip(request)}|{dt.date.today().isoformat()}".encode()).hexdigest()
 
 
 def human(token: str | None, ip: str) -> bool:

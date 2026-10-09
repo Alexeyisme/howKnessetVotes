@@ -12,3 +12,5 @@ audit/raw/
 logs/
 *.out
 /backups/
+# local agent state and per-machine permissions (they may name hosts)
+.claude/
