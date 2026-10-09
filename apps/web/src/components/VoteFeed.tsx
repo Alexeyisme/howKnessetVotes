@@ -51,7 +51,8 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
   return (
     <>
       {d.lead[view.key] && <p className="muted" style={{ marginBottom: 12 }}>{d.lead[view.key]}</p>}
-      <ViewChips current={view.key} href={href} />
+      {/* "bills, all readings" only repeats the reading chips where it is not the default (topic and party pages) */}
+      <ViewChips current={view.key} href={href} hide={defaultView === "main" ? [] : ["main"]} />
       <VoteCards>
         {res.rows.map(({ vote, party }) => (
           <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"}
@@ -67,12 +68,13 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
   );
 }
 
-/** The view chips (main, contested, final, …), each a link built by `href(key)`. */
-export async function ViewChips({ current, href }: { current: string; href: (key: string) => string }) {
+/** The view chips (main, contested, final, …), each a link built by `href(key)`; `hide` drops some (an old link to a
+ *  hidden view still works). */
+export async function ViewChips({ current, href, hide = [] }: { current: string; href: (key: string) => string; hide?: string[] }) {
   const d = (await getT()).d.votes;
   return (
     <nav className={styles.filters} aria-label={d.filtersLabel}>
-      {FILTERS.map((f) => (
+      {FILTERS.filter((f) => !hide.includes(f.key)).map((f) => (
         <Link key={f.key} href={href(f.key)} className={styles.chip} scroll={false}
               aria-current={f.key === current ? "page" : undefined}>{d.filters[f.key]}</Link>
       ))}

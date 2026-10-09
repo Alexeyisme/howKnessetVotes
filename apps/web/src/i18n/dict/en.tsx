@@ -139,9 +139,9 @@ export const en: Dict = {
   votes: {
     title: "Plenum votes",
     filtersLabel: "Which votes to show",
-    filters: { main: "Main", contested: "Contested", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
+    filters: { main: "Bills (all readings)", contested: "Contested", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
     lead: {
-      main: "Votes on bills as a whole and no-confidence motions. Reservations, sections and procedural votes are under “All votes”.",
+      main: "Votes on bills as a whole at every reading, and no-confidence motions. Reservations, sections and procedural votes are under “All votes”.",
       final: "Votes after which a bill becomes law (or does not).",
       contested: "Final votes where the coalition majority and the opposition majority voted differently, with at least 60 members voting: the laws that were fought over.",
       all: "All votes, including reservations (amendments), individual sections and procedural decisions.",
