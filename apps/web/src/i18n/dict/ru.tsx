@@ -353,6 +353,13 @@ export const ru = {
     parties: "Партии", members: "Депутаты", pick: "Выберите двоих для сравнения.",
     agreement: "Голосовали одинаково", agreementUnit: "общих голосований",
     differences: (n: number) => `Голосования, где они разошлись (${n})`,
+    ended: (name: string, date: string) => `Фракция «${name}» существовала до ${date}: более поздних голосований в этом сравнении нет.`,
+    started: (name: string, date: string) => `Фракция «${name}» существует с ${date}: более ранних голосований в этом сравнении нет.`,
+    continuedAs: (n: number, name: string) => `${n} её депутатов перешли во фракцию «${name}».`,
+    cameFrom: (n: number, name: string) => `${n} её депутатов пришли из фракции «${name}».`,
+    compareWith: (x: string, y: string) => `Сравнить «${x}» и «${y}» →`,
+    renamedTo: (old: string, now: string, date: string) => `С ${date} фракция «${old}» называется «${now}». В данных Кнессета это новая фракция, поэтому голосования под новым названием в это сравнение не входят.`,
+    renamedFrom: (now: string, old: string, date: string) => `До ${date} фракция «${now}» называлась «${old}». В данных Кнессета это была другая фракция, поэтому голосования под старым названием в это сравнение не входят.`,
   },
   match: {
     aboutMore: "Полностью — на странице законопроекта →",

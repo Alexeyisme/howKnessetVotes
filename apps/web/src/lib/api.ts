@@ -176,7 +176,12 @@ export interface FactionSummary extends FactionNames {
   roll_call_records: number;
   parties: PartyRef[];
   alignment_last: Alignment | null;
+  /** another faction of the same Knesset that members moved to on its last day / came from on its first (a split) */
+  continued_as: FactionMove[];
+  continued_from: FactionMove[];
 }
+/** `renamed`: the same group under a new name, which the Knesset records as a new faction */
+export interface FactionMove extends FactionNames { id: number; term: number; members: number; on: string; renamed: boolean }
 
 export interface FactionDetail extends FactionSummary {
   members: (Interval & PersonNames & { person_id: number; faction: FactionRef })[];

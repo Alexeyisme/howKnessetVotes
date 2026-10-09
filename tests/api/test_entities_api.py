@@ -175,6 +175,21 @@ def test_compare_contested_and_turnout_filters(client, kind, a, b):
             conn.execute("DELETE FROM vote_bloc WHERE vote_id = (SELECT id FROM vote WHERE knesset_vote_id = 37689)")
 
 
+def test_faction_splits_from_memberships(client):
+    """A faction that ended or started mid-Knesset names where its members went or came from that day."""
+    moves = lambda fs, key: {f["id"]: [(m["id"], m["members"], m["on"], m["renamed"]) for m in f[key]] for f in fs if f[key]}
+    listed = client.get("/api/v1/factions", params={"term": 25}).json()["data"]
+    # National Unity was renamed Blue and White - National Unity: the same group, a new faction record
+    assert moves(listed, "continued_as") == {1098: [(1110, 6, "2025-07-08", True)]}
+    assert moves([client.get("/api/v1/factions/1110").json()["data"]], "continued_from") == {1110: [(1098, 6, "2025-07-08", True)]}
+    assert moves(listed, "continued_from")[1108] == [(1098, 3, "2024-03-13", False)]  # New Hope split off; National Unity went on
+    # Idan Roll left Yesh Atid, which still exists: a split, not a rename
+    assert moves([client.get("/api/v1/factions/1109").json()["data"]], "continued_from") == {1109: [(1102, 1, "2025-01-14", False)]}
+    assert 1103 not in moves(listed, "continued_from")
+    detail = client.get("/api/v1/factions/1098").json()["data"]
+    assert [(m["id"], m["members"]) for m in detail["continued_as"]] == [(1110, 6)] and detail["continued_from"] == []
+
+
 def test_comparison_paging_preserves_global_rate_and_all_disagreements(client, monkeypatch):
     import datetime as dt
     from hkv.api import entities

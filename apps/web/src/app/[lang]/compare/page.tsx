@@ -3,7 +3,7 @@ import Link from "@/components/Link";
 import { ChoiceMark, FactionName, PersonName, RateStat, Stats, Tabs } from "@/components/ui";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { FILTERS, ViewChips } from "@/components/VoteFeed";
-import { compareFactions, compareMembers, listFactions, listMembers, NotFound, type Comparison } from "@/lib/api";
+import { compareFactions, compareMembers, listFactions, listMembers, NotFound, type Comparison, type FactionSummary } from "@/lib/api";
 import { ALL_MOTIONS } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 
@@ -36,6 +36,21 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
       if (!(e instanceof NotFound)) throw e;
     }
   }
+  // A faction that split or was renamed mid-Knesset has no votes on one side of that day: say so, and offer the
+  // faction its members moved to (or came from) instead. Only factions with votes that lasted a month count: the
+  // Religious Zionism joint list split five days after the 2022 swearing-in, with one procedural vote to its name.
+  const lasted = (f: FactionSummary) => (Date.parse(f.valid.valid_to ?? new Date().toISOString()) - Date.parse(f.valid.valid_from)) / 86_400_000 >= 30;
+  const withVotes = new Map(kind === "factions" ? (options as FactionSummary[]).filter(lasted).map((o) => [o.id, o]) : []);
+  const splits = [a, b].flatMap((id, i) => {
+    const f = id ? withVotes.get(id) : undefined;
+    const other = i === 0 ? b : a;
+    if (!f) return [];
+    const swap = (to: number) => href({ [i === 0 ? "a" : "b"]: String(to) });
+    return ([["continued_as", f.valid.valid_to, d.ended, d.continuedAs, d.renamedTo], ["continued_from", f.valid.valid_from, d.started, d.cameFrom, d.renamedFrom]] as const)
+      .map(([key, on, lead, moved, renamed]) => ({ f, on, lead, moved, renamed, moves: f[key].filter((m) => withVotes.has(m.id)) }))
+      .filter((x) => x.on && x.moves.length)
+      .map((x) => ({ ...x, other, swap }));
+  });
   const name = (id: number | undefined) => {
     const o = options.find((x) => x.id === id);
     if (!o) return "";
@@ -63,6 +78,23 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
       </form>
 
       {!result && <p className="small muted">{d.pick}</p>}
+      {result && splits.map(({ f, on, lead, moved, renamed, moves, other, swap }) => {
+        // a rename is one faction under two records: say that, not that members moved
+        const same = moves.find((m) => m.renamed);
+        return (
+          <p key={`${f.id}-${on}`} className="note small">
+            {same ? renamed(t.faction(f, true), t.faction(same, true), t.date(on!)) : lead(t.faction(f), t.date(on!))}{" "}
+            {moves.map((m) => (
+              <span key={m.id}>
+                {!m.renamed && <>{moved(m.members, t.faction(m))}{" "}</>}
+                {/* only a rename is the same group under another record; after a split the other faction's majority
+                    is not this group's vote */}
+                {m.renamed && m.id !== other && <Link href={swap(m.id)}>{d.compareWith(t.faction(m), name(other))}</Link>}{" "}
+              </span>
+            ))}
+          </p>
+        );
+      })}
       {result && (
         <>
           <ViewChips current={view.key} href={(key) => href({}, key)} />

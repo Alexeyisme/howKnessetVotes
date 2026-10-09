@@ -108,6 +108,15 @@ class AlignmentOut(Interval):
     evidence: str
 
 
+class FactionMove(FactionRef):
+    """Another faction of the same Knesset that members moved to or came from on a boundary day (a split or rename)."""
+    members: int   # members who moved on that day
+    on: dt.date
+    # the same group under a new name: the old faction ended that day, everyone who stayed in the Knesset continued in
+    # this one faction, which started that day, and nobody joined it from another faction (a new MK may)
+    renamed: bool
+
+
 class FactionSummary(FactionNames):
     id: int
     name_he: str
@@ -118,6 +127,9 @@ class FactionSummary(FactionNames):
     parties: list[PartyRef] = []
     # role on the faction's last day (today for a current faction); None before a government was formed
     alignment_last: Literal["coalition", "opposition", "external_support", "unknown"] | None = None
+    # its votes stop or start on that day: a comparison or statistic of this faction alone misses the rest
+    continued_as: list[FactionMove] = []    # where members went on its last day
+    continued_from: list[FactionMove] = []  # where members came from on its first day
 
 
 class FactionStats(BaseModel):
@@ -689,10 +701,41 @@ FACTION_SELECT = """
     FROM faction f"""
 
 
-def faction_summary(r: dict) -> FactionSummary:
+def faction_summary(r: dict, moves: dict | None = None) -> FactionSummary:
+    m = (moves or {}).get(r["pk"], {})
     return FactionSummary(id=r["id"], name_he=r["name_he"].strip(), term=r["term"], valid=Interval(valid_from=r["valid_from"], valid_to=r["valid_to"]),
                           members_ever=r["members_ever"], roll_call_records=r["records"],
-                          parties=[PartyRef(**p) for p in r["parties"]], alignment_last=r["alignment_last"])
+                          parties=[PartyRef(**p) for p in r["parties"]], alignment_last=r["alignment_last"],
+                          continued_as=m.get("as", []), continued_from=m.get("from", []))
+
+
+def faction_moves(conn, pks: list) -> dict:
+    """{pk: {"as": [FactionMove], "from": [FactionMove]}}: members whose membership ended on the faction's last day and
+    who started in another faction of the same Knesset that day, and the reverse for its first day. From
+    faction_membership only (KNS_PersonToPosition), so a split or rename shows without any curated list."""
+    out: dict = {}
+    for r in conn.execute(
+        """WITH moves AS (
+               SELECT a.faction_id AS old, b.faction_id AS new, upper(a.valid) AS d, count(DISTINCT a.person_id) AS members
+               FROM faction_membership a JOIN faction_membership b ON b.person_id = a.person_id AND lower(b.valid) = upper(a.valid)
+               JOIN faction fo ON fo.id = a.faction_id JOIN faction fn ON fn.id = b.faction_id
+               WHERE fn.term_number = fo.term_number AND fn.id <> fo.id GROUP BY 1, 2, 3),
+           edges AS (
+               SELECT m.*, fo.knesset_faction_id AS old_id, fo.name_he AS old_name, fn.knesset_faction_id AS new_id,
+                      fn.name_he AS new_name, fo.term_number AS term, upper(fo.valid) = m.d AS old_ended, lower(fn.valid) = m.d AS new_started,
+                      coalesce(upper(fo.valid) = m.d AND lower(fn.valid) = m.d, false)  -- a still-open faction: not renamed
+                      AND NOT EXISTS (SELECT 1 FROM moves x WHERE x.old = m.old AND x.d = m.d AND x.new <> m.new)
+                      AND NOT EXISTS (SELECT 1 FROM moves x WHERE x.new = m.new AND x.d = m.d AND x.old <> m.old) AS renamed
+               FROM moves m JOIN faction fo ON fo.id = m.old JOIN faction fn ON fn.id = m.new)
+           SELECT old AS pk, 'as' AS dir, new_id AS id, new_name AS name_he, term, d AS on, members, renamed
+           FROM edges WHERE old = ANY(%(pks)s) AND old_ended
+           UNION ALL
+           SELECT new, 'from', old_id, old_name, term, d, members, renamed
+           FROM edges WHERE new = ANY(%(pks)s) AND new_started
+           ORDER BY members DESC""", {"pks": pks}):
+        out.setdefault(r["pk"], {}).setdefault(r["dir"], []).append(
+            FactionMove(id=r["id"], name_he=r["name_he"].strip(), term=r["term"], members=r["members"], on=r["on"], renamed=r["renamed"]))
+    return out
 
 
 @router.get("/factions", response_model=Page[FactionSummary])
@@ -703,7 +746,8 @@ def list_factions(conn: Conn, term: int | None = None):
         term = conn.execute("SELECT max(term_number) AS t FROM vote").fetchone()["t"]
     rows = conn.execute(f"{FACTION_SELECT} WHERE f.term_number = %s AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id) ORDER BY records DESC",
                         (term,)).fetchall()
-    return {"data": [faction_summary(r) for r in rows], "meta": Meta(filters={"term": term})}
+    moves = faction_moves(conn, [r["pk"] for r in rows])
+    return {"data": [faction_summary(r, moves) for r in rows], "meta": Meta(filters={"term": term})}
 
 
 def faction_pk(conn, knesset_id: int):
@@ -732,7 +776,7 @@ def get_faction(faction_id: int, conn: Conn):
     fref = FactionRef(id=r["id"], name_he=r["name_he"].strip(), term=r["term"])
     return {
         "data": FactionDetail(
-            **faction_summary(r).model_dump(),
+            **faction_summary(r, faction_moves(conn, [r["pk"]])).model_dump(),
             members=[FactionMember(person_id=m["knesset_person_id"], name_he=m["name_he"], faction=fref,
                                    valid_from=m["valid_from"], valid_to=m["valid_to"]) for m in members],
             stats=FactionStats(votes_with_members=s["votes"], cohesion=rate(s["with_plurality"], s["cast_total"]),

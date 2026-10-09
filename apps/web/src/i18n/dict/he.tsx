@@ -341,6 +341,13 @@ export const he: Dict = {
     parties: "מפלגות", members: "חברי כנסת", pick: "בחרו שניים להשוואה.",
     agreement: "הצביעו אותו דבר", agreementUnit: "הצבעות משותפות",
     differences: (n) => `הצבעות שבהן נחלקו (${n})`,
+    ended: (name, date) => `סיעת ${name} פעלה עד ${date}: הצבעות מאוחרות יותר אינן בהשוואה זו.`,
+    started: (name, date) => `סיעת ${name} פועלת מ־${date}: הצבעות מוקדמות יותר אינן בהשוואה זו.`,
+    continuedAs: (n, name) => `${n} מחבריה המשיכו בסיעת ${name}.`,
+    cameFrom: (n, name) => `${n} מחבריה הגיעו מסיעת ${name}.`,
+    compareWith: (x, y) => `השוו את ${x} ו־${y} ←`,
+    renamedTo: (old, now, date) => `מ־${date} סיעת "${old}" נקראת "${now}". בנתוני הכנסת זו סיעה חדשה, ולכן הצבעות תחת השם החדש אינן בהשוואה זו.`,
+    renamedFrom: (now, old, date) => `עד ${date} נקראה סיעת "${now}" בשם "${old}". בנתוני הכנסת זו הייתה סיעה אחרת, ולכן הצבעות תחת השם הישן אינן בהשוואה זו.`,
   },
   match: {
     aboutMore: "הנוסח המלא בעמוד הצעת החוק ←",

@@ -345,6 +345,13 @@ export const en: Dict = {
     parties: "Parties", members: "Members", pick: "Choose two to compare.",
     agreement: "Voted the same way", agreementUnit: "shared votes",
     differences: (n) => `Votes where they differed (${n})`,
+    ended: (name, date) => `${name} existed until ${date}: later votes are not in this comparison.`,
+    started: (name, date) => `${name} exists since ${date}: earlier votes are not in this comparison.`,
+    continuedAs: (n, name) => `${n} of its members continued as ${name}.`,
+    cameFrom: (n, name) => `${n} of its members came from ${name}.`,
+    compareWith: (x, y) => `Compare ${x} and ${y} →`,
+    renamedTo: (old, now, date) => `From ${date} ${old} is called ${now}. The Knesset records it as a new faction, so votes under the new name are not in this comparison.`,
+    renamedFrom: (now, old, date) => `Until ${date} ${now} was called ${old}. The Knesset recorded that as a different faction, so votes under the old name are not in this comparison.`,
   },
   match: {
     aboutMore: "Full text on the bill page →",

@@ -39,7 +39,8 @@ export function makeT(locale: Locale) {
     person: (p: PersonNames): string => (locale === "he" ? null : p[`name_${locale}`]) ?? p.name_he,
     /** a faction's short (default) or full name in the UI language, falling back to the official Hebrew name */
     faction: (f: FactionNames, full = false): string => {
-      const [name, short] = locale === "he" ? [null, f.short_he] : [f[`name_${locale}`], f[`short_${locale}`]];
+      // Hebrew: the official name is the full one (short_he only where it is a long list name)
+      const [name, short] = locale === "he" ? [f.name_he, f.short_he] : [f[`name_${locale}`], f[`short_${locale}`]];
       return (full ? name ?? short : short ?? name) ?? f.name_he;
     },
     party: (p: PartyRef) => (locale === "he" ? p.name_he : p[`name_${locale}`] ?? p.name_he),
