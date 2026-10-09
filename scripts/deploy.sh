@@ -10,7 +10,13 @@ SSH="ssh"
 
 CODE_DIRS="apps src db infra scripts tests docs"
 
-git ls-files | rsync -az --files-from=- -e "$SSH" . "$HOST:/srv/hkv/"
-git ls-files | $SSH "$HOST" "cd /srv/hkv && sort > /tmp/hkv-tracked && find $CODE_DIRS -type f | sort | comm -23 - /tmp/hkv-tracked \
+# An empty list would make the server delete every code file below; a dirty tree would ship uncommitted edits
+files=$(git ls-files 2>/dev/null) || files=""
+[ -n "$files" ] || { echo "No tracked files: run this from a git checkout." >&2; exit 1; }
+[ -z "$(git status --porcelain --untracked-files=no)" ] || {
+  echo "Uncommitted changes (the working tree is what gets copied): commit or stash them first." >&2; exit 1; }
+
+printf '%s\n' "$files" | rsync -az --files-from=- -e "$SSH" . "$HOST:/srv/hkv/"
+printf '%s\n' "$files" | $SSH "$HOST" "cd /srv/hkv && sort > /tmp/hkv-tracked && find $CODE_DIRS -type f | sort | comm -23 - /tmp/hkv-tracked \
   | while read -r f; do echo \"removed \$f\"; rm -f \"\$f\"; done; find $CODE_DIRS -type d -empty -delete"
 $SSH "$HOST" 'cd /srv/hkv && scripts/prod.sh up -d --build --remove-orphans && scripts/prod.sh ps'

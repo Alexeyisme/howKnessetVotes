@@ -12,7 +12,8 @@ echo "ALERT: $unit failed"
 TELEGRAM_BOT_TOKEN=$(sed -n 's/^TELEGRAM_BOT_TOKEN=//p' .env 2>/dev/null)
 TELEGRAM_CHAT_ID=$(sed -n 's/^TELEGRAM_CHAT_ID=//p' .env 2>/dev/null)
 if [ -n "$TELEGRAM_BOT_TOKEN" ] && [ -n "$TELEGRAM_CHAT_ID" ]; then
-  curl -fsS -m 20 "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/sendMessage" \
+  # the URL holds the token, so it goes to curl as config on stdin, not on the command line seen in `ps`
+  printf 'url = "https://api.telegram.org/bot%s/sendMessage"\n' "$TELEGRAM_BOT_TOKEN" | curl -fsS -m 20 -K - \
     --data-urlencode "chat_id=$TELEGRAM_CHAT_ID" --data-urlencode "text=$text" >/dev/null && echo "sent to Telegram"
 else
   echo "Telegram not configured (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID in .env)"
