@@ -338,6 +338,8 @@ export const en: Dict = {
     allVotes: "All votes of the list →",
   },
   compare: {
+    range: (a, b, n) => `Showing ${a}–${b} of ${n} disagreements, newest first`,
+    latest: "Latest disagreements", pages: "Disagreement pages",
     title: "Compare",
     lead: "Two parties or two members: how often they voted the same way on bills as a whole and no-confidence motions, and the votes where they differed.",
     parties: "Parties", members: "Members", pick: "Choose two to compare.",

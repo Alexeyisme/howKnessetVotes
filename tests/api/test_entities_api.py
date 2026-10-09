@@ -128,3 +128,46 @@ def test_debate_sides_on_cards(client):
     finally:
         with client.app.state.pool.connection() as conn:
             conn.execute("DELETE FROM bill_debate WHERE bill_id = %s", (bill,))
+
+
+def test_comparison_paging_preserves_global_rate_and_all_disagreements(client, monkeypatch):
+    import datetime as dt
+    from hkv.api import entities
+    from hkv.api.common import VoteSummary
+
+    template = VoteSummary.model_validate(client.get('/api/v1/votes/37689').json()['data'])
+    rows = [dict(vid=i, occurred_on=dt.date(2025, 1, 1), a='for', b='against') for i in range(205, 0, -1)]
+    rows += [dict(vid=0, occurred_on=dt.date(2024, 1, 1), a='for', b='for'),
+             dict(vid=206, occurred_on=dt.date(2025, 1, 1), a='for', b=None)]
+
+    class Conn:
+        def execute(self, _query, params):
+            return [{'id': vid} for vid in params[0]]
+
+    monkeypatch.setattr(entities, 'vote_summary', lambda row: template.model_copy(update={'id': row['id']}))
+    pages = []
+    cursor = None
+    while True:
+        page = entities._compare(Conn(), rows, [], ['adopt_bill'], cursor=cursor)
+        pages.append(page)
+        if not page.next_cursor:
+            break
+        cursor = page.next_cursor
+    assert [len(p.differences) for p in pages] == [100, 100, 5]
+    assert [p.differences_offset for p in pages] == [0, 100, 200]
+    assert all(p.differences_total == 205 and p.agreement.numerator == 1 and p.agreement.denominator == 206 for p in pages)
+    assert [d.vote.id for p in pages for d in p.differences] == list(range(205, 0, -1))
+
+
+@pytest.mark.parametrize('kind,a,b', [('members', DISSENTER, LIKUD_IN_37689[1]), ('factions', LIKUD, LIKUD)])
+def test_compare_pagination_contract_and_bad_cursors(client, kind, a, b):
+    import base64
+    import json
+    params = {'a': a, 'b': b, 'limit': 1}
+    data = client.get(f'/api/v1/compare/{kind}', params=params).json()['data']
+    assert data['differences_total'] == data['agreement']['denominator'] - data['agreement']['numerator']
+    assert data['differences_offset'] == 0 and data['next_cursor'] is None
+    for malformed in ['not-base64', base64.urlsafe_b64encode(json.dumps(['2025-01-01', True]).encode()).decode(),
+                      base64.urlsafe_b64encode(b'["2025-01-01"]').decode()]:
+        assert client.get(f'/api/v1/compare/{kind}', params={**params, 'cursor': malformed}).status_code == 400
+    assert client.get(f'/api/v1/compare/{kind}', params={**params, 'limit': 101}).status_code == 422

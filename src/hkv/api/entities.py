@@ -574,7 +574,10 @@ class CompareDiff(BaseModel):
 
 class Comparison(BaseModel):
     agreement: Rate              # same choice (members) or same strict majority (factions) / votes where both took a side
-    differences: list[CompareDiff]   # most recent first, capped
+    differences: list[CompareDiff]   # most recent first, paginated independently of the agreement rate
+    differences_total: int
+    differences_offset: int
+    next_cursor: str | None
     stage: list[str]
     motion_type: list[str]
 
@@ -582,20 +585,35 @@ class Comparison(BaseModel):
 DIFF_LIMIT = 100
 
 
-def _compare(conn, rows: list[dict], stage: list[str], motion: list[str]) -> Comparison:
+def _compare(conn, rows: list[dict], stage: list[str], motion: list[str], limit: int = DIFF_LIMIT,
+             cursor: str | None = None) -> Comparison:
     """rows: vote id, occurred_on, a, b (choices, None when that side took no side)."""
     both = [r for r in rows if r["a"] and r["b"]]
-    diffs = [r for r in both if r["a"] != r["b"]][:DIFF_LIMIT]
+    all_diffs = [r for r in both if r["a"] != r["b"]]
+    remaining = all_diffs
+    if cursor:
+        try:
+            on, vid = decode_cursor(cursor)
+            if not isinstance(on, str) or type(vid) is not int or vid <= 0:
+                raise ValueError
+            key = (dt.date.fromisoformat(on), vid)
+        except (ValueError, TypeError):
+            raise HTTPException(400, "invalid comparison cursor") from None
+        remaining = [r for r in all_diffs if (r["occurred_on"], r["vid"]) < key]
+    diffs = remaining[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([r["vid"] for r in diffs],))} if diffs else {}
-    return Comparison(agreement=rate(len(both) - sum(1 for r in both if r["a"] != r["b"]), len(both)),
+    return Comparison(agreement=rate(len(both) - len(all_diffs), len(both)),
                       differences=[CompareDiff(vote=summaries[r["vid"]], a=CompareSide(choice=r["a"]), b=CompareSide(choice=r["b"])) for r in diffs],
+                      differences_total=len(all_diffs), differences_offset=len(all_diffs) - len(remaining),
+                      next_cursor=encode_cursor(diffs[-1]["occurred_on"], diffs[-1]["vid"]) if len(remaining) > limit else None,
                       stage=stage, motion_type=motion)
 
 
 @router.get("/compare/members", response_model=One[Comparison])
 @with_names
 def compare_members(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
-                    motion_type: Annotated[list[MotionType] | None, Query()] = None):
+                    motion_type: Annotated[list[MotionType] | None, Query()] = None,
+                    limit: Annotated[int, Query(ge=1, le=100)] = DIFF_LIMIT, cursor: str | None = None):
     """Two MKs on the votes both cast: agreement rate and the votes where they chose differently.
     Default scope: votes on bills as a whole and no-confidence motions, any stage."""
     pa, pb = person_id(conn, a), person_id(conn, b)
@@ -608,14 +626,15 @@ def compare_members(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | N
              AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
            ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
         {"pa": pa, "pb": pb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
-    return {"data": _compare(conn, rows, stages, motions), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
         "agreement = votes where both chose the same of for/against/abstain / votes where both cast a vote."))}
 
 
 @router.get("/compare/factions", response_model=One[Comparison])
 @with_names
 def compare_factions(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | None, Query()] = None,
-                     motion_type: Annotated[list[MotionType] | None, Query()] = None):
+                     motion_type: Annotated[list[MotionType] | None, Query()] = None,
+                     limit: Annotated[int, Query(ge=1, le=100)] = DIFF_LIMIT, cursor: str | None = None):
     """Two factions on the votes where each had a strict majority among its casting members: agreement rate and the
     votes where the majorities differed. Default scope: votes on bills as a whole and no-confidence motions."""
     fa, fb = faction_pk(conn, a)["pk"], faction_pk(conn, b)["pk"]
@@ -636,7 +655,7 @@ def compare_factions(conn: Conn, a: int, b: int, stage: Annotated[list[Stage] | 
              AND (%(nostage)s OR coalesce(k.stage, v.stage) = ANY(%(stages)s)) AND coalesce(k.motion_type, v.motion_type) = ANY(%(motions)s)
            ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC""",
         {"fa": fa, "fb": fb, "stages": stages, "nostage": not stages, "motions": motions}).fetchall()
-    return {"data": _compare(conn, rows, stages, motions), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
+    return {"data": _compare(conn, rows, stages, motions, limit, cursor), "meta": Meta(filters={"a": a, "b": b, "stage": stages, "motion_type": motions}, note=(
         f"agreement = votes where both factions' casting members (at least {MIN_COLLEAGUES}) had the same strict majority / "
         "votes where both had one."))}
 

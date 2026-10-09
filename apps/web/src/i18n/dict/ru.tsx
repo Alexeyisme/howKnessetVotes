@@ -346,6 +346,8 @@ export const ru = {
   },
   /** banner on every page of a version whose translation has not been reviewed by a native speaker */
   compare: {
+    range: (a: number, b: number, n: number) => `Показаны ${a}–${b} из ${n} расхождений, новые сверху`,
+    latest: "Последние расхождения", pages: "Страницы расхождений",
     title: "Сравнение",
     lead: "Две партии или два депутата: как часто они голосовали одинаково по законопроектам в целом и вотумам недоверия, и голосования, где они разошлись.",
     parties: "Партии", members: "Депутаты", pick: "Выберите двоих для сравнения.",

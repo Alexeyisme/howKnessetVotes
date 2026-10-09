@@ -17,11 +17,12 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
   const kind = sp.kind === "members" ? "members" : "factions";
   const num = (k: string) => (typeof sp[k] === "string" && /^\d+$/.test(sp[k] as string) ? Number(sp[k]) : undefined);
   const a = num("a"), b = num("b");
+  const cursor = typeof sp.cursor === "string" ? sp.cursor : undefined;
   const options = kind === "members" ? (await listMembers({ term: "25" })).data : (await listFactions({})).data;
   let result: Comparison | null = null;
   if (a && b && a !== b) {
     try {
-      result = (kind === "members" ? await compareMembers(a, b) : await compareFactions(a, b)).data;
+      result = (kind === "members" ? await compareMembers(a, b, cursor) : await compareFactions(a, b, cursor)).data;
     } catch (e) {
       if (!(e instanceof NotFound)) throw e;
     }
@@ -58,7 +59,8 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
             <RateStat label={`${d.agreement}: ${name(a)} · ${name(b)}`} rate={result.agreement} unit={d.agreementUnit} />
           </Stats>
           <section>
-            <h2 className="section-title">{d.differences(result.differences.length)}</h2>
+            <h2 className="section-title">{d.differences(result.differences_total)}</h2>
+            <p className="small muted">{d.range(result.differences.length ? result.differences_offset + 1 : 0, result.differences.length ? result.differences_offset + result.differences.length : 0, result.differences_total)}</p>
             <VoteList>
               {result.differences.map((x) => (
                 <VoteLine key={x.vote.id} vote={x.vote}>
@@ -68,6 +70,10 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
               ))}
             </VoteList>
             {result.differences.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
+            <nav className="search" aria-label={d.pages}>
+              {cursor && <Link href={`/compare?${new URLSearchParams({ kind, a: String(a), b: String(b) })}`}>{d.latest}</Link>}
+              {result.next_cursor && <Link href={`/compare?${new URLSearchParams({ kind, a: String(a), b: String(b), cursor: result.next_cursor })}`}>{t.d.common.earlier}</Link>}
+            </nav>
           </section>
           <p className="small muted">
             {kind === "members"

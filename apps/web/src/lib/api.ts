@@ -318,13 +318,16 @@ export interface SearchResult {
 
 /** U7: two members or two factions on their shared votes */
 export interface Comparison {
+  differences_total: number;
+  differences_offset: number;
+  next_cursor: string | null;
   agreement: Rate;
   differences: { vote: VoteSummary; a: { choice: Choice }; b: { choice: Choice } }[];
   stage: string[];
   motion_type: string[];
 }
-export const compareMembers = (a: number, b: number) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/members${qs({ a: String(a), b: String(b) })}`);
-export const compareFactions = (a: number, b: number) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ a: String(a), b: String(b) })}`);
+export const compareMembers = (a: number, b: number, cursor?: string) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/members${qs({ a: String(a), b: String(b), cursor })}`);
+export const compareFactions = (a: number, b: number, cursor?: string) => get<{ data: Comparison; meta: Meta }>(`/api/v1/compare/factions${qs({ a: String(a), b: String(b), cursor })}`);
 
 export const listTopics = () => get<{ data: TopicSummary[]; meta: Meta }>(`/api/v1/topics`);
 export const getTopic = (slug: string) => get<{ data: TopicDetail; meta: Meta }>(`/api/v1/topics/${encodeURIComponent(slug)}`);
