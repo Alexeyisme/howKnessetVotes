@@ -6,6 +6,7 @@ import type { Locale } from "../config";
 export type Section = { id: string; title: string; body: ReactNode };
 
 const OK = <a href="https://oknesset.org" target="_blank" rel="noopener">Open Knesset</a>;
+const gh = (text: string) => <a href="https://github.com/Alexeyisme/howKnessetVotes" target="_blank" rel="noopener">{text}</a>;
 
 export function methodology(locale: Locale, link: (href: string, text: string) => ReactNode): Section[] {
   if (locale === "en") return [
@@ -27,7 +28,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>By hand</strong>: parties and the factions they sat as, names of factions from earlier Knessets in other languages, and a few coalition exceptions, each with a reference to its evidence.</li>
         <li><strong>Computed</strong>: results of votes after July 2021 (from roll-call records), coalition and opposition, keyword topics and all measures. The rules are on this page.</li>
-        <li><strong>Written by an AI model</strong> (Claude, by Anthropic): translations, summaries of bills&apos; explanatory notes, debates and reservations. They have not been reviewed and are labelled as such; see {link("/about/methodology#translation", "Translation")}. Found a mistake? See {link("/about/methodology#corrections", "Mistakes and corrections")}.</li>
+        <li><strong>Written by an AI model</strong> (Claude, by Anthropic): translations, summaries of bills&apos; explanatory notes, debates and reservations. They have not been reviewed and are labelled as such; see {link("/about/methodology#ai", "How AI is used")}. Found a mistake? See {link("/about/methodology#corrections", "Mistakes and corrections")}.</li>
       </ul>
       <p className="small muted">Every vote links to its page on the Knesset website. Raw source responses are stored unchanged, so any number can be rechecked.</p></> },
     { id: "records", title: "Roll-call records and “absence”", body: <>
@@ -68,6 +69,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
         <li><strong>Names of factions</strong> in earlier Knessets <strong>and of parties</strong> were prepared by hand from the names used in the media; for the current Knesset the website&apos;s official names are used. <strong>Topic names</strong> are ours.</li>
         <li><strong>The Arabic version is a beta.</strong> It has not yet been reviewed by a native Arabic speaker, so some Knesset terms may be imprecise. The glossary gives the Hebrew term next to each one.</li>
       </ul></> },
+    { id: "ai", title: "How AI is used", body: <>
+      <p>Some of the text on the site is written by AI models (Claude, by Anthropic). <strong>None of the numbers are</strong>: votes, roll-call records, results, factions, coalition and opposition, topics, measures and the quiz are computed by ordinary code, by the rules on this page, without a model. Only public Knesset documents are sent to the model; nothing about visitors is.</p>
+      <p><strong>What the model writes, and from what</strong> (models as of October 2026)</p>
+      <ul>
+        <li><strong>Translations</strong> of bill and vote titles and of official summaries, from Hebrew into English, Russian and Arabic. Titles: Claude Haiku 4.5 (into Arabic, Claude Sonnet 5), with a fixed glossary of legal terms so that some 22,000 titles are translated consistently. Summaries and all other texts: Claude Sonnet 5. Each Hebrew text is translated once; if the Knesset changes the original, the old translation is no longer shown and the new text is translated afresh.</li>
+        <li><strong>Bill descriptions</strong> where there is no official summary. The model (Claude Sonnet 5) reads the explanatory notes in the sponsors&apos; bill file and writes two to four sentences in Hebrew: what the bill changes and the reasons the sponsors give, attributed to them (&ldquo;according to the sponsors&rdquo;). The description is then translated like any other text.</li>
+        <li><strong>Debates.</strong> The code itself cuts the debate on the bill out of the transcripts of every sitting where it was voted on, and lists who spoke, at which readings and how often, without a model. The model (Claude Sonnet 5) gets the numbered speeches and writes a neutral summary and up to five arguments for and five against, each pointing to the speeches it comes from; the members shown under an argument are the authors of those speeches. Cards show each side&apos;s argument made in the most speeches. When a debate is too long for one request, every speech is first shortened to the same length, and the page says so.</li>
+        <li><strong>Reservations.</strong> The model (Claude Sonnet 5) reads the reservations section of the committee&apos;s version, says which numbered reservations belong to which member or group, and writes a one-sentence gist of each.</li>
+      </ul>
+      <p><strong>Rules the model is given.</strong> Use only the document in front of it: no outside facts, no judgement of which side is right, no loaded words, numbers exactly as in the source, only the Gregorian date. A speech&apos;s side is what it argues, not the speaker&apos;s party. Read the speeches of both sides before writing either list. The model works without extended reasoning, and its answer must follow a fixed structure. The prompts and the checks are in the site&apos;s {gh("open source code")}.</p>
+      <p><strong>Automatic checks.</strong> A text that fails them is not published; it is logged as a problem for the author to look at.</p>
+      <ul>
+        <li>A translation keeps every number of the original, has no Hebrew letters left and is not suspiciously long.</li>
+        <li>A bill description is Hebrew prose of reasonable length ending with a complete sentence; every number in it appears in the notes (when the notes can be read as text).</li>
+        <li>A debate summary and its arguments are Hebrew sentences of reasonable length; every argument points to speeches that exist; every number appears in the speeches or the bill title.</li>
+        <li>The reservation numbers given to proposers are exactly the numbered reservations printed in the document, with no gap, overlap or extra, and every member named appears in the text. Where the document has no readable numbers this cannot be checked, and the page says so.</li>
+      </ul>
+      <p><strong>What the checks cannot catch.</strong> A fluent text with the right numbers can still miss the point, put an argument on the wrong side or credit it to the wrong speaker. No person reviews these texts before they are published. That is why each one is marked &ldquo;AI summary&rdquo; or &ldquo;AI translation&rdquo; where it is shown, links to the document it was written from and has a link to report a mistake (see {link("/about/methodology#corrections", "Mistakes and corrections")}). Translations keep the Hebrew original one click away.</p></> },
     { id: "corrections", title: "Mistakes and corrections", body: <>
       <p>Much of the text on the site was written or translated by an AI model and has not been reviewed by a person, so it may contain mistakes: an inaccurate translation, a wrong number, an argument summarised badly or put on the wrong side. Vote counts, roll-call records and factions come from official data, but they can be wrong too, in the source or in our processing.</p>
       <p><strong>Your help is welcome.</strong> Next to a translated title or summary there is a &ldquo;suggest a correction&rdquo; link. For anything else, including the Hebrew summaries and the arguments of the sides, {link("/suggest", "write to the author")}: the link is under every summary and at the bottom of every page. The author reads every message and checks it before anything on the site changes; leave a contact if you would like an answer.</p></> },
@@ -94,7 +113,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>يدويًا</strong>: الأحزاب والكتل التي مثّلتها، أسماء كتل الدورات السابقة بلغات أخرى، وبعض استثناءات الائتلاف، ولكل منها إشارة إلى الدليل.</li>
         <li><strong>بالحساب</strong>: نتائج التصويتات بعد تموز/يوليو 2021 (من السجلات الاسمية)، الائتلاف والمعارضة، المواضيع حسب الكلمات المفتاحية وكل المؤشرات. القواعد مشروحة في هذه الصفحة.</li>
-        <li><strong>بنموذج ذكاء اصطناعي</strong> (Claude من شركة Anthropic): الترجمات وتلخيص الشروح المرفقة باقتراحات القوانين والنقاشات والتحفظات. لم تُراجَع، وهي موسومة بذلك؛ انظر {link("/about/methodology#translation", "الترجمة")}. وجدتم خطأ؟ انظر {link("/about/methodology#corrections", "الأخطاء والتصحيحات")}.</li>
+        <li><strong>بنموذج ذكاء اصطناعي</strong> (Claude من شركة Anthropic): الترجمات وتلخيص الشروح المرفقة باقتراحات القوانين والنقاشات والتحفظات. لم تُراجَع، وهي موسومة بذلك؛ انظر {link("/about/methodology#ai", "كيف يُستخدم الذكاء الاصطناعي")}. وجدتم خطأ؟ انظر {link("/about/methodology#corrections", "الأخطاء والتصحيحات")}.</li>
       </ul>
       <p className="small muted">لكل تصويت رابط إلى صفحته في موقع الكنيست. تُحفظ ردود المصادر الأصلية دون تغيير، بحيث يمكن التحقق من أي رقم من جديد.</p></> },
     { id: "records", title: "السجلات الاسمية و«الغياب»", body: <>
@@ -135,6 +154,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
         <li><strong>أسماء أعضاء الكنيست</strong> بالعربية هي الكتابة الرسمية في موقع الكنيست (ويكي بيانات حيث لا توجد في الموقع).</li>
         <li><strong>أسماء الكتل</strong> في الدورات السابقة <strong>وأسماء الأحزاب</strong> أُعدّت يدويًا وفق الأسماء المتداولة في الإعلام؛ للكنيست الحالية تُستخدم الأسماء الرسمية من موقع الكنيست. <strong>أسماء المواضيع</strong> من وضعنا.</li>
       </ul></> },
+    { id: "ai", title: "كيف يُستخدم الذكاء الاصطناعي", body: <>
+      <p>بعض النصوص في الموقع تكتبها نماذج ذكاء اصطناعي (Claude من شركة Anthropic). <strong>أما الأرقام فلا</strong>: التصويتات والسجلات الاسمية والنتائج والكتل والائتلاف والمعارضة والمواضيع والمؤشرات والاختبار تُحسب بشيفرة عادية وفق القواعد المذكورة في هذه الصفحة، من دون نموذج. لا يُرسَل إلى النموذج سوى وثائق الكنيست العلنية، ولا شيء عن زوار الموقع.</p>
+      <p><strong>ماذا يكتب النموذج، ومن أي مصدر</strong> (النماذج حتى أكتوبر 2026)</p>
+      <ul>
+        <li><strong>الترجمات</strong>: عناوين اقتراحات القوانين والتصويتات والملخصات الرسمية، من العبرية إلى العربية والإنجليزية والروسية. العناوين: Claude Haiku 4.5 (إلى العربية: Claude Sonnet 5)، مع قاموس ثابت للمصطلحات القانونية لتُترجم نحو 22,000 عنوان بصورة موحّدة. الملخصات وسائر النصوص: Claude Sonnet 5. يُترجم كل نص عبري مرة واحدة؛ وإذا غيّرت الكنيست الأصل، لا تُعرض الترجمة القديمة بعد ذلك ويُترجم النص الجديد من جديد.</li>
+        <li><strong>أوصاف اقتراحات القوانين</strong> التي لا ملخص رسميًا لها. يقرأ النموذج (Claude Sonnet 5) الشروح في ملف اقتراح القانون ويكتب بالعبرية من جملتين إلى أربع: ما الذي يغيّره الاقتراح، والأسباب التي يقدّمها مقدّموه، منسوبة إليهم («بحسب مقدّمي الاقتراح»). ثم يُترجم الوصف كأي نص آخر.</li>
+        <li><strong>النقاشات.</strong> تقتطع الشيفرة نفسها النقاش حول اقتراح القانون من محاضر كل الجلسات التي جرى التصويت عليه فيها، وتعدّ من تحدّث وفي أي قراءات وكم مرة، من دون نموذج. يتلقى النموذج (Claude Sonnet 5) الخطابات مرقّمة ويكتب ملخصًا محايدًا وحتى خمس حجج مؤيدة وخمس معارضة، كل منها مع إحالة إلى الخطابات التي أُخذت منها؛ وأعضاء الكنيست المذكورون تحت الحجة هم أصحاب تلك الخطابات. تعرض البطاقات حجة كل طرف التي وردت في أكبر عدد من الخطابات. وإذا كان النقاش أطول من أن يتسع له طلب واحد، يُختصر كل خطاب أولًا إلى الطول نفسه، وتذكر الصفحة ذلك.</li>
+        <li><strong>التحفظات.</strong> يقرأ النموذج (Claude Sonnet 5) قسم التحفظات في صيغة اللجنة، ويحدد أي التحفظات المرقّمة تعود إلى أي عضو أو مجموعة، ويكتب خلاصة كل منها في جملة واحدة.</li>
+      </ul>
+      <p><strong>القواعد المعطاة للنموذج.</strong> الاعتماد على الوثيقة المعروضة فقط: لا حقائق من خارجها، ولا حكم على أي طرف محق، ولا كلمات مشحونة، والأرقام كما في المصدر تمامًا، والتاريخ الميلادي فقط. جانب الخطاب يحدده ما يدافع عنه، لا حزب المتحدث. قراءة خطابات الطرفين قبل كتابة أي من القائمتين. يعمل النموذج من دون تفكير موسّع، ويجب أن يلتزم جوابه ببنية ثابتة. التعليمات والفحوص موجودة في {gh("الشيفرة المصدرية المفتوحة")} للموقع.</p>
+      <p><strong>فحوص آلية.</strong> النص الذي لا يجتازها لا يُنشر، بل يُسجَّل كمشكلة يراجعها مؤلف الموقع.</p>
+      <ul>
+        <li>تحتفظ الترجمة بكل أرقام الأصل، ولا يبقى فيها حرف عبري، وليست طويلة على نحو مريب.</li>
+        <li>وصف اقتراح القانون نص عبري متصل بطول معقول ينتهي بجملة كاملة؛ وكل رقم فيه موجود في الشروح (حين يمكن قراءتها كنص).</li>
+        <li>ملخص النقاش والحجج جمل عبرية بطول معقول؛ وكل حجة تحيل إلى خطابات موجودة؛ وكل رقم موجود في الخطابات أو في عنوان اقتراح القانون.</li>
+        <li>أرقام التحفظات المنسوبة إلى مقدّميها هي بالضبط التحفظات المرقّمة المطبوعة في الوثيقة، بلا فجوات أو تداخل أو زيادات، وكل عضو مذكور موجود في النص. وحين لا يمكن قراءة الأرقام في الوثيقة كنص، يتعذر هذا الفحص، وتذكر الصفحة ذلك.</li>
+      </ul>
+      <p><strong>ما لا تكشفه الفحوص.</strong> قد يُغفل نص سلس بأرقام صحيحة جوهر المسألة، أو يضع حجة في الجانب الخطأ، أو ينسبها إلى متحدث آخر. لا يراجع أي شخص هذه النصوص قبل نشرها. لذلك يُوسم كل منها بـ«ملخص بالذكاء الاصطناعي» أو «ترجمة بالذكاء الاصطناعي» حيث يُعرض، ويرتبط بالوثيقة التي كُتب منها، وبجانبه رابط للإبلاغ عن خطأ (انظر {link("/about/methodology#corrections", "الأخطاء والتصحيحات")}). وللترجمات، الأصل العبري على بُعد نقرة.</p></> },
     { id: "corrections", title: "الأخطاء والتصحيحات", body: <>
       <p>كثير من نصوص الموقع كتبه أو ترجمه نموذج ذكاء اصطناعي ولم يراجعه إنسان، لذا قد يحتوي على أخطاء: ترجمة غير دقيقة، أو رقم خاطئ، أو حجة لُخّصت بشكل سيئ أو نُسبت إلى الجانب الخطأ. نتائج التصويت والسجلات الاسمية والكتل مأخوذة من البيانات الرسمية، لكنها قد تكون خاطئة أيضًا، في المصدر أو في معالجتنا.</p>
       <p><strong>يسعدنا تعاونكم.</strong> بجانب كل عنوان أو ملخص مترجم رابط «اقترح تصحيحًا». ولأي شيء آخر، بما في ذلك الملخصات العبرية وحجج الجانبين، {link("/suggest", "راسلوا مؤلف الموقع")}: الرابط موجود تحت كل ملخص وأسفل كل صفحة. يقرأ المؤلف كل رسالة ويتحقق منها قبل أن يتغيّر أي شيء في الموقع؛ اتركوا وسيلة تواصل إن أردتم ردًا.</p></> },
@@ -161,7 +198,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>ידנית</strong>: המפלגות והסיעות שבהן ישבו, שמות סיעות של כנסות קודמות בשפות אחרות, וכמה חריגים בקואליציה, כל אחד עם הפניה לראיה.</li>
         <li><strong>בחישוב</strong>: תוצאות הצבעות אחרי יולי 2021 (מהרישומים השמיים), קואליציה ואופוזיציה, נושאים לפי מילות מפתח וכל המדדים. הכללים מפורטים בדף זה.</li>
-        <li><strong>במודל בינה מלאכותית</strong> (Claude של Anthropic): תרגומים ותקצירים של דברי ההסבר, הדיונים וההסתייגויות. הם לא נבדקו ומסומנים ככאלה; ראו {link("/about/methodology#translation", "תרגום")}. מצאתם טעות? ראו {link("/about/methodology#corrections", "טעויות ותיקונים")}.</li>
+        <li><strong>במודל בינה מלאכותית</strong> (Claude של Anthropic): תרגומים ותקצירים של דברי ההסבר, הדיונים וההסתייגויות. הם לא נבדקו ומסומנים ככאלה; ראו {link("/about/methodology#ai", "איך משתמשים בבינה מלאכותית")}. מצאתם טעות? ראו {link("/about/methodology#corrections", "טעויות ותיקונים")}.</li>
       </ul>
       <p className="small muted">לכל הצבעה יש קישור לדף שלה באתר הכנסת. התשובות הגולמיות של המקורות נשמרות ללא שינוי, כך שאפשר לבדוק מחדש כל מספר.</p></> },
     { id: "records", title: "רישומים שמיים ו״היעדרות״", body: <>
@@ -202,6 +239,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
         <li><strong>שמות הסיעות</strong> בכנסות קודמות <strong>ושמות המפלגות</strong> הוכנו ידנית לפי השמות המקובלים בתקשורת; בכנסת הנוכחית משמשים השמות הרשמיים מאתר הכנסת. <strong>שמות הנושאים</strong> הם שלנו.</li>
         <li><strong>הגרסה הערבית היא גרסת בטא.</strong> מי שהערבית שפת אמו עוד לא בדק אותה, ולכן ייתכן שחלק ממונחי הכנסת אינם מדויקים. במילון המונחים מופיע המונח העברי לצד כל מונח.</li>
       </ul></> },
+    { id: "ai", title: "איך משתמשים בבינה מלאכותית", body: <>
+      <p>חלק מהטקסטים באתר נכתבים בידי מודלים של בינה מלאכותית (Claude של Anthropic). <strong>המספרים — לא</strong>: ההצבעות, רישומי ההצבעה השמית, התוצאות, הסיעות, הקואליציה והאופוזיציה, הנושאים, המדדים והשאלון מחושבים בקוד רגיל, לפי הכללים שבדף זה, בלי מודל. למודל נשלחים רק מסמכים פומביים של הכנסת; שום דבר על המבקרים באתר.</p>
+      <p><strong>מה המודל כותב, ועל סמך מה</strong> (המודלים נכון לאוקטובר 2026)</p>
+      <ul>
+        <li><strong>תרגומים</strong> של שמות הצעות החוק וההצבעות ושל התקצירים הרשמיים מעברית לאנגלית, לרוסית ולערבית. שמות: Claude Haiku 4.5 (לערבית: Claude Sonnet 5), עם מילון קבוע של מונחים משפטיים, כדי שכ־22,000 שמות יתורגמו באופן אחיד. תקצירים וכל שאר הטקסטים: Claude Sonnet 5. כל טקסט בעברית מתורגם פעם אחת; אם הכנסת משנה את המקור, התרגום הישן כבר לא מוצג והטקסט החדש מתורגם מחדש.</li>
+        <li><strong>תיאורי הצעות חוק</strong> שאין להן תקציר רשמי. המודל (Claude Sonnet 5) קורא את דברי ההסבר בקובץ הצעת החוק וכותב בעברית שניים עד ארבעה משפטים: מה ההצעה משנה ואילו נימוקים מביאים היוזמים, בשמם („לדברי המציעים“). לאחר מכן התיאור מתורגם כמו כל טקסט אחר.</li>
+        <li><strong>דיונים.</strong> הקוד עצמו חותך את הדיון בהצעת החוק מתוך הפרוטוקולים של כל הישיבות שבהן הצביעו עליה, ומונה מי דיבר, באילו קריאות וכמה פעמים — בלי מודל. המודל (Claude Sonnet 5) מקבל את הנאומים ממוספרים וכותב תקציר ניטרלי ועד חמישה טיעונים בעד וחמישה נגד, כל אחד עם הפניה לנאומים שממנו נלקח; חברי הכנסת שמופיעים תחת טיעון הם מי שנשאו את הנאומים האלה. בכרטיסים מוצג הטיעון של כל צד שעלה במספר הנאומים הגדול ביותר. כשדיון ארוך מדי לבקשה אחת, כל נאום מקוצר קודם לאותו אורך, והדף מציין זאת.</li>
+        <li><strong>הסתייגויות.</strong> המודל (Claude Sonnet 5) קורא את פרק ההסתייגויות בנוסח הוועדה, קובע אילו הסתייגויות ממוספרות שייכות לאיזה חבר כנסת או קבוצה, וכותב את עיקרה של כל אחת במשפט אחד.</li>
+      </ul>
+      <p><strong>הכללים שהמודל מקבל.</strong> להשתמש רק במסמך שלפניו: בלי עובדות מבחוץ, בלי הכרעה איזה צד צודק, בלי מילים טעונות, מספרים בדיוק כמו במקור, ורק התאריך הלועזי. הצד של נאום נקבע לפי מה שהוא טוען, לא לפי מפלגת הדובר. לקרוא את הנאומים של שני הצדדים לפני שכותבים רשימה כלשהי. המודל עובד בלי חשיבה מורחבת, ותשובתו חייבת לעמוד במבנה קבוע. ההנחיות והבדיקות נמצאות ב{gh("קוד המקור הפתוח")} של האתר.</p>
+      <p><strong>בדיקות אוטומטיות.</strong> טקסט שלא עובר אותן לא מתפרסם; הוא נרשם כבעיה שמחבר האתר בודק.</p>
+      <ul>
+        <li>בתרגום נשמרים כל המספרים של המקור, לא נשארות בו אותיות עבריות, והוא לא ארוך באופן חשוד.</li>
+        <li>תיאור הצעת חוק הוא טקסט רציף בעברית באורך סביר שמסתיים במשפט שלם; כל מספר בו מופיע בדברי ההסבר (כשאפשר לקרוא אותם כטקסט).</li>
+        <li>תקציר הדיון והטיעונים הם משפטים בעברית באורך סביר; כל טיעון מפנה לנאומים קיימים; כל מספר מופיע בנאומים או בשם הצעת החוק.</li>
+        <li>מספרי ההסתייגויות שיוחסו למגישים הם בדיוק ההסתייגויות הממוספרות שמודפסות במסמך, בלי פערים, חפיפות או תוספות, וכל חבר כנסת שנזכר מופיע בטקסט. כשאי אפשר לקרוא את המספרים במסמך כטקסט, אי אפשר לבדוק זאת, והדף מציין זאת.</li>
+      </ul>
+      <p><strong>מה הבדיקות לא תופסות.</strong> טקסט רהוט עם המספרים הנכונים עדיין עלול להחמיץ את העיקר, לשייך טיעון לצד הלא נכון או לייחס אותו לדובר הלא נכון. אף אדם לא בודק את הטקסטים האלה לפני פרסומם. לכן כל אחד מהם מסומן „תקציר AI“ או „תרגום AI“ במקום שבו הוא מוצג, מקשר למסמך שעל סמכו נכתב, ולצדו קישור לדיווח על טעות (ראו {link("/about/methodology#corrections", "טעויות ותיקונים")}).</p></> },
     { id: "corrections", title: "טעויות ותיקונים", body: <>
       <p>חלק גדול מהטקסט באתר נכתב או תורגם בידי מודל בינה מלאכותית ולא נבדק בידי אדם, ולכן ייתכנו בו טעויות: תרגום לא מדויק, מספר שגוי, טיעון שסוכם לא טוב או שויך לצד הלא נכון. תוצאות ההצבעות, הרישומים השמיים והסיעות לקוחים מנתונים רשמיים, אך גם הם עלולים להיות שגויים, במקור או בעיבוד שלנו.</p>
       <p><strong>נשמח לעזרתכם.</strong> בגרסאות האנגלית, הרוסית והערבית יש ליד כל שם או תקציר מתורגם קישור „הציעו תיקון“. לכל דבר אחר, כולל התקצירים בעברית וטיעוני הצדדים, {link("/suggest", "כתבו למחבר האתר")}: הקישור נמצא מתחת לכל תקציר ובתחתית כל דף. המחבר קורא כל הודעה ובודק אותה לפני שמשהו באתר משתנה; השאירו פרטי קשר אם תרצו תשובה.</p></> },
@@ -228,7 +283,7 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
       <ul>
         <li><strong>Вручную</strong>: партии и фракции, которыми они были представлены, названия фракций прежних созывов на других языках и несколько исключений в составе коалиции — у каждого есть ссылка на подтверждение.</li>
         <li><strong>Вычислено</strong>: итоги голосований после июля 2021 года (по поимённым записям), коалиция и оппозиция, темы по ключевым словам и все показатели. Правила описаны на этой странице.</li>
-        <li><strong>Написано моделью ИИ</strong> (Claude, компания Anthropic): переводы, пересказы пояснительных записок, обсуждений и оговорок. Они не проверены и так и помечены; см. {link("/about/methodology#translation", "Перевод")}. Нашли ошибку? См. {link("/about/methodology#corrections", "Ошибки и исправления")}.</li>
+        <li><strong>Написано моделью ИИ</strong> (Claude, компания Anthropic): переводы, пересказы пояснительных записок, обсуждений и оговорок. Они не проверены и так и помечены; см. {link("/about/methodology#ai", "Как используется ИИ")}. Нашли ошибку? См. {link("/about/methodology#corrections", "Ошибки и исправления")}.</li>
       </ul>
       <p className="small muted">У каждого голосования есть ссылка на его карточку на сайте Кнессета. Исходные ответы источников сохраняются без изменений, чтобы любую цифру можно было перепроверить.</p></> },
     { id: "records", title: "Поимённые записи и «отсутствие»", body: <>
@@ -269,6 +324,24 @@ export function methodology(locale: Locale, link: (href: string, text: string) =
         <li><strong>Названия фракций</strong> прежних созывов <strong>и партий</strong> подготовлены вручную по вариантам, принятым в СМИ; для текущего Кнессета используются официальные названия с сайта Кнессета. <strong>Названия тем</strong> — наши.</li>
         <li><strong>Арабская версия — бета.</strong> Её ещё не проверял носитель арабского языка, поэтому некоторые термины Кнессета могут быть неточны. В словаре рядом с каждым термином дан ивритский оригинал.</li>
       </ul></> },
+    { id: "ai", title: "Как используется ИИ", body: <>
+      <p>Часть текстов на сайте написана моделями ИИ (Claude, компания Anthropic). <strong>Числа — нет</strong>: голосования, поимённые записи, результаты, фракции, коалиция и оппозиция, темы, показатели и тест считаются обычным кодом по правилам на этой странице, без модели. В модель отправляются только открытые документы Кнессета; ничего о посетителях сайта.</p>
+      <p><strong>Что пишет модель и из чего</strong> (модели — на октябрь 2026 года)</p>
+      <ul>
+        <li><strong>Переводы</strong> названий законопроектов и голосований и официальных резюме с иврита на русский, английский и арабский. Названия — Claude Haiku 4.5 (на арабский — Claude Sonnet 5) с постоянным глоссарием юридических терминов, чтобы около 22 000 названий переводились единообразно. Резюме и все остальные тексты — Claude Sonnet 5. Каждый текст на иврите переводится один раз; если Кнессет меняет оригинал, старый перевод больше не показывается, а новый текст переводится заново.</li>
+        <li><strong>Описания законопроектов</strong>, у которых нет официального резюме. Модель (Claude Sonnet 5) читает пояснительную записку в файле законопроекта и пишет на иврите два–четыре предложения: что законопроект меняет и какие доводы приводят инициаторы, — от их имени («по словам инициаторов»). Затем описание переводится, как любой другой текст.</li>
+        <li><strong>Обсуждения.</strong> Код сам вырезает обсуждение законопроекта из стенограмм всех заседаний, где по нему голосовали, и составляет список выступавших — кто, в каких чтениях и сколько раз — без модели. Модель (Claude Sonnet 5) получает пронумерованные выступления и пишет нейтральное резюме и до пяти доводов за и пяти против, каждый со ссылками на выступления, из которых он взят; депутаты под доводом — авторы этих выступлений. На карточках показан довод каждой стороны, прозвучавший в наибольшем числе выступлений. Если обсуждение не помещается в один запрос, все выступления сначала сокращаются до одинаковой длины, и страница об этом сообщает.</li>
+        <li><strong>Оговорки.</strong> Модель (Claude Sonnet 5) читает раздел оговорок в версии комиссии, определяет, какие номера оговорок принадлежат какому депутату или группе, и пишет суть каждой в одном предложении.</li>
+      </ul>
+      <p><strong>Правила для модели.</strong> Использовать только данный ей документ: никаких фактов со стороны, никаких суждений о том, какая сторона права, никаких оценочных слов, числа — точно как в источнике, даты — только по григорианскому календарю. Сторона выступления определяется тем, что в нём доказывается, а не партией выступавшего. Прочитать выступления обеих сторон, прежде чем писать любой из списков. Модель работает без расширенных рассуждений, и её ответ должен соответствовать заданной структуре. Промпты и проверки — в {gh("открытом исходном коде")} сайта.</p>
+      <p><strong>Автоматические проверки.</strong> Текст, который их не прошёл, не публикуется: он записывается как проблема, которую разбирает автор.</p>
+      <ul>
+        <li>В переводе сохранены все числа оригинала, не осталось букв иврита, и он не подозрительно длинный.</li>
+        <li>Описание законопроекта — связный текст на иврите разумной длины, который заканчивается полным предложением; каждое число в нём есть в пояснительной записке (если записку удаётся прочитать как текст).</li>
+        <li>Резюме обсуждения и доводы — предложения на иврите разумной длины; каждый довод ссылается на существующие выступления; каждое число есть в выступлениях или в названии законопроекта.</li>
+        <li>Номера оговорок, приписанные авторам, — ровно те пронумерованные оговорки, что напечатаны в документе, без пропусков, повторов и лишних, а каждый названный депутат есть в тексте. Если номера в документе нельзя прочитать как текст, это проверить нельзя, и страница об этом сообщает.</li>
+      </ul>
+      <p><strong>Чего проверки не ловят.</strong> Гладкий текст с правильными числами всё равно может упустить суть, отнести довод не к той стороне или приписать его не тому выступавшему. Никто не проверяет эти тексты до публикации. Поэтому каждый из них помечен «пересказ ИИ» или «перевод ИИ» там, где показан, ссылается на документ, по которому написан, и рядом есть ссылка, чтобы сообщить об ошибке (см. {link("/about/methodology#corrections", "Ошибки и исправления")}). У переводов оригинал на иврите — в один клик.</p></> },
     { id: "corrections", title: "Ошибки и исправления", body: <>
       <p>Большая часть текста на сайте написана или переведена моделью ИИ и не проверена человеком, поэтому в нём возможны ошибки: неточный перевод, неверное число, плохо пересказанный довод или довод, отнесённый не к той стороне. Итоги голосований, поимённые записи и фракции взяты из официальных данных, но и в них возможны ошибки — в источнике или в нашей обработке.</p>
       <p><strong>Будем рады вашей помощи.</strong> Рядом с переведённым названием или резюме есть ссылка «предложить исправление». Обо всём остальном, в том числе об ивритских пересказах и доводах сторон, {link("/suggest", "напишите автору")}: ссылка есть под каждым пересказом и внизу каждой страницы. Автор читает каждое сообщение и проверяет его, прежде чем на сайте что-то изменится; оставьте контакт, если хотите получить ответ.</p></> },
