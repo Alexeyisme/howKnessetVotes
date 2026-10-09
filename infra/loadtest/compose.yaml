@@ -1,0 +1,49 @@
+# Load-test stack (docs/deploy.md#capacity): the production services, built from this checkout, against a copy of the
+# local database, every container pinned to the same CPUs to stand in for the server. Run through run.sh, which also
+# writes the Caddyfile (production's site block, served on :80). The database is the local one from
+# infra/compose.yaml (`docker compose -f infra/compose.yaml up -d`); pin it too: docker update --cpuset-cpus 0,1 infra-db-1
+x-pin: &pin
+  cpuset: "${CPUS:-0,1}"
+  networks: [infra_default]
+
+x-web: &web
+  <<: *pin
+  image: hkvlt-web
+  environment:
+    HKV_API_URL: http://api:8000
+
+services:
+  api:
+    <<: *pin
+    build: { context: ../.., dockerfile: infra/docker/api.Dockerfile }
+    image: hkvlt-api
+    environment:
+      DATABASE_URL: postgresql://knesset:knesset@db:5432/${LT_DB:-hkvlt}
+    # as in production (compose.prod.yaml), without the migrations: the copy is migrated once by hand
+    command: uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers ${API_WORKERS:-2} --limit-concurrency 48
+
+  web:
+    <<: *web
+    build: ../../apps/web
+
+  web-2:
+    <<: *web
+
+  cache:
+    <<: *pin
+    image: nginx:1.27-alpine
+    volumes:
+      - ../nginx-cache.conf:/etc/nginx/conf.d/default.conf:ro
+    tmpfs:
+      - /var/cache/nginx:size=600m
+
+  caddy:
+    <<: *pin
+    image: caddy:2
+    ports: ["8088:80"]
+    volumes:
+      - ./.Caddyfile:/etc/caddy/Caddyfile:ro
+
+networks:
+  infra_default:
+    external: true

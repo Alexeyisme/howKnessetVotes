@@ -73,6 +73,10 @@ so **commit before deploying**. Files that are no longer tracked are removed fro
 
 A deploy does not wait for CI; check the GitHub Actions run first (`gh run list --limit 1`).
 
+Without the `hkv` alias (a new machine): `ssh-add ~/.ssh/hkv_hetzner && HKV_HOST=deploy@<hkv-1 address> scripts/deploy.sh`.
+After a change to `infra/Caddyfile`, also `scripts/prod.sh restart caddy`: the file is bind-mounted, and the running
+container keeps the old one.
+
 ## Scheduled jobs (systemd on the server, units in [infra/systemd](../infra/systemd))
 
 | Timer | When (Asia/Jerusalem) | What |
@@ -180,9 +184,70 @@ Next.js the other. Most of the database time is the member page's statistics (`G
 precomputed per-vote faction tally would remove most of it. The server got 4 vCPUs the same day (not load-tested
 yet), which should roughly double the limit.
 
-Rerunning the tests: the scripts are not in the repo (they need a database copy and k6). In short: restore a dump into
-a separate database, start api, web, web-2, cache and caddy with `cpuset: "0,1"`, and run k6 `constant-arrival-rate`
-at rising rates; never against the production site.
+### Rerunning the load tests
+
+The kit is in [infra/loadtest](../infra/loadtest): the production services built from this checkout ([compose.yaml](../infra/loadtest/compose.yaml),
+Caddy with production's site block on port 8088), a k6 script ([load.js](../infra/loadtest/load.js)) and a runner that
+climbs the request rate ([run.sh](../infra/loadtest/run.sh)). Needs Docker and k6 (`brew install k6`). **Never point it at
+the production site.**
+
+```sh
+docker compose -f infra/compose.yaml up -d --wait          # the local database (container infra-db-1)
+# a separate copy, so the dev database is left alone; then the current schema
+docker exec infra-db-1 sh -c 'createdb -U knesset hkvlt && pg_dump -U knesset -Fc knesset | pg_restore -U knesset -d hkvlt --no-owner'
+DATABASE_URL=postgresql://knesset:knesset@localhost:5433/hkvlt uv run db/migrate.py
+uv run infra/loadtest/pools.py postgresql://knesset:knesset@localhost:5433/hkvlt   # IDs for load.js
+docker update --cpuset-cpus 0,1 infra-db-1                 # the database shares the server's CPUs too
+infra/loadtest/run.sh hot "20 40 60 80 120"
+infra/loadtest/run.sh tail "10 20 25 30"
+infra/loadtest/run.sh mix "20 30 40 60"
+docker compose -p hkvlt -f infra/loadtest/compose.yaml down; docker update --cpuset-cpus 0-4 infra-db-1   # afterwards
+```
+
+To match the server, give Docker Desktop its memory (Settings → Resources; with 2 GB the tests swapped and the numbers
+were meaningless) and set `CPUS` to its vCPUs, e.g. `CPUS=0-3 API_WORKERS=4` for the CPX32. Each step prints the
+achieved rate, latency percentiles and failures split into timeouts and 5xx, then the same for 20 s at 10 req/s: if
+that second line fails, the site did not recover. Results are kept as JSON in `infra/loadtest/results/`. The 2026-10-09
+copy had half the production votes and no translations, so pages were a little lighter than in production.
+
+### Crawlers
+
+Crawlers made most of the traffic on 2026-10-09: of 222,000 requests in five hours, **ShapBot** sent 126,000 (57%,
+~7 req/s day and night) from 9 Google Cloud addresses, one of them half of it, up to 82 requests in 10 s; 80% vote
+pages. Its user agent (`…; compatible; ShapBot/0.1.0`) gives no contact or documentation. Recommended Cloudflare rule
+(dashboard → knessetvotes.org → Security → Security rules → Rate limiting rules → Create rule):
+
+| Field | Value |
+|---|---|
+| Rule name | `ShapBot rate limit` |
+| If incoming requests match | `(http.user_agent contains "ShapBot")` |
+| With the same characteristics | IP |
+| When rate exceeds | 5 requests per 10 seconds |
+| Then take action | Block (HTTP 429), for 10 seconds (the Free plan's only duration) |
+
+That holds each address to 0.5 req/s (all of them to at most ~4.5 req/s), still ~40,000 pages a day per address. If
+the Free plan's rule editor does not offer the user agent field, a custom rule (Security rules → Custom rules) with the
+same expression and the action Block stops it entirely. To see who is crawling, count user agents in Caddy's log:
+
+```sh
+ssh hkv 'docker logs --since 1h hkv-caddy-1 2>&1' | grep -o '"User-Agent":\["[^"]*' | sort | uniq -c | sort -rn | head
+```
+
+### Resizing the server
+
+Done on 2026-10-09, CPX22 → CPX32 (about 80 seconds offline). Check first that no update or backup is running
+(`systemctl is-active hkv-update hkv-backup` on the server), then from your Mac:
+
+```sh
+hcloud server shutdown hkv-1                        # wait until `hcloud server describe hkv-1` says off
+hcloud server change-type hkv-1 cpx32 --keep-disk   # --keep-disk: the disk stays 80 GB, so a smaller type stays possible
+hcloud server poweron hkv-1
+```
+
+Docker, the containers (`restart: unless-stopped`), the timers and the tunnel to the Israeli server start on their own.
+Check the services (`scripts/prod.sh ps`), `systemctl is-active hkv-il-tunnel`, and one Knesset request through the
+proxy (as in [knesset-proxy.md](knesset-proxy.md)). Then fit [compose.prod.yaml](../infra/compose.prod.yaml) to the new
+size: API workers (one per vCPU) and the Postgres memory settings, and deploy.
 
 ## Restore
 
@@ -192,5 +257,8 @@ scripts/prod.sh exec -T db pg_restore -U knesset -d knesset --clean --if-exists 
 
 ## Still to do
 
+- **Capacity:** set the ShapBot rule in Cloudflare ([Crawlers](#crawlers)); load-test the CPX32 (`CPUS=0-3 API_WORKERS=4`,
+  Docker with 8 GB); precompute a per-vote faction tally so member pages stop recounting every ballot (most of the
+  database time on uncached pages).
 - **Deploy only from green CI:** tests run on every push (GitHub Actions); `scripts/deploy.sh` does not check the result yet.
 - **26th Knesset (2026-11-10):** new factions need curated names in `factions.toml` and links in `parties.toml`; run `hkv names` once the Knesset website lists the new MKs (roadmap O7).

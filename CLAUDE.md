@@ -31,7 +31,7 @@ The owner writes in Russian or English — answer in the language of the message
 | `src/hkv/cli.py` | `hkv` command: ingest, backfill, legacy, update, initiators, topics, names, coalition, verify, status |
 | `apps/web/` | Next.js 16 site (see below); has its own `CLAUDE.md`/`AGENTS.md` |
 | `tests/` | pytest; each test gets a fresh migrated throwaway database |
-| `infra/` | `compose.yaml` (local DB), `compose.prod.yaml`, `Caddyfile`, `systemd/` units |
+| `infra/` | `compose.yaml` (local DB), `compose.prod.yaml`, `Caddyfile`, `nginx-cache.conf` (HTML micro-cache), `systemd/` units, `loadtest/` (k6 kit, docs/deploy.md#capacity) |
 | `scripts/` | `deploy.sh`, `prod.sh` (compose wrapper on the server), `backup.sh`, `alert.sh` |
 | `audit/` | one-off source audit scripts (stdlib only) |
 
