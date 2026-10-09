@@ -1,16 +1,14 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
-import { TermSelect } from "@/components/TermSelect";
-import { TopicFactions } from "@/components/TopicFactions";
 import { Title } from "@/components/Title";
 import { He } from "@/components/ui";
 import { getTopic, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
-async function load(slug: string, term?: string) {
+async function load(slug: string) {
   try {
-    return (await getTopic(slug, { term })).data;
+    return (await getTopic(slug, {})).data;
   } catch (e) {
     if (e instanceof NotFound) notFound();
     throw e;
@@ -21,11 +19,9 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/topics/[sl
   return { title: (await getT()).topic(await load((await params).slug)) };
 }
 
-export default async function TopicPage({ params, searchParams }: PageProps<"/[lang]/topics/[slug]">) {
+export default async function TopicPage({ params }: PageProps<"/[lang]/topics/[slug]">) {
   const { slug } = await params;
-  const sp = await searchParams;
-  const term = typeof sp.term === "string" && sp.term ? sp.term : undefined;
-  const x = await load(slug, term);
+  const x = await load(slug);
   const t = await getT();
   const d = t.d.topic;
   const label = t.topic(x);
@@ -38,16 +34,6 @@ export default async function TopicPage({ params, searchParams }: PageProps<"/[l
         <h1>{label}</h1>
         {aliases.length > 0 && <p className="small muted">{d.aliases} {aliases.join(", ")}</p>}
       </header>
-
-      <section className="card">
-        <h2 className="section-title">{d.factionsTitle(x.term)}</h2>
-        <form className="search" action={t.href(`/topics/${slug}`)}>
-          <TermSelect value={String(x.term)} />
-          <button type="submit">{t.d.common.show}</button>
-        </form>
-        <p className="small muted" style={{ marginBottom: 12 }}>{d.factionsHint}</p>
-        {x.factions.length > 0 ? <TopicFactions rows={x.factions} /> : <p className="muted">{d.none}</p>}
-      </section>
 
       <section>
         <h2 className="section-title">{d.bills(x.bills)}</h2>

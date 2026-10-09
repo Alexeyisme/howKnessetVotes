@@ -287,15 +287,9 @@ export const en: Dict = {
   },
   topic: {
     kicker: "Topic", aliases: "Also found by:",
-    factionsTitle: (term) => `How parties voted on bills in this topic — ${ord(term)} Knesset`,
-    factionsHint: "Counts third-reading votes on bills as a whole. For each party: in how many of them the majority of its voting members was for or against. Bills rejected at earlier stages are not included.",
-    none: "No such votes in this Knesset.",
     bills: (n) => `Bills in this topic (${n})`,
     lastVote: (d) => ` · latest vote ${d}`,
     allBills: "All bills in this topic →",
-    legendAgainst: "majority against", legendFor: "majority for",
-    of: (n) => `of ${n}`, noMajority: (n) => ` · ${n} without a clear majority`,
-    aria: (name, f, a, o, n) => `${name}: ${f} for, ${a} against, ${o} without a clear majority, of ${n}`,
   },
   search: {
     title: "Search", ph: "Name, party, topic, bill title or number",
