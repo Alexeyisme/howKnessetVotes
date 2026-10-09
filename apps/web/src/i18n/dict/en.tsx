@@ -22,7 +22,7 @@ export const en: Dict = {
     asOf: (updated, last, votes, ballots) => `Data updated ${updated}; latest vote ${last}. ${votes} votes, ${ballots} roll-call records.`,
     sources: "Sources: Knesset open data, the Knesset website (member names and photos), Wikidata,",
     oknesset: "Open Knesset",
-    methodology: "Methodology", glossary: "Glossary", translation: "About the translation", api: "API",
+    methodology: "Methodology", glossary: "Glossary", translation: "About the translation", api: "API", source: "Source code",
     report: "Write to the author",
   },
   common: {

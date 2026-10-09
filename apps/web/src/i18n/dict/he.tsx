@@ -18,7 +18,7 @@ export const he: Dict = {
     asOf: (updated, last, votes, ballots) => `הנתונים עודכנו ב-${updated}; ההצבעה האחרונה: ${last}. ${votes} הצבעות, ${ballots} רישומים שמיים.`,
     sources: "מקורות: המידע הפתוח של הכנסת, אתר הכנסת (שמות ותמונות של חברי הכנסת), ויקינתונים,",
     oknesset: "כנסת פתוחה",
-    methodology: "מתודולוגיה", glossary: "מילון מונחים", translation: "על התרגום", api: "API",
+    methodology: "מתודולוגיה", glossary: "מילון מונחים", translation: "על התרגום", api: "API", source: "קוד המקור",
     report: "כתבו למחבר האתר",
   },
   common: {

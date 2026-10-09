@@ -24,7 +24,7 @@ export const ar: Dict = {
     asOf: (updated, last, votes, ballots) => `آخر تحديث للمعطيات: ${updated}؛ آخر تصويت: ${last}. ${votes} تصويتًا، ${ballots} سجلًا اسميًا.`,
     sources: "المصادر: المعطيات المفتوحة للكنيست، موقع الكنيست (أسماء أعضاء الكنيست وصورهم)، ويكي بيانات،",
     oknesset: "الكنيست المفتوح",
-    methodology: "المنهجية", glossary: "قاموس المصطلحات", translation: "حول الترجمة", api: "API",
+    methodology: "المنهجية", glossary: "قاموس المصطلحات", translation: "حول الترجمة", api: "API", source: "الشيفرة المصدرية",
     report: "راسلوا مؤلف الموقع",
   },
   common: {

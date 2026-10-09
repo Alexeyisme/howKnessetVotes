@@ -120,7 +120,8 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
             <Link href="/about/methodology#translation">{d.footer.translation}</Link> ·{" "}
             {/* /docs is the API's (FastAPI) page, served by Caddy, not a route of this app */}
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a href="/docs">{d.footer.api}</a>
+            <a href="/docs">{d.footer.api}</a> ·{" "}
+            <a href="https://github.com/Alexeyisme/howKnessetVotes" target="_blank" rel="noopener">{d.footer.source}</a>
           </p>
           <p style={{ marginTop: 6 }}>
             <ReportLink locale={t.locale} label={d.footer.report} />

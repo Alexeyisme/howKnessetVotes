@@ -35,7 +35,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
         app.state.pool.close()
 
     app = FastAPI(title="howKnessetVotes API", version="0.1.0", lifespan=lifespan,
-                  description="Plenum roll-call votes of the Knesset. IDs are official Knesset IDs.")
+                  description="Plenum roll-call votes of the Knesset. IDs are official Knesset IDs.\n\n"
+                              "Source code: https://github.com/Alexeyisme/howKnessetVotes (MIT); "
+                              "our data: CC BY 4.0, Knesset data under its own terms.")
 
     @app.get("/api/v1/votes", response_model=VoteList)
 
