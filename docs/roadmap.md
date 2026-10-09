@@ -39,6 +39,13 @@ The site answers the questions a voter asks, in plain words, before it shows tab
 | U16 ✅ | **Language switch keeps the page** — *fixed 2026-10-09*: the header is a client component (`SiteHeader`) that reads the live path and query, so switching language keeps the page, its query and quiz progress; the header search and the active nav item also follow client navigation | Switching language is how ru/en/he/ar visitors share pages with each other | S |
 | U17 | **Two sides on cards** — *built 2026-10-08*: final-vote cards (home, /votes), the "Who votes like me" question, bill lists (/bills, topic pages) and MK vote histories carry the plenum fight in brief: each side's argument made by the most speakers (`sides` on bill refs and bill summaries, from `bill_debate`; both sides or neither, since some debate summaries have arguments for one side only), how many members spoke and how many reservations were filed, and on the MK page the member's own speeches in that debate. Not yet: the share image; short plain-language bill names (titles are still the official ones) | Titles alone don't say what was at stake; the debate data existed only on the bill page | M |
 
+### Quiz and comparison improvements (2026-10-09)
+
+- `/match` scoring (`apps/web/src/lib/match.ts`): a faction is ranked only with at least 6 comparable answers; abstentions, splits, uncertain faction attribution and missing records are excluded, not counted as disagreement. Equal rates share a rank, each faction shows its coverage and the questions it agreed, differed or could not be compared on. Bloc labels (coalition/opposition) are gone from the ranking: they carried no date.
+- `/match` controls: Back, edit an answer from the results, progress kept in the URL (`step`), larger answer buttons fixed at the bottom on phones. Shared links are accepted only for contested final votes of one Knesset with at least 60 votes cast, each named once.
+- Comparison endpoints accept `limit` (1–100) and a keyset `cursor`; `differences_total`, `differences_offset` and `next_cursor` describe the full list of disagreements, while the agreement rate still covers all shared votes. `/compare` shows the range and total with links to older pages.
+- Web tests: `npm test` (quiz scoring) runs in CI.
+
 ## Track 2 — Hebrew, English, Russian and Arabic
 
 Rule: every displayed text records its origin:

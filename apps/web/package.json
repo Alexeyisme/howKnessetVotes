@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "node --experimental-strip-types --test scripts/*.test.mjs"
   },
   "dependencies": {
     "bidi-js": "^1.1.0",

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { MatchQuiz, type MatchParty, type MatchSide, type MatchVote } from "@/components/MatchQuiz";
+import { MatchQuiz } from "@/components/MatchQuiz";
+import { MIN_COMPARABLE, type MatchParty, type MatchSide, type MatchVote, type Stand } from "@/lib/match";
 import { getVote, listVotes, type ProseText, type VoteSummary } from "@/lib/api";
 import { verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
@@ -45,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 // R6 VoteMatch. No curation: the questions are the contested final votes of the latest Knesset with the most members
 // voting, spread over sittings and topics (spread), so the selection rule is printed on the page and anyone can check it. A party's "answer" is the strict
-// majority of its members on that vote (from the vote page's breakdown); abstentions and splits do not count.
+// majority of its members on that vote (from the vote page's breakdown); abstentions, splits and missing records do not count (lib/match.ts).
 export default async function MatchPage({ searchParams }: PageProps<"/[lang]/match">) {
   const t = await getT();
   const d = t.d.match;
@@ -55,19 +56,22 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
   const term = current[0]?.term;
   // A shared result names its questions (?q=ids): the set changes with new votes, and the answers are by position.
   // Answers without ?q= are from before links carried it and cannot be matched to questions, so they are dropped.
-  const shared = typeof sp.q === "string" && /^\d+(,\d+){0,11}$/.test(sp.q) && sp.q !== current.map((v) => v.id).join(",")
-    ? await Promise.all(sp.q.split(",").map((id) => getVote(Number(id)).then((r) => r.data)))
-        .then((vs) => vs.every((v) => v.motion_type === "adopt_bill" && v.stage === "third") ? vs : null).catch(() => null)
+  // A link names votes that could have been quiz questions (contested final votes of one Knesset), each once.
+  const currentIds = current.map((v) => v.id).join(",");
+  const ids = typeof sp.q === "string" && /^\d+(,\d+){0,11}$/.test(sp.q) ? sp.q.split(",").map(Number) : [];
+  const shared = ids.length && new Set(ids).size === ids.length && sp.q !== currentIds
+    ? await Promise.all(ids.map((id) => getVote(id).then((r) => r.data)))
+        .then((vs) => vs.every((v) => v.motion_type === "adopt_bill" && v.stage === "third" && v.blocs?.contested &&
+          v.roll_call.for + v.roll_call.against + v.roll_call.abstain >= 60 && v.term === vs[0].term) ? vs : null).catch(() => null)
     : null;
   const details = shared ?? await Promise.all(current.map((v) => getVote(v.id).then((r) => r.data)));
   const parties = new Map<number, MatchParty>();
   const votes: MatchVote[] = details.map((v) => {
     const out = verdict(v, t);
-    const stands: Record<number, "for" | "against"> = {};
+    const stands: Record<number, Stand> = {};
     for (const f of v.by_faction) {
-      if (f.majority !== "for" && f.majority !== "against") continue;
-      stands[f.faction_id] = f.majority;
-      if (!parties.has(f.faction_id)) parties.set(f.faction_id, { id: f.faction_id, name: t.faction(f), alignment: f.alignment ?? null });
+      stands[f.faction_id] = f.ambiguous_records ? "ambiguous" : f.majority;
+      if (!parties.has(f.faction_id)) parties.set(f.faction_id, { id: f.faction_id, name: t.faction(f) });
     }
     const sides = v.bills.find((b) => b.sides?.argument_for && b.sides.argument_against)?.sides;
     const side = (a: ProseText & { speakers: number }): MatchSide => {
@@ -77,7 +81,7 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
     return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands,
              sides: sides?.argument_for && sides.argument_against ? { for: side(sides.argument_for), against: side(sides.argument_against) } : null };
   });
-  const answers = typeof sp.a === "string" && typeof sp.q === "string" && (shared || sp.q === current.map((v) => v.id).join(",")) ? sp.a : "";
+  const answers = typeof sp.a === "string" && (shared || sp.q === currentIds) ? sp.a : "";
 
   return (
     <div className="stack">
@@ -86,13 +90,19 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
         <>
           {shared ? <p className="muted">{d.earlier} <Link href="/match">{d.current}</Link></p>
                   : <p className="muted">{d.lead(votes.length, term)}</p>}
-          <MatchQuiz votes={votes} parties={[...parties.values()]} initial={answers} locale={t.locale}
+          <p className="small muted">{d.scoring(MIN_COMPARABLE)}</p>
+          <MatchQuiz key={votes.map((v) => v.id).join(",")} votes={votes} parties={[...parties.values()]} initial={answers}
+                     initialStep={typeof sp.step === "string" ? sp.step : ""} locale={t.locale}
                      labels={{ question: d.question, yes: d.yes, no: d.no, skip: d.skip, resultTitle: d.resultTitle,
                                progress: votes.map((_, i) => d.progress(i + 1, votes.length)),
                                agree: Array.from({ length: votes.length + 1 }, (_, m) => Array.from({ length: m + 1 }, (_, n) => d.agree(n, m))),
-                               noAnswers: d.noAnswers, again: d.again, share: d.share, copied: d.copied, yours: d.yours, passed: d.passed,
-                               alignment: t.d.alignment, choice: t.d.choice, sidesFor: t.d.sides.for, sidesAgainst: t.d.sides.against,
-                               sidesNote: t.d.sides.note }} />
+                               again: d.again, share: d.share, copied: d.copied, yours: d.yours, passed: d.passed,
+                               back: d.back, edit: d.edit, finish: d.finish, unranked: d.unranked, tied: d.tied,
+                               agreed: d.agreed, differed: d.differed, excluded: d.excluded, noItems: d.noItems,
+                               partyChoice: d.partyChoice, review: d.review, stand: d.stand,
+                               insufficient: d.insufficient(MIN_COMPARABLE),
+                               coverage: Array.from({ length: votes.length + 1 }, (_, n) => d.coverage(n, votes.length)),
+                               choice: t.d.choice, sidesFor: t.d.sides.for, sidesAgainst: t.d.sides.against, sidesNote: t.d.sides.note }} />
         </>
       )}
     </div>

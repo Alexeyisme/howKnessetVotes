@@ -44,10 +44,10 @@ uv run pytest -q                                      # needs the DB above
 uv run hkv ingest --from 2025-01-01 --to 2025-03-31   # some data to look at
 uv run uvicorn hkv.api.app:app --reload               # http://127.0.0.1:8000/docs
 cd apps/web && npm run dev                            # http://localhost:3000 (HKV_API_URL defaults to 127.0.0.1:8000)
-cd apps/web && npm run lint && npm run build          # what CI runs
+cd apps/web && npm test && npm run lint && npm run build # what CI runs
 ```
 
-CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web lint + build on every push.
+CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web tests, lint and build on every push.
 
 ## Rules for the data (do not break these)
 
