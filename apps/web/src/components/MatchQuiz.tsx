@@ -16,7 +16,7 @@ export interface MatchLabels {
   again: string; share: string; copied: string; yours: string; passed: string; back: string; edit: string; finish: string;
   insufficient: string; unranked: string; tied: string; coverage: string[];
   agreed: string; differed: string; excluded: string; noItems: string; partyChoice: string; review: string;
-  stand: Record<Stand, string>; choice: Record<string, string>; sidesFor: string; sidesAgainst: string; sidesNote: string;
+  stand: Record<Stand, string>; choice: Record<string, string>; sidesFor: string; sidesAgainst: string; sidesNote: string; aiSummary: string;
 }
 
 export function MatchQuiz({ votes, parties, initial, initialStep, locale, labels }:
@@ -89,7 +89,7 @@ export function MatchQuiz({ votes, parties, initial, initialStep, locale, labels
             const x = current.sides![k];
             return (
               <div key={k} className={`${styles.side} ${k === "for" ? styles.sideFor : styles.sideAgainst}`}>
-                <span className={styles.sideHead}>{k === "for" ? labels.sidesFor : labels.sidesAgainst}<span className={styles.tag} title={labels.sidesNote}>auto</span></span>
+                <span className={styles.sideHead}>{k === "for" ? labels.sidesFor : labels.sidesAgainst}<span className={styles.tag} title={labels.sidesNote}>{labels.aiSummary}</span></span>
                 <span lang={x.he ? "he" : undefined} dir={x.he ? "rtl" : "auto"}>{x.text}</span>
                 <span className={styles.made}>{x.made}</span>
               </div>

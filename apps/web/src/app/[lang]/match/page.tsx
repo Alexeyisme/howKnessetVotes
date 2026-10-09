@@ -105,7 +105,7 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
                                partyChoice: d.partyChoice, review: d.review, stand: d.stand,
                                insufficient: d.insufficient(MIN_COMPARABLE),
                                coverage: Array.from({ length: votes.length + 1 }, (_, n) => d.coverage(n, votes.length)),
-                               choice: t.d.choice, sidesFor: t.d.sides.for, sidesAgainst: t.d.sides.against, sidesNote: t.d.sides.note }} />
+                               choice: t.d.choice, sidesFor: t.d.sides.for, sidesAgainst: t.d.sides.against, sidesNote: t.d.sides.note, aiSummary: t.d.common.aiSummary }} />
         </>
       )}
     </div>

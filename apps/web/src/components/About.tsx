@@ -18,7 +18,8 @@ function lead(text: string, locale: string, max: number): string {
 /** What a law does, on cards and quiz questions: the start of the Knesset's official summary, or where there is none
  *  of our description of the sponsors' notes, labelled as on the bill page. A title like "Basic Law: The Government
  *  (Amendment No. 11)" says nothing on its own. `compact` (inside a card that is itself a link) drops the link to the
- *  full text and marks machine text with the small "auto" tag, its explanation on hover. */
+ *  full text and marks machine text with a small visible tag ("AI summary" or "AI translation"), the full
+ *  explanation on hover: a card can be screenshot or seen on a phone, where a hover-only note is lost. */
 export async function About({ about, bill, max = 360, compact = false }: { about: BillAbout; bill: number; max?: number; compact?: boolean }) {
   const t = await getT();
   const d = t.d.bill;
@@ -32,7 +33,7 @@ export async function About({ about, bill, max = 360, compact = false }: { about
   const text = <span lang={tr ? undefined : "he"} dir={tr ? "auto" : "rtl"}>{lead(tr ?? he, tr ? t.locale : "he", max)}</span>;
   if (compact) return (
     <>
-      <span className="small muted">{official ? d.summaryTitle : d.explanationTitle}{note && <span className={styles.tag} title={note}>auto</span>}</span>
+      <span className="small muted">{official ? d.summaryTitle : d.explanationTitle}{note && <span className={styles.tag} title={note}>{official ? t.d.common.machine : t.d.common.aiSummary}</span>}</span>
       {text}
     </>
   );

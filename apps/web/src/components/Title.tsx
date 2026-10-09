@@ -6,8 +6,9 @@ import { getT } from "@/i18n/server";
 import styles from "./Title.module.css";
 
 /** R4: a law or vote title. The Hebrew original first; under it the translation in the UI language, marked
- *  "automatic translation" (with "suggest a correction") until an editor has reviewed it. In the Hebrew UI, or when
- *  there is no translation yet, only the Hebrew line shows. `compact` keeps the marker to a small tag for lists. */
+ *  "AI translation" (with "suggest a correction") until an editor has reviewed it. In the Hebrew UI, or when
+ *  there is no translation yet, only the Hebrew line shows. `compact` keeps the marker to a small tag for lists, in
+ *  the same words. */
 export async function Title({ he, t: tr, as = "span", compact = false, className = "", page }:
   { he: string; t?: Titled | null; as?: "span" | "h1" | "p"; compact?: boolean; className?: string; page?: string }) {
   const t = await getT();
@@ -24,7 +25,7 @@ export async function Title({ he, t: tr, as = "span", compact = false, className
         {text}
         {machine && (
           compact
-            ? <span className={styles.tag} title={t.d.common.machine}>auto</span>
+            ? <span className={styles.tag} title={t.d.common.machine}>{t.d.common.machine}</span>
             : <span className={styles.marker}> · {t.d.common.machine} · <Link href={suggest} prefetch={false} rel="nofollow">{t.d.common.suggest}</Link></span>
         )}
       </span>

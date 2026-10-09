@@ -33,7 +33,8 @@ async function finalBill(vote: VoteDetail): Promise<BillDetail | null> {
 }
 
 /** What the law does (the official summary, else the sponsors' explanatory notes) and the two sides of the plenum
- *  debate; when the debate has no argument for one side, its summary instead. The full debate is on the bill page. */
+ *  debate; when the debate has no argument for one side, its summary instead. The full debate is on the bill page.
+ *  Every model-written text says so next to it and links the document it was written from, as on the bill page. */
 async function AboutBill({ bill, vote }: { bill: BillDetail; vote: VoteDetail }) {
   const t = await getT();
   const sides = vote.bills[0].sides;
@@ -42,6 +43,8 @@ async function AboutBill({ bill, vote }: { bill: BillDetail; vote: VoteDetail })
     : bill.explanation_he ? { he: bill.explanation_he, text: bill.explanation, origin: bill.explanation_origin, title: t.d.bill.explanationTitle } : null;
   const bothSides = !!(sides?.argument_for && sides.argument_against);
   if (!about && !bothSides && !bill.debate) return null;
+  const report = <Link href={`/suggest?page=${page}`} prefetch={false} rel="nofollow">{t.d.common.report}</Link>;
+  const transcripts = bill.debate?.sources ?? [];
   return (
     <section className="card" aria-labelledby="about">
       <h2 id="about" className="section-title">{t.d.vote.aboutBill}</h2>
@@ -49,7 +52,13 @@ async function AboutBill({ bill, vote }: { bill: BillDetail; vote: VoteDetail })
         <>
           <h3 className={styles.sub}>{about.title}</h3>
           <Summary he={about.he} text={about.text} origin={about.origin} page={page} />
-          {!bill.summary_he && <p className="small muted">{t.d.bill.explanationNote}</p>}
+          {!bill.summary_he && (
+            <p className="small muted">
+              {t.d.bill.explanationNote}
+              {bill.explanation_source_url && <> · <a href={bill.explanation_source_url} rel="noopener">{t.d.bill.explanationSource}</a></>}
+              {" · "}{report}
+            </p>
+          )}
         </>
       )}
       {(bothSides || bill.debate) && (
@@ -58,6 +67,12 @@ async function AboutBill({ bill, vote }: { bill: BillDetail; vote: VoteDetail })
           {bothSides ? <Sides sides={sides!} />
             : <Summary he={bill.debate!.summary.text_he} text={bill.debate!.summary.text} origin={bill.debate!.summary.text_origin} page={page} />}
           {sides && <p className="small muted num" style={{ marginTop: 6 }}>{t.d.sides.counts(sides.speakers, sides.reservations)}</p>}
+          <p className="small muted" style={{ marginTop: 6 }}>
+            {bothSides ? t.d.sides.note : t.d.bill.debateShort}{" "}
+            {transcripts.length > 0 && <>{t.d.bill.debateSources(transcripts.length)}:{" "}
+              {transcripts.map((u, n) => <span key={u}>{n > 0 && ", "}<a href={u} rel="noopener">{n + 1}</a></span>)}{" · "}</>}
+            {report}
+          </p>
         </>
       )}
       <p className="small" style={{ marginTop: 8 }}><Link href={`/bills/${bill.id}`}>{t.d.vote.debateMore} →</Link></p>
