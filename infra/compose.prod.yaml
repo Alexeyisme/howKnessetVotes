@@ -23,8 +23,8 @@ services:
       POSTGRES_USER: knesset
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: knesset
-    # sized for a 4 GB server shared with the API and web processes
-    command: postgres -c shared_buffers=512MB -c effective_cache_size=2GB -c work_mem=16MB -c maintenance_work_mem=256MB
+    # sized for the 8 GB server (CPX32) shared with the API and web processes
+    command: postgres -c shared_buffers=1GB -c effective_cache_size=4GB -c work_mem=16MB -c maintenance_work_mem=512MB
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../backups:/backups
@@ -44,9 +44,9 @@ services:
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}   # Cloudflare Turnstile check of the contact form; off when empty
       HKV_IP_SALT: ${HKV_IP_SALT:-}                     # salt of the contact form's per-visitor hash (openssl rand -hex 32)
-    # --limit-concurrency: past 48 open requests per worker, answer 503 at once. Without it an overload queued work for
+    # one worker per vCPU; --limit-concurrency: past 48 open requests per worker, answer 503 at once. Without it an overload queued work for
     # minutes after the traffic had gone, and the site stayed down (load tests, docs/deploy.md#capacity)
-    command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 2 --limit-concurrency 48 --proxy-headers --forwarded-allow-ips '*'"
+    command: sh -c "python db/migrate.py && exec uvicorn hkv.api.app:app --host 0.0.0.0 --port 8000 --workers 4 --limit-concurrency 48 --proxy-headers --forwarded-allow-ips '*'"
     depends_on:
       db: { condition: service_healthy }
     healthcheck:

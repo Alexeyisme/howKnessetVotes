@@ -2,7 +2,7 @@
 
 One Hetzner Cloud server runs the whole site.
 
-- **Server:** `hkv-1`, CPX22 (2 vCPU, 4 GB), Helsinki, Ubuntu 24.04. Its address is not in the repo: it is in your `~/.ssh/config` (see Access) and in `hcloud server list`.
+- **Server:** `hkv-1`, CPX32 (4 vCPU, 8 GB; resized from CPX22 on 2026-10-09 with `--keep-disk`, so the 80 GB disk allows going back), Helsinki, Ubuntu 24.04. Its address is not in the repo: it is in your `~/.ssh/config` (see Access) and in `hcloud server list`.
 - **Stack:** [infra/compose.prod.yaml](../infra/compose.prod.yaml) runs these services:
   - `db` (Postgres 17);
   - `api` (FastAPI; runs migrations on start);
@@ -145,7 +145,7 @@ A failing update or backup triggers `hkv-alert@<unit>` ([scripts/alert.sh](../sc
 
 ## Capacity
 
-Load tests on 2026-10-09: the production stack on a local copy of the database (half the production votes, no
+Load tests on 2026-10-09, on the CPX22 (2 vCPU, 4 GB) the server had before that day's resize: the production stack on a local copy of the database (half the production votes, no
 translations), every container pinned to two CPUs and 4 GB of memory, as on `hkv-1`; k6 at a constant request rate for
 40 s per step, starting each step from cold processes and an empty cache, then 20 s at 10 requests/s to check that the
 site recovers. Three kinds of traffic:
@@ -177,7 +177,8 @@ What changed:
 **The limit for uncached pages is the CPU.** At 25 req/s of crawler traffic Postgres used about one of the two cores and
 Next.js the other. Most of the database time is the member page's statistics (`GET /members/{id}`: 70 ms median,
 180 ms for a long-serving member, all of it the "against own faction" count recomputed over every ballot). A
-precomputed per-vote faction tally would remove most of it; a server with 4 vCPUs would roughly double the limit.
+precomputed per-vote faction tally would remove most of it. The server got 4 vCPUs the same day (not load-tested
+yet), which should roughly double the limit.
 
 Rerunning the tests: the scripts are not in the repo (they need a database copy and k6). In short: restore a dump into
 a separate database, start api, web, web-2, cache and caddy with `cpuset: "0,1"`, and run k6 `constant-arrival-rate`
