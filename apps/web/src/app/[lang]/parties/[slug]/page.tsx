@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
-import { AlignmentBadge, FactionName, MemberChip, MemberGrid, RateStat, Stat, Stats, VoteLine, VoteList } from "@/components/ui";
-import { getFaction, getFactionVotes, getParty, listMembers, NotFound } from "@/lib/api";
-import { verdict } from "@/lib/labels";
+import { AlignmentBadge, FactionName, MemberChip, MemberGrid, RateStat, Stat, Stats } from "@/components/ui";
+import { VoteFeed } from "@/components/VoteFeed";
+import { getFaction, getParty, listMembers, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
 async function load(slug: string) {
@@ -20,21 +20,22 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/parties/[s
 }
 
 // R1: the party is the hub a voter thinks in. The page answers "where do they stand now" first — the current list,
-// coalition or opposition, how its majority voted on the final readings, who is in it — and keeps the Knesset-by-
-// Knesset history behind a fold.
-export default async function PartyPage({ params }: PageProps<"/[lang]/parties/[slug]">) {
-  const p = await load((await params).slug);
+// coalition or opposition, how its majority voted (the same views as /votes, opening on the contested laws), who is
+// in it — and keeps the Knesset-by-Knesset history behind a fold.
+export default async function PartyPage({ params, searchParams }: PageProps<"/[lang]/parties/[slug]">) {
+  const { slug } = await params;
+  const sp = await searchParams;
+  const p = await load(slug);
   const t = await getT();
   const d = t.d.parties;
   const name = t.party(p);
   const latest = p.factions[p.factions.length - 1];
-  const [faction, members, votes] = latest
+  const [faction, members] = latest
     ? await Promise.all([
         getFaction(latest.id).then((r) => r.data),
         listMembers({ faction: String(latest.id) }).then((r) => r.data),
-        getFactionVotes(latest.id, { stage: "third", motion_type: "adopt_bill", limit: "8" }),
       ])
-    : [null, [], null];
+    : [null, []];
   const current = faction ? new Set(faction.members.filter((m) => !m.valid_to).map((m) => m.person_id)) : new Set<number>();
   const membersNow = members.filter((m) => current.has(m.id));
 
@@ -61,23 +62,12 @@ export default async function PartyPage({ params }: PageProps<"/[lang]/parties/[
         </Stats>
       )}
 
-      {votes && votes.data.length > 0 && (
+      {latest && (
         <section>
-          <h2 className="section-title">{d.finalVotes}</h2>
-          <VoteList>
-            {votes.data.map((v) => {
-              const c = v.faction_counts;
-              const out = verdict(v.vote, t);
-              return (
-                <VoteLine key={v.vote.id} vote={v.vote}>
-                  <strong>{t.d.majority[v.majority]}</strong>
-                  <span className="small num muted">{t.d.rc.line(c.for, c.against, c.abstain)}{out && ` · ${out.text}`}</span>
-                </VoteLine>
-              );
-            })}
-          </VoteList>
+          <h2 className="section-title">{d.votesTitle}</h2>
+          <VoteFeed base={`/parties/${slug}`} sp={sp} faction={{ id: latest.id, name: t.faction(latest) }} defaultView="contested" fallback="final" />
           <p className="small" style={{ marginTop: 8 }}>
-            <Link href={`/factions/${latest!.id}?split=1`}>{t.d.faction.tabSplit} →</Link> · <Link href={`/factions/${latest!.id}`}>{d.allVotes}</Link>
+            <Link href={`/factions/${latest.id}?split=1`}>{t.d.faction.tabSplit} →</Link> · <Link href={`/factions/${latest.id}`}>{d.allVotes}</Link>
           </p>
         </section>
       )}

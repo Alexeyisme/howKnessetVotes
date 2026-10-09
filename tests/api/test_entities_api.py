@@ -55,6 +55,9 @@ def test_faction_cohesion_counts_the_dissent(client):
     split = client.get(f"/api/v1/factions/{LIKUD}/votes", params={"split_only": True}).json()["data"]
     assert [(v["vote"]["id"], v["faction_counts"]["for"], v["faction_counts"]["against"], v["majority"]) for v in split] == [
         (37689, len(LIKUD_IN_37689) - 1, 1, "for")]
+    votes = lambda **p: [v["vote"]["id"] for v in client.get(f"/api/v1/factions/{LIKUD}/votes", params=p).json()["data"]]  # noqa: E731
+    assert 37689 in votes(min_cast=0) and votes(min_cast=120) == []
+    assert votes(contested=True) == []          # no coalition data in the fixture, so nothing is contested
 
 
 def test_compare_members_and_factions(client):

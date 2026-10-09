@@ -333,7 +333,7 @@ export const en: Dict = {
     faction: "Faction", term: "Knesset", period: "Period", members: "Members", role: "Coalition / opposition",
     kicker: "Party across Knessets",
     current: (term) => `In the ${ord(term)} Knesset`,
-    finalVotes: "Final votes: how the list's majority voted",
+    votesTitle: "How the list's majority voted",
     history: "Across Knessets",
     allVotes: "All votes of the list →",
   },

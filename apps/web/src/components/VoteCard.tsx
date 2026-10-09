@@ -12,7 +12,7 @@ const PLENUM = 120;
  *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line, and on final votes the
  *  two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
-export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary; showMotion?: boolean }) {
+export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode }) {
   const t = await getT();
   const rc = vote.roll_call;
   const cast = rc.for + rc.against + rc.abstain;
@@ -52,6 +52,7 @@ export async function VoteCard({ vote, showMotion = false }: { vote: VoteSummary
         {vote.blocs?.contested && (
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.short(vote.blocs.coalition, vote.blocs.opposition)}</span>
         )}
+        {note && <span className={`small ${styles.note}`}>{note}</span>}
         {sides && <Sides sides={sides} />}
         {sideCounts && <span className="small muted num">{sideCounts}</span>}
       </Link>

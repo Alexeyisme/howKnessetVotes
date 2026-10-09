@@ -19,3 +19,4 @@
 
 .counts { color: var(--ink-2); }
 .blocs { color: var(--ink-2); font-weight: 600; }
+.note { color: var(--ink); }

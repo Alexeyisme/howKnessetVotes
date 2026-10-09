@@ -1,6 +1,6 @@
 import Link from "./Link";
 import { VoteCard, VoteCards } from "./VoteCard";
-import { listVotes } from "@/lib/api";
+import { getFactionVotes, listVotes, type FactionVote, type VoteSummary } from "@/lib/api";
 import { MAIN_MOTIONS } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 import styles from "./VoteFeed.module.css";
@@ -16,22 +16,32 @@ const FILTERS: { key: string; params: Record<string, string | string[]> }[] = [
   { key: "all", params: {} },
 ];
 
-/** The vote list with its view chips and paging, on /votes and on topic pages (`filter`: e.g. the topic). When the
- *  visitor has not picked a view and the default one is empty, `fallback` is shown instead (a topic with no
- *  contested votes shows its final votes). */
-export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback }: {
+type Row = { vote: VoteSummary; party?: FactionVote };
+
+/** The vote list with its view chips and paging, on /votes, topic pages (`filter`: the topic) and party pages
+ *  (`faction`: the party's list, each card saying how its majority voted). When the visitor has not picked a view and
+ *  the default one is empty, `fallback` is shown instead (a topic with no contested votes shows its final votes). */
+export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback, faction }: {
   base: string; sp: Record<string, string | string[] | undefined>; filter?: Record<string, string>;
-  defaultView?: string; fallback?: string;
+  defaultView?: string; fallback?: string; faction?: { id: number; name: string };
 }) {
   const t = await getT();
   const d = t.d.votes;
   const picked = FILTERS.find((f) => f.key === sp.view);
   const cursor = typeof sp.cursor === "string" ? sp.cursor : undefined;
+  const load = async (params: Record<string, string | string[] | undefined>): Promise<{ rows: Row[]; next: string | null }> => {
+    if (faction) {
+      const r = await getFactionVotes(faction.id, params);
+      return { rows: r.data.map((x) => ({ vote: x.vote, party: x })), next: r.next_cursor };
+    }
+    const r = await listVotes(params);
+    return { rows: r.data.map((vote) => ({ vote })), next: r.next_cursor };
+  };
   let view = picked ?? FILTERS.find((f) => f.key === defaultView)!;
-  let res = await listVotes({ ...view.params, ...filter, cursor, limit: "30" });
-  if (!picked && !cursor && fallback && res.data.length === 0) {
+  let res = await load({ ...view.params, ...filter, cursor, limit: "30" });
+  if (!picked && !cursor && fallback && res.rows.length === 0) {
     view = FILTERS.find((f) => f.key === fallback)!;
-    res = await listVotes({ ...view.params, ...filter, limit: "30" });
+    res = await load({ ...view.params, ...filter, limit: "30" });
   }
   const href = (key: string, extra: Record<string, string> = {}) => {
     const qs = new URLSearchParams({ ...(key !== defaultView ? { view: key } : {}), ...extra }).toString();
@@ -48,11 +58,15 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
         ))}
       </nav>
       <VoteCards>
-        {res.data.map((v) => <VoteCard key={v.id} vote={v} showMotion={view.key === "all"} />)}
+        {res.rows.map(({ vote, party }) => (
+          <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"}
+                    note={party && <><strong>{faction!.name}: {t.d.majority[party.majority]}</strong>{" "}
+                      <span className="num muted">({t.d.rc.line(party.faction_counts.for, party.faction_counts.against, party.faction_counts.abstain)})</span></>} />
+        ))}
       </VoteCards>
-      {res.data.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
-      {res.next_cursor && (
-        <p style={{ marginTop: 16 }}><Link href={href(view.key, { cursor: res.next_cursor })}>{t.d.common.earlier}</Link></p>
+      {res.rows.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
+      {res.next && (
+        <p style={{ marginTop: 16 }}><Link href={href(view.key, { cursor: res.next })}>{t.d.common.earlier}</Link></p>
       )}
     </>
   );

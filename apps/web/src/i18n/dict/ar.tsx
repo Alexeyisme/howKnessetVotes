@@ -335,7 +335,7 @@ export const ar: Dict = {
     faction: "الكتلة", term: "الكنيست", period: "الفترة", members: "الأعضاء", role: "ائتلاف / معارضة",
     kicker: "حزب عبر الدورات",
     current: (term) => `في ${kn(term)}`,
-    finalVotes: "التصويتات النهائية: كيف صوّتت أغلبية القائمة",
+    votesTitle: "كيف صوّتت أغلبية القائمة",
     history: "عبر الدورات",
     allVotes: "كل تصويتات القائمة ←",
   },

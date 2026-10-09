@@ -329,7 +329,7 @@ export const he: Dict = {
     faction: "סיעה", term: "כנסת", period: "תקופה", members: "חברי כנסת", role: "קואליציה / אופוזיציה",
     kicker: "מפלגה לאורך הכנסות",
     current: (term) => `ב${kn(term)}`,
-    finalVotes: "הצבעות סופיות: איך הצביע רוב הסיעה",
+    votesTitle: "איך הצביע רוב הסיעה",
     history: "לאורך הכנסות",
     allVotes: "כל ההצבעות של הסיעה ←",
   },

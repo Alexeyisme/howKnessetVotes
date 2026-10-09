@@ -717,6 +717,8 @@ def get_faction(faction_id: int, conn: Conn):
 @with_names
 def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | None, Query()] = None,
                   motion_type: Annotated[list[MotionType] | None, Query()] = None, split_only: bool = False,
+                  contested: Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")] = False,
+                  min_cast: Annotated[int | None, Query(ge=0, le=120, description="at least this many for/against/abstain records in the plenum")] = None,
                   limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     r = faction_pk(conn, faction_id)
     where, params = ["true"], {"fid": r["pk"], "limit": limit + 1}   # vote filters, applied inside the CTE (see member_votes_cte)
@@ -727,7 +729,12 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
     if cursor:
         c_on, c_id = decode_cursor(cursor)
         where.append("(v.occurred_on, v.knesset_vote_id) < (%(c_on)s::date, %(c_id)s)"); params.update(c_on=c_on, c_id=c_id)
-    after = "greatest(c.f, c.a, c.ab) < c.f + c.a + c.ab" if split_only else "true"
+    # per vote, not per ballot: checked on the faction's votes after grouping
+    after = ["greatest(c.f, c.a, c.ab) < c.f + c.a + c.ab"] if split_only else ["true"]
+    if contested:
+        after.append("EXISTS (SELECT 1 FROM vote_bloc vb WHERE vb.vote_id = v.id AND vb.contested)")
+    if min_cast is not None:
+        after.append("(SELECT count(*) FROM ballot x WHERE x.vote_id = v.id AND x.choice IS NOT NULL) >= %(min_cast)s"); params["min_cast"] = min_cast
     rows = conn.execute(f"""
         WITH c AS MATERIALIZED (
             SELECT b.vote_id, count(*) FILTER (WHERE b.choice = 'for') f, count(*) FILTER (WHERE b.choice = 'against') a,
@@ -736,13 +743,14 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
             FROM ballot b JOIN vote v ON v.id = b.vote_id LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
             WHERE b.faction_id = %(fid)s AND {' AND '.join(where)} GROUP BY b.vote_id)
         SELECT v.knesset_vote_id AS vid, v.occurred_on, c.f, c.a, c.ab, c.p, c.n FROM c JOIN vote v ON v.id = c.vote_id
-        WHERE {after} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
+        WHERE {' AND '.join(after)} ORDER BY v.occurred_on DESC, v.knesset_vote_id DESC LIMIT %(limit)s""", params).fetchall()
     more, rows = len(rows) > limit, rows[:limit]
     summaries = {s["id"]: vote_summary(s) for s in conn.execute(f"{VOTE_SELECT} WHERE v.knesset_vote_id = ANY(%s)", ([x["vid"] for x in rows],))}
     data = [FactionVote(vote=summaries[x["vid"]], majority=majority_of(x["f"], x["a"], x["ab"]),
                         faction_counts={"for": x["f"], "against": x["a"], "abstain": x["ab"], "present_not_voting": x["p"], "total_records": x["n"]})
             for x in rows]
-    return {"data": data, "meta": Meta(filters={"id": faction_id, "split_only": split_only}),
+    attach_sides(conn, [x.vote for x in data])
+    return {"data": data, "meta": Meta(filters={"id": faction_id, "split_only": split_only, "contested": contested, "min_cast": min_cast}),
             "next_cursor": encode_cursor(rows[-1]["occurred_on"], rows[-1]["vid"]) if more else None}
 
 
