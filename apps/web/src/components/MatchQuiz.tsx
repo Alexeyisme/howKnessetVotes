@@ -1,7 +1,7 @@
 "use client";
 
 // R6: one vote per card, For / Against / Skip, then the parties ranked by how often their majority chose what the
-// visitor chose. Answers live only in the URL (?a=fas…, one letter per question), so a result is shareable and
+// visitor chose. Answers live only in the URL (?q=vote ids&a=fas…, one letter per question), so a result is shareable and
 // nothing is stored anywhere.
 
 import { useEffect, useMemo, useState } from "react";
@@ -35,9 +35,15 @@ export function MatchQuiz({ votes, parties, initial, locale, labels }:
   useEffect(() => {
     // keep the URL in sync so the back button and sharing work; no navigation, no history spam
     const url = new URL(window.location.href);
-    if (done) url.searchParams.set("a", answers.join("")); else url.searchParams.delete("a");
+    if (done) {
+      url.searchParams.set("q", votes.map((v) => v.id).join(","));
+      url.searchParams.set("a", answers.join(""));
+    } else {
+      url.searchParams.delete("q");
+      url.searchParams.delete("a");
+    }
     window.history.replaceState(null, "", url);
-  }, [answers, done]);
+  }, [answers, done, votes]);
 
   const ranking = useMemo(() => {
     if (!done) return [];

@@ -3,6 +3,7 @@ import { MatchQuiz, type MatchParty, type MatchSide, type MatchVote } from "@/co
 import { getVote, listVotes, type ProseText, type VoteSummary } from "@/lib/api";
 import { verdict } from "@/lib/labels";
 import { getT } from "@/i18n/server";
+import Link from "@/components/Link";
 
 const QUESTIONS = 12;
 const PER_TOPIC = 2;
@@ -28,6 +29,16 @@ function spread(byTurnout: VoteSummary[]): VoteSummary[] {
   return out;
 }
 
+// The latest Knesset's questions in date order; a new Knesset takes over only once it has a full set, otherwise its
+// first months would give a quiz of one or two questions.
+function latestFull(pool: VoteSummary[]): VoteSummary[] {
+  const turnout = (v: VoteSummary) => v.roll_call.for + v.roll_call.against + v.roll_call.abstain;
+  const sets = [...new Set(pool.map((v) => v.term))]
+    .map((term) => spread(pool.filter((v) => v.term === term).sort((a, b) => turnout(b) - turnout(a))));
+  const set = sets.find((s) => s.length === QUESTIONS) ?? sets[0] ?? [];
+  return set.sort((a, b) => a.occurred_on.localeCompare(b.occurred_on));
+}
+
 export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT()).d.match.title };
 }
@@ -40,11 +51,15 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
   const d = t.d.match;
   const sp = await searchParams;
   const pool = await listVotes({ stage: "third", motion_type: "adopt_bill", contested: "true", min_cast: "60", limit: "100" });
-  const term = pool.data[0]?.term;
-  const chosen = spread(pool.data.filter((v) => v.term === term)
-    .sort((a, b) => (b.roll_call.for + b.roll_call.against + b.roll_call.abstain) - (a.roll_call.for + a.roll_call.against + a.roll_call.abstain)))
-    .sort((a, b) => a.occurred_on.localeCompare(b.occurred_on));
-  const details = await Promise.all(chosen.map((v) => getVote(v.id).then((r) => r.data)));
+  const current = latestFull(pool.data);
+  const term = current[0]?.term;
+  // A shared result names its questions (?q=ids): the set changes with new votes, and the answers are by position.
+  // Answers without ?q= are from before links carried it and cannot be matched to questions, so they are dropped.
+  const shared = typeof sp.q === "string" && /^\d+(,\d+){0,11}$/.test(sp.q) && sp.q !== current.map((v) => v.id).join(",")
+    ? await Promise.all(sp.q.split(",").map((id) => getVote(Number(id)).then((r) => r.data)))
+        .then((vs) => vs.every((v) => v.motion_type === "adopt_bill" && v.stage === "third") ? vs : null).catch(() => null)
+    : null;
+  const details = shared ?? await Promise.all(current.map((v) => getVote(v.id).then((r) => r.data)));
   const parties = new Map<number, MatchParty>();
   const votes: MatchVote[] = details.map((v) => {
     const out = verdict(v, t);
@@ -62,14 +77,15 @@ export default async function MatchPage({ searchParams }: PageProps<"/[lang]/mat
     return { id: v.id, date: t.date(v.occurred_on), title_he: v.title_he, title: t.locale !== "he" ? v.title ?? null : null, outcome: out?.text ?? "", line: t.d.rc.line(v.roll_call.for, v.roll_call.against, v.roll_call.abstain), stands,
              sides: sides?.argument_for && sides.argument_against ? { for: side(sides.argument_for), against: side(sides.argument_against) } : null };
   });
-  const answers = typeof sp.a === "string" ? sp.a : "";
+  const answers = typeof sp.a === "string" && typeof sp.q === "string" && (shared || sp.q === current.map((v) => v.id).join(",")) ? sp.a : "";
 
   return (
     <div className="stack">
       <header className="page-head"><h1>{d.title}</h1></header>
       {votes.length === 0 ? <p className="muted">{t.d.common.noVotes}</p> : (
         <>
-          <p className="muted">{d.lead(votes.length, term)}</p>
+          {shared ? <p className="muted">{d.earlier} <Link href="/match">{d.current}</Link></p>
+                  : <p className="muted">{d.lead(votes.length, term)}</p>}
           <MatchQuiz votes={votes} parties={[...parties.values()]} initial={answers} locale={t.locale}
                      labels={{ question: d.question, yes: d.yes, no: d.no, skip: d.skip, resultTitle: d.resultTitle,
                                progress: votes.map((_, i) => d.progress(i + 1, votes.length)),

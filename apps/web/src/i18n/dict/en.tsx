@@ -353,6 +353,7 @@ export const en: Dict = {
     agree: (n, m) => `agrees with you on ${n} of ${m}`,
     noAnswers: "You skipped every vote.",
     again: "Start over", share: "Share your result", copied: "Link copied",
+    earlier: "These answers are to an earlier set of questions; the quiz has changed since.", current: "Take the current quiz →",
     yours: "Your answer", passed: "Outcome",
   },
   suggest: {
