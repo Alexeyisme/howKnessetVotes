@@ -88,6 +88,7 @@ def main(argv: list[str] | None = None) -> int:
         x.add_argument("--retry-failed", action="store_true", help="also retry bills that failed before")
         x.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results)")
         x.add_argument("--recheck", action="store_true", help="no requests: store earlier failed outputs that pass the current checks (reservations)")
+        x.add_argument("--redo", action="store_true", help="summarise again the stored debates that were cut or have no argument for one side (debate)")
         x.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
@@ -133,7 +134,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.cmd == "debate":
                 from hkv.debate import ClaudeSummarizer, StubSummarizer, sync as sync_debates
                 print(sync_debates(conn, StubSummarizer() if args.stub else ClaudeSummarizer(), RAW_DIR / "knesset_files",
-                                   loader=Loader(conn, ODataClient(raw_dir=RAW_DIR)), **opts))
+                                   loader=Loader(conn, ODataClient(raw_dir=RAW_DIR)), redo=args.redo, **opts))
             elif args.recheck:
                 from hkv.reservations import recheck
                 print(recheck(conn, RAW_DIR / "knesset_files"))

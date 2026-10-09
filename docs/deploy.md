@@ -76,6 +76,9 @@ sudo systemd-run --unit=hkv-l7 --uid=deploy --gid=deploy --working-directory=/sr
 ```
 
 Failures are `data_issue` rows (`explanation_failed`, `debate_failed`, `reservations_failed`) with the reason; `--retry-failed` retries them.
+`hkv debate --redo --batch` summarises again the stored debates that were cut well below today's budget (600,000 characters) or were
+written with the old one-list prompt and have no argument for one side; a debate is replaced only by a result that passes the checks.
+Run `hkv translate --kind positions` after it (or wait for the next `hkv update`).
 
 Loading a historical period (as for D1, 2003–2016, done 2026-10-05). With 4 workers the Knesset WAF starts throttling (HTTP 481) after
 ~1.5 h; `odata.py` retries with backoff, but use `--workers 1` for multi-hour loads (~1.3 s per page, ~15 min per quarter). The load is

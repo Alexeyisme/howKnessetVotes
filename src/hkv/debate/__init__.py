@@ -50,7 +50,8 @@ log = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-5"
 TRANSCRIPT_GROUP = 28
-MAX_CHARS = 150_000           # speeches sent to the model; longer debates (filibusters) are cut evenly per speech
+MAX_CHARS = 600_000           # speeches sent to the model; longer debates (filibusters) are cut evenly per speech
+                              # (150,000 until 2026-10-09: a cap of ~2,000 characters per speech left mostly greetings)
 TRANSCRIPT_WAIT_DAYS = 120    # transcripts usually appear within days, sometimes two months later
 MAX_ARGUMENTS_PER_SIDE = 5
 TITLE_MATCH = 0.9
@@ -318,25 +319,32 @@ SYSTEM = (
     "speeches on one bill in the plenum, numbered, each headed by the reading it was made at and the speaker as the "
     "transcript prints them (name, and faction or role in parentheses). Write in Hebrew. "
     "summary: two or three neutral sentences on what the bill does and what the debate turned on. "
-    "arguments: the main arguments made for the bill and against it, at most five per side, most important first. "
-    "Each is one sentence that states the argument itself (not \"X said\"), with the numbers of the speeches that made "
-    "it. A speech's side is what it argues, not the speaker's party. Use only what the speeches say: no outside "
-    "facts, no judgement of which side is right, no loaded words the speakers' own arguments do not need; insults, "
-    "procedure and thanks are not arguments. If one side made no arguments, give none for it. Keep numbers as digits "
-    "exactly as in the speeches. Dates: only the Gregorian date. " + HEBREW_QUOTES
+    "arguments_for and arguments_against: the main arguments made for the bill and the main arguments made against "
+    "it, at most five each, most important first. Read the speeches of both sides before writing either list. "
+    "Each is one sentence, ending with a full stop, that states the argument itself (not \"X said\"), with the numbers "
+    "of the speeches that made it. A speech's side is what it argues, not the speaker's party. Use only what the "
+    "speeches say: no outside facts, no judgement of which side is right, no loaded words the speakers' own arguments "
+    "do not need; insults, procedure and thanks are not arguments. A list is empty only when no speech argues that "
+    "side. Keep numbers as digits exactly as in the speeches. Dates: only the Gregorian date. " + HEBREW_QUOTES
 )
+# Two lists, not one list with a side per argument: with one list the model wrote the arguments for and stopped, and 95
+# of 413 debates had no argument against although opposition members spoke against (trial of 2026-10-09: 8 of 9 such
+# debates got both sides with two lists).
+_ARGUMENT = {"type": "object", "properties": {"text": {"type": "string"}, "speeches": {"type": "array", "items": {"type": "integer"}}},
+             "required": ["text", "speeches"], "additionalProperties": False}
 SCHEMA = {
     "type": "object",
-    "properties": {
-        "summary": {"type": "string"},
-        "arguments": {"type": "array", "items": {
-            "type": "object",
-            "properties": {"side": {"type": "string", "enum": ["for", "against"]}, "text": {"type": "string"},
-                           "speeches": {"type": "array", "items": {"type": "integer"}}},
-            "required": ["side", "text", "speeches"], "additionalProperties": False}},
-    },
-    "required": ["summary", "arguments"], "additionalProperties": False,
+    "properties": {"summary": {"type": "string"},
+                   "arguments_for": {"type": "array", "items": _ARGUMENT},
+                   "arguments_against": {"type": "array", "items": _ARGUMENT}},
+    "required": ["summary", "arguments_for", "arguments_against"], "additionalProperties": False,
 }
+
+
+def _one_list(out: dict) -> dict:
+    """The model's two lists as the one list with a side per argument that check() and bill_debate use."""
+    return {"summary": out.get("summary"),
+            "arguments": [{**a, "side": side} for side in ("for", "against") for a in out.get(f"arguments_{side}") or []]}
 
 
 @dataclass
@@ -386,10 +394,10 @@ class ClaudeSummarizer:
         self.model = self.llm.model
 
     def summarize(self, item: Item) -> dict:
-        return self.llm.ask(item.prompt())
+        return _one_list(self.llm.ask(item.prompt()))
 
     def summarize_many(self, items: Sequence[Item]) -> list[dict | Exception]:
-        return self.llm.ask_many([it.prompt() for it in items])
+        return [r if isinstance(r, Exception) else _one_list(r) for r in self.llm.ask_many([it.prompt() for it in items])]
 
 
 def _is_hebrew(text: str) -> bool:
@@ -432,10 +440,23 @@ def check(item: Item, out: dict) -> tuple[str | None, list[dict]]:
 FINAL_VOTE = "coalesce(k.motion_type, v.motion_type) = 'adopt_bill' AND coalesce(k.stage, v.stage) = 'third'"
 
 
+# Debates stored before this date were written with one argument list; --redo rewrites those with a side left empty.
+TWO_LISTS_SINCE = dt.date(2026, 10, 9)
+
+# --redo: debates that were cut well below today's budget, or summarised with one list and left one side empty
+_REDO = f"""EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id AND (
+                (d.truncated AND d.chars < {MAX_CHARS * 9 // 10})
+                OR (d.created_at < '{TWO_LISTS_SINCE}' AND (
+                    NOT EXISTS (SELECT 1 FROM jsonb_array_elements(d.arguments) a WHERE a->>'side' = 'for')
+                    OR NOT EXISTS (SELECT 1 FROM jsonb_array_elements(d.arguments) a WHERE a->>'side' = 'against')))))"""
+
+
 def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed: bool = False,
-               contested_only: bool = True) -> list[tuple]:
+               contested_only: bool = True, redo: bool = False) -> list[tuple]:
     """(bill id, title, final vote id, final vote date) of bills with a final vote and no debate yet, most recent
-    first; by default only where the coalition and opposition majorities differed on the final vote."""
+    first; by default only where the coalition and opposition majorities differed on the final vote. With `redo`,
+    the bills whose stored debate should be summarised again instead (see _REDO)."""
+    have = _REDO if redo else "NOT EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id)"
     return conn.execute(
         f"""SELECT DISTINCT ON (v.occurred_on, b.id) b.id, b.title_he, v.id, v.occurred_on
             FROM vote v
@@ -443,7 +464,7 @@ def candidates(conn: psycopg.Connection, limit: int | None = None, retry_failed:
             LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
             LEFT JOIN vote_bloc vb ON vb.vote_id = v.id
             WHERE {FINAL_VOTE} AND v.status = 'valid' AND (NOT %(contested)s OR vb.contested)
-              AND NOT EXISTS (SELECT 1 FROM bill_debate d WHERE d.bill_id = b.id)
+              AND {have}
               AND (%(retry)s OR NOT EXISTS (SELECT 1 FROM data_issue i WHERE i.issue_type = 'debate_failed'
                                             AND i.status = 'open' AND i.entity_id = b.id))
             ORDER BY v.occurred_on DESC, b.id, v.occurred_at DESC NULLS LAST""" + (" LIMIT %(limit)s" if limit else ""),
@@ -507,12 +528,13 @@ def prepare(conn: psycopg.Connection, bill_id, title: str, vote_id,
 
 def sync(conn: psycopg.Connection, summarizer: Summarizer, cache_dir: Path | None = None, limit: int | None = None,
          retry_failed: bool = False, batch: bool = False, contested_only: bool = True, loader=None,
-         today: dt.date | None = None) -> dict[str, int]:
+         today: dt.date | None = None, redo: bool = False) -> dict[str, int]:
     """Summarise the debates that need it. With a `loader` (hkv.ingest.Loader), transcript links of the sittings
-    that have none yet are fetched first."""
+    that have none yet are fetched first. With `redo`, stored debates that were cut or left a side empty are
+    summarised again; the old one is replaced only by a result that passes the checks."""
     today = today or dt.date.today()
     counts = {"pending": 0, "waiting": 0, "stored": 0, "failed": 0}
-    todo = [(r, sittings(conn, r[0])) for r in candidates(conn, limit, retry_failed, contested_only)]
+    todo = [(r, sittings(conn, r[0])) for r in candidates(conn, limit, retry_failed, contested_only, redo)]
     if loader is not None:
         missing = sorted({s[1] for _, ss in todo for s in ss if not _transcripts(conn, s[0])})
         if missing:
@@ -558,6 +580,8 @@ def sync(conn: psycopg.Connection, summarizer: Summarizer, cache_dir: Path | Non
             _fail(conn, it.bill_id, why, output=None if isinstance(out, Exception) else out)
             counts["failed"] += 1
         else:
+            if redo:
+                conn.execute("DELETE FROM bill_debate WHERE bill_id = %s", (it.bill_id,))   # speakers go with it
             store(conn, it, out["summary"].strip(), args, summarizer.model)
             counts["stored"] += 1
         conn.commit()

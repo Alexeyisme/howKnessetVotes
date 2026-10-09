@@ -14,7 +14,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.debate import (Item, Speech, StubSummarizer, Turn, candidates, check, fit, matches, segments, speeches, split_label,
+from hkv.debate import (Item, Speech, StubSummarizer, Turn, _one_list, candidates, check, fit, matches, segments, speeches, split_label,
                         sync, turns)
 from hkv.ingest.loader import Loader
 from hkv.translate import StubTranslator, sync as sync_translations
@@ -181,6 +181,25 @@ def test_sync_and_api(url, cache):
         kariv = d["speakers"][1]
         assert (kariv["person_id"], kariv["faction_id"], kariv["final_choice"], kariv["final_participation"]) == (30807, 1100, "for", "cast")
         assert kariv["faction_name"] and d["speakers"][2]["person_id"] is None
+
+
+def test_redo(url, cache):
+    """A debate summarised with one list that left a side empty is summarised again and replaced; then left alone."""
+    with psycopg.connect(url) as conn:
+        assert candidates(conn, contested_only=False, redo=True) == []
+        conn.execute("""UPDATE bill_debate SET created_at = '2026-10-08',
+                        arguments = jsonb_path_query_array(arguments, '$[*] ? (@.side == "for")')""")
+        assert len(candidates(conn, contested_only=False, redo=True)) == 1
+        assert sync(conn, StubSummarizer(), cache, contested_only=False, redo=True)["stored"] == 1
+        sides = conn.execute("SELECT array_agg(a->>'side') FROM bill_debate, jsonb_array_elements(arguments) a").fetchone()[0]
+        assert sorted(sides) == ["against", "for"]
+        assert conn.execute("SELECT count(*) FROM bill_debate_speaker").fetchone() == (3,)
+        assert candidates(conn, contested_only=False, redo=True) == []
+
+
+def test_two_lists():
+    out = _one_list({"summary": "s", "arguments_for": [{"text": "a", "speeches": [1]}], "arguments_against": [{"text": "b", "speeches": [2]}]})
+    assert out == {"summary": "s", "arguments": [{"text": "a", "speeches": [1], "side": "for"}, {"text": "b", "speeches": [2], "side": "against"}]}
 
 
 def test_waiting_for_a_transcript(new_database):
