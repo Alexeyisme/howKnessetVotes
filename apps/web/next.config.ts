@@ -7,6 +7,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // the share images read the font files at request time; the standalone bundle only ships what is traced
   outputFileTracingIncludes: { "/**/*": ["./src/fonts/*.woff"] },
+  // The API responses cached by fetch (src/lib/api.ts, revalidate 600) stay in Next's in-memory LRU only. On disk the
+  // cache keeps one file per API URL and never evicts: crawlers made it 25 GB in three weeks and it filled the
+  // server's disk on 2026-11-01.
+  cacheMaxMemorySize: 128 * 1024 * 1024,
+  experimental: { isrFlushToDisk: false },
   // In production Caddy sends /api to the API before Next sees it; this makes the browser-side search box work in
   // `next dev` / `next start` too.
   // The party compass (parties x topics) was removed on 2026-10-09: a party voting "for a topic" says nothing without

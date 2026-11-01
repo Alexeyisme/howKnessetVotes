@@ -1,0 +1,9 @@
+[Unit]
+Description=hkv: disk space check every 6 hours
+
+[Timer]
+OnCalendar=*-*-* 00/6:10
+Persistent=true
+
+[Install]
+WantedBy=timers.target

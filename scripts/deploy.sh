@@ -20,3 +20,6 @@ printf '%s\n' "$files" | rsync -az --files-from=- -e "$SSH" . "$HOST:/srv/hkv/"
 printf '%s\n' "$files" | $SSH "$HOST" "cd /srv/hkv && sort > /tmp/hkv-tracked && find $CODE_DIRS -type f | sort | comm -23 - /tmp/hkv-tracked \
   | while read -r f; do echo \"removed \$f\"; rm -f \"\$f\"; done; find $CODE_DIRS -type d -empty -delete"
 $SSH "$HOST" 'cd /srv/hkv && scripts/prod.sh up -d --build --remove-orphans && scripts/prod.sh ps'
+# every build adds layers to Docker's build cache and nothing removes them (16 GB by 2026-11-01); 3 GB keeps the
+# dependency layers, so the next build stays fast
+$SSH "$HOST" 'docker builder prune -f --max-used-space 3gb | tail -1'
