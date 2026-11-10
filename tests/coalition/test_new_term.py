@@ -81,9 +81,24 @@ def test_newterm_report_lists_what_is_left(db):
 
 
 def test_newterm_report_before_the_source_publishes(new_database):
-    from hkv.newterm import report
+    from hkv.newterm import report, state
     url = new_database()
     with psycopg.connect(url) as conn:
         conn.execute("INSERT INTO knesset_term (number, name_he, started_on) VALUES (26, 'העשרים ושש', '2026-11-10')")
         r = report(conn)
     assert not r.published and r.todo[0].startswith("wait")
+    assert state(r) == "26th Knesset: waiting for the source"
+
+
+def test_newterm_state_changes_only_at_stages():
+    import datetime as dt
+
+    from hkv.newterm import NewFaction, Report, state
+    f = NewFaction(1, "x", 10, False, {}, [], "unknown")
+    base = dict(term=26, started_on=dt.date(2026, 11, 10), votes=0, factions=[f], no_site_id=[], missing_names={}, no_photo=0)
+    assert state(Report(mandates=0, government=(37, 25), **{**base, "factions": []})) == "26th Knesset: waiting for the source"
+    published = state(Report(mandates=120, government=(37, 25), **base))
+    assert published == "26th Knesset: MKs and factions published"
+    # more MKs, names or votes do not change it; the new government does
+    assert state(Report(mandates=121, government=(37, 25), **{**base, "votes": 5})) == published
+    assert state(Report(mandates=120, government=(38, 26), **base)) == "26th Knesset: government 38 sworn in"

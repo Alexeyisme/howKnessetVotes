@@ -1,0 +1,9 @@
+[Unit]
+Description=hkv: new Knesset watch every hour (docs/new-term.md); disable once the new Knesset is complete
+
+[Timer]
+OnCalendar=*-*-* *:40
+Persistent=true
+
+[Install]
+WantedBy=timers.target

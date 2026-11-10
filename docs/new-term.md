@@ -8,8 +8,10 @@ hand, in order, once the Knesset publishes the new Knesset's data. Every step is
 - **2026-11-10, 20:40 UTC** (after the deploy of `3c5807b`): `hkv newterm` on the server reports *0 MKs, 0 factions*
   for the 26th Knesset, so the Knesset has not published them yet. Government 37 (formed in the 25th Knesset) continues.
   The site says the new Knesset's data appears as the Knesset publishes it, and lists the 25th Knesset until then.
-- **How to know it has been published:** nothing alerts on it. Check once a day with the command in step 1, or after
-  the first sitting with votes. The data comes in by itself; only steps 2–4 below wait for someone.
+- **How to know it has been published:** `hkv-newterm.timer` (hourly, from 2026-11-10) sends a Telegram message when
+  the 26th Knesset's MKs and factions first appear in the database, and again when a government of the 26th Knesset is
+  sworn in, each with the `hkv newterm` report ([scripts/newterm-check.sh](../scripts/newterm-check.sh)). The data comes
+  in by itself; only steps 2–4 below wait for someone. The command in step 1 shows the same report at any time.
 - **Timing of the first votes.** The 10-minute quick update loads votes only. A ballot by an MK who is not in the
   database yet is recorded as a `ballot_unknown_person` issue, then loaded by the next full update (every 2 h on
   sitting days, daily otherwise), which also reloads the MKs and factions. So on the first sitting day the new MKs'
@@ -102,4 +104,5 @@ coalition or opposition badge.
 
 ### 8. Close the step
 
-Mark roadmap O7 done, with the date, in `docs/roadmap.md`.
+Mark roadmap O7 done, with the date, in `docs/roadmap.md`, and stop the watch (as root):
+`systemctl disable --now hkv-newterm.timer`. For the next Knesset, enable it again on the day it is sworn in.

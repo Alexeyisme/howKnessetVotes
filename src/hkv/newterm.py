@@ -125,6 +125,16 @@ def report(conn: psycopg.Connection) -> Report:
                   tuple(gov) if gov else None)
 
 
+def state(r: Report) -> str:
+    """One line that changes only at the stages someone acts on: scripts/newterm-check.sh sends it to Telegram when
+    it changes (the source publishes the MKs and factions; a government of the new Knesset is sworn in)."""
+    if not r.published:
+        return f"{_ord(r.term)} Knesset: waiting for the source"
+    if r.government and r.government[1] is not None and r.government[1] >= r.term:
+        return f"{_ord(r.term)} Knesset: government {r.government[0]} sworn in"
+    return f"{_ord(r.term)} Knesset: MKs and factions published"
+
+
 def render(r: Report) -> str:
     """The report, then entries to fill in and paste into the curated files."""
     out = [f"{_ord(r.term)} Knesset, sworn in {r.started_on}: {r.votes} votes, {r.mandates} MKs, {len(r.factions)} factions in the source",
