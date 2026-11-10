@@ -3,6 +3,21 @@
 The 26th Knesset was sworn in on 2026-11-10 (roadmap O7). This page lists what happens on its own and what to do by
 hand, in order, once the Knesset publishes the new Knesset's data. Every step is safe to repeat.
 
+## Where it stands
+
+- **2026-11-10, 20:40 UTC** (after the deploy of `3c5807b`): `hkv newterm` on the server reports *0 MKs, 0 factions*
+  for the 26th Knesset, so the Knesset has not published them yet. Government 37 (formed in the 25th Knesset) continues.
+  The site says the new Knesset's data appears as the Knesset publishes it, and lists the 25th Knesset until then.
+- **How to know it has been published:** nothing alerts on it. Check once a day with the command in step 1, or after
+  the first sitting with votes. The data comes in by itself; only steps 2–4 below wait for someone.
+- **Timing of the first votes.** The 10-minute quick update loads votes only. A ballot by an MK who is not in the
+  database yet is recorded as a `ballot_unknown_person` issue, then loaded by the next full update (every 2 h on
+  sitting days, daily otherwise), which also reloads the MKs and factions. So on the first sitting day the new MKs'
+  ballots can appear up to ~2 h after the vote itself.
+- **Unrelated, seen while preparing this:** a copy of production from 2026-10-08 had three 25th-Knesset MKs not
+  linked to the Knesset website (KNS ids 30921, 30922, 30923), so they have no names in other languages and no photos.
+  `hkv names` may link them once the website lists them; otherwise they need `site_id` in `mk_names.toml`.
+
 ## What happens on its own
 
 - **The data.** `hkv update` (systemd timers, [deploy.md](deploy.md)) loads MKs, factions, memberships, government posts
