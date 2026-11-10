@@ -115,6 +115,7 @@ sudo systemd-run --unit=hkv-coalition --uid=deploy --gid=deploy --working-direct
 
 - `hkv names` refreshes official faction names for the current Knesset and fills missing MK photo URLs (~10 min). New MKs get names and photos in every regular update; curated faction names (incl. Hebrew short names) are applied on every update. After adding a language (Arabic, 2026-10), run `hkv names --refresh` once so known MKs get it (~30 min).
 - `hkv topics --official` reloads the official law classification (~3 min). Bills voted in the update window are refreshed automatically.
+- `hkv newterm` (read-only, seconds) shows what the newest Knesset has in the source and what is left by hand; the steps are in [new-term.md](new-term.md).
 - `hkv coalition` reloads government posts and re-derives governments, coalition/opposition per faction and the per-vote blocs (~1 min). Every update does this too; run it after editing `src/hkv/coalition/overrides.toml` and deploying.
 
 Bill texts (roadmap L7) — descriptions from explanatory notes, plenum debates and reservations of contested final votes,

@@ -124,7 +124,6 @@ export const en: Dict = {
     finalTitle: "Latest final votes",
     finalAll: "All votes →",
     contestedTitle: "Laws the coalition and opposition fought over",
-    recess: (d) => `The Knesset is in recess: the 26th Knesset convenes on ${d}.`,
     latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [
@@ -200,6 +199,7 @@ export const en: Dict = {
     title: "Members", searchPh: "Name in any language, e.g. Lapid",
     searchAll: (n) => `Search across all Knessets: ${n}`,
     termCount: (term, n) => `${ord(Number(term))} Knesset: ${n} members with roll-call votes`,
+    termCountNoVotes: (term, n) => `${ord(Number(term))} Knesset: members: ${n}; no roll-call votes yet`,
     member: "Member", lastFaction: "Latest party", terms: "Knessets", records: "Roll-call records",
   },
   member: {
@@ -219,11 +219,13 @@ export const en: Dict = {
     votes: "Votes", tabFinal: "Final votes", tabAll: "All", tabDeviated: "Against party majority",
     finalHint: "Third-reading votes on bills as a whole: after these, a bill becomes law.",
     noVotes: "No votes.",
+    noRecordsYet: "No roll-call votes have been held during their mandate yet.",
   },
   factions: {
     title: "Factions by Knesset",
     lead: "A faction is a group of members in a given Knesset; one faction can include several parties. Votes are attributed to the faction on the day of the vote.",
     faction: "Party", period: "Period", membersEver: "Members (all time)", records: "Roll-call records",
+    noGovernment: "This Knesset has no coalition or opposition yet: the outgoing government stays on as a transitional government until the new one is sworn in.",
   },
   faction: {
     kicker: (term, period) => `Party in the ${ord(term)} Knesset · ${period}`,
@@ -307,6 +309,10 @@ export const en: Dict = {
   methodology: {
     title: "Methodology and sources",
     description: "Where the data comes from, how the numbers are computed and what they do not mean.",
+  },
+  newTerm: {
+    notice: (term, date) => `The ${ord(term)} Knesset was sworn in on ${date}. Its members, factions and votes will appear here automatically as soon as the Knesset publishes them in its open data: the site checks for new data at least once a day. Until the Knesset website lists the new members, their names are shown in Hebrew only and without photos; faction names in other languages are added by hand.`,
+    fallback: (term) => `Until then this page shows the ${ord(term)} Knesset.`,
   },
   alignment: { coalition: "coalition", opposition: "opposition", external_support: "outside support", unknown: "no government yet" },
   blocs: {

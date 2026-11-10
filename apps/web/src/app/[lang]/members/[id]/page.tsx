@@ -66,8 +66,9 @@ export default async function MemberPage({ params, searchParams }: PageProps<"/[
               <span className="small muted"> · {t.d.common.term(member.last_faction.term)}</span>
             </p>
           )}
+          {/* a new Knesset's MK before its first vote: "0% of 0" would read as a missing record */}
           <p className={styles.summary}>
-            {d.summary({
+            {s.participation.denominator === 0 ? d.noRecordsYet : d.summary({
               part: t.pct(s.participation), cast: t.num(s.participation.numerator), avail: t.num(s.participation.denominator),
               dev: s.deviation_from_faction.numerator, comparable: t.num(s.deviation_from_faction.denominator), initiated: s.bills_initiated,
             })}

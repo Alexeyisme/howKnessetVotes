@@ -10,6 +10,11 @@ KNS_PersonToPosition lists ministers, deputy ministers and prime ministers with 
   not flip the faction. Days on which the government has no posts at all - after an election, before the new
   government is sworn in - are 'unknown': there is no coalition then. A minister who left the Knesset under the
   "Norwegian law" still counts for their last faction while in office.
+- From the 26th Knesset on (TRANSITION_RULE_FROM), a newly elected Knesset has no coalition until its own government is
+  sworn in: while the outgoing government stays on as a transitional government, the new Knesset's factions are
+  'unknown', not coalition or opposition by the outgoing government's posts. Earlier transitions keep the outgoing
+  government's coalition, including the 21st and 22nd Knessets (2019-2020) that never formed a government, and the
+  curated overrides that rely on it (Degel HaTorah, 2019-2021).
 
 Known exceptions are curated in overrides.toml (origin 'curated') and replace the derived role for their dates.
 """
@@ -33,6 +38,8 @@ GOV_POSITIONS = {45, 73, 51, 31, 50, 65, 39, 57, 40, 59, 285079}
 PRIME_MINISTER = 45
 MERGE_GAP_DAYS = 30
 NORWEGIAN_LAW = dt.date(2015, 1, 1)
+TRANSITION_RULE_FROM = dt.date(2026, 11, 10)   # the 26th Knesset convened; see the module docstring
+TRANSITION_EVIDENCE = "transitional government: the new Knesset has no coalition until its own government is sworn in"
 OVERRIDES = Path(__file__).with_name("overrides.toml")
 
 Span = tuple[dt.date, dt.date]  # [start, end), end exclusive
@@ -76,10 +83,11 @@ def derive(conn: psycopg.Connection) -> dict[str, int]:
         conn.execute("DELETE FROM faction_alignment")
         conn.execute("DELETE FROM government")
         spans: dict[int, Span] = {}
+        gov_term: dict[int, int | None] = {}
         for i, (num, start) in enumerate(govs):
             end = govs[i + 1][1] if i + 1 < len(govs) else dt.date(9999, 1, 1)
             spans[num] = (start, end)
-            term = conn.execute("SELECT max(number) FROM knesset_term WHERE started_on <= %s", (start,)).fetchone()[0]
+            term = gov_term[num] = conn.execute("SELECT max(number) FROM knesset_term WHERE started_on <= %s", (start,)).fetchone()[0]
             pm = conn.execute(
                 """SELECT person_id FROM gov_position WHERE government_number = %s AND position_id = %s AND person_id IS NOT NULL
                    ORDER BY lower(valid) LIMIT 1""", (num, PRIME_MINISTER)).fetchone()
@@ -100,8 +108,10 @@ def derive(conn: psycopg.Connection) -> dict[str, int]:
 
         members: dict = defaultdict(list)   # faction -> [(person, span)]
         lifetimes: dict = {}
-        for fid, lo, hi in conn.execute("SELECT id, lower(valid), upper(valid) FROM faction WHERE lower(valid) >= '1999-01-01'"):
+        faction_term: dict = {}
+        for fid, term, lo, hi in conn.execute("SELECT id, term_number, lower(valid), upper(valid) FROM faction WHERE lower(valid) >= '1999-01-01'"):
             lifetimes[fid] = (lo, hi or dt.date(9999, 1, 1))
+            faction_term[fid] = term
         for fid, pid, lo, hi in conn.execute(
                 "SELECT faction_id, person_id, lower(valid), upper(valid) FROM faction_membership WHERE faction_id = ANY(%s)", (list(lifetimes),)):
             members[fid].append((pid, (lo, hi or dt.date(9999, 1, 1))))
@@ -114,6 +124,12 @@ def derive(conn: psycopg.Connection) -> dict[str, int]:
             for fid, life in lifetimes.items():
                 within = _clip(life, gspan)
                 if not within:
+                    continue
+                if life[0] >= TRANSITION_RULE_FROM and gov_term[num] is not None and faction_term[fid] > gov_term[num]:
+                    conn.execute("""INSERT INTO faction_alignment (faction_id, government_number, valid, role, evidence, origin)
+                                    VALUES (%s, %s, daterange(%s, %s), 'unknown', %s, 'derived')""",
+                                 (fid, num, within[0], None if within[1].year == 9999 else within[1], TRANSITION_EVIDENCE))
+                    counts["transitional"] += 1
                     continue
                 held: list[Span] = []
                 for pid, mspan in members[fid]:

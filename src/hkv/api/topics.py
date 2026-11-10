@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from hkv.api.common import Conn, Meta
+from hkv.api.common import LISTED_FACTION, LISTED_PERSON, Conn, Meta
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, attach_bill_sides, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
@@ -136,7 +136,7 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
             f"""SELECT DISTINCT ON (f.term_number, f.knesset_faction_id) f.knesset_faction_id AS id, f.name_he, f.term_number AS term
                FROM faction_label fl JOIN faction f ON f.id = fl.faction_id
                WHERE fl.language = %(lang)s AND ({norm}(fl.name) LIKE %(like)s OR {norm}(fl.short_name) LIKE %(like)s OR similarity({norm}(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
-                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
+                 AND {LISTED_FACTION}
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         # bills by their translated titles (text_translation, R4), every word in any form: "налоги" finds "налоговый"
         # (stemmed prefix, index from migration 0019). A query of stop words only has no terms and finds no bills.
@@ -156,7 +156,7 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
             f"""SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he, max(word_similarity(%(q)s, {norm}(a.full_name))) AS score
                FROM person_alias a JOIN person p ON p.id = a.person_id
                WHERE a.language = %(lang)s AND ({norm}(a.full_name) LIKE %(like)s OR %(q)s <%% {norm}(a.full_name))
-                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
+                 AND {LISTED_PERSON}
                GROUP BY 1, 2 ORDER BY score DESC, 2 LIMIT 10""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         for m in members:
             m.pop("score")
@@ -164,15 +164,15 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
         n = he_norm(q)
         params = {"n": n, "like": f"%{n}%"}
         members = [dict(r) for r in conn.execute(
-            """SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he FROM person p
+            f"""SELECT p.knesset_person_id AS id, p.first_name_he || ' ' || p.last_name_he AS name_he FROM person p
                WHERE (he_norm(p.first_name_he || ' ' || p.last_name_he) LIKE %(like)s OR %(n)s <%% he_norm(p.first_name_he || ' ' || p.last_name_he))
-                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
+                 AND {LISTED_PERSON}
                ORDER BY word_similarity(%(n)s, he_norm(p.first_name_he || ' ' || p.last_name_he)) DESC LIMIT 10""", {"n": n, "like": f"%{n}%"})]
         factions = [FactionRef(**r) for r in conn.execute(
-            """SELECT f.knesset_faction_id AS id, f.name_he, f.term_number AS term FROM faction f
+            f"""SELECT f.knesset_faction_id AS id, f.name_he, f.term_number AS term FROM faction f
                WHERE (he_norm(f.name_he) LIKE %(like)s OR EXISTS (SELECT 1 FROM faction_label l WHERE l.faction_id = f.id
                                                                      AND l.language = 'he' AND he_norm(l.short_name) LIKE %(like)s))
-                 AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
+                 AND {LISTED_FACTION}
                ORDER BY f.term_number DESC LIMIT 10""", {"like": f"%{n}%"})]
         # whole word (with prefixes) > substring > typo-tolerant word similarity; fuzzy only when nothing matched exactly
         word = rf"(^|[ (]){HE_PREFIX}{re.escape(n)}($|[ ),.:;])"

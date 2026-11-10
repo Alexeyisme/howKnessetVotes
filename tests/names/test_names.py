@@ -171,3 +171,17 @@ def test_photo_copies_are_served_from_here(db):
         # the new image gets new small copies, made from it and not served from the old one
         other = _jpeg(400, 600)
         assert cache_photos(conn, lambda u: (other, "image/jpeg")) == {"todo": 1, "stored": 1, "sizes": 2}
+
+
+def test_curated_files_have_every_language():
+    """A pasted `hkv newterm` entry left empty would be skipped silently by sync_factions: fail here instead."""
+    import tomllib
+
+    from hkv.names import CURATED
+    factions = tomllib.loads((CURATED / "factions.toml").read_text(encoding="utf-8"))["faction"]
+    empty = [(kid, lang) for kid, e in factions.items() for lang in ("ru", "en", "ar") if not (e.get(lang) or "").strip()]
+    empty += [(kid, k) for kid, e in factions.items() for k, v in e.items() if isinstance(v, str) and not v.strip()]
+    assert not empty, f"factions.toml: empty names {empty}"
+    parties = tomllib.loads((CURATED / "parties.toml").read_text(encoding="utf-8"))["party"]
+    bad = [(slug, k) for slug, p in parties.items() for k in ("he", "ru", "en", "ar") if not (p.get(k) or "").strip()]
+    assert not bad and all(p["factions"] for p in parties.values()), f"parties.toml: {bad}"

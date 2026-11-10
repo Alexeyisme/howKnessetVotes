@@ -15,6 +15,14 @@ from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionN
 DEFAULT_DB = "postgresql://knesset:knesset@localhost:5433/knesset"
 VOTE_CARD = "https://main.knesset.gov.il/Activity/plenum/Votes/Pages/vote.aspx?voteId={}"
 
+# Lists, search and party pages show MKs and factions with roll-call records. The newest Knesset's MKs and factions
+# are listed before their first vote too, so a new Knesset is visible from the day it is sworn in (26th: 2026-11-10).
+# SQL conditions on `p` (person) and `f` (faction).
+LISTED_PERSON = """(EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
+    OR EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.term_number = (SELECT max(number) FROM knesset_term)))"""
+LISTED_FACTION = """(EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id)
+    OR (f.term_number = (SELECT max(number) FROM knesset_term) AND EXISTS (SELECT 1 FROM faction_membership fm WHERE fm.faction_id = f.id)))"""
+
 Stage = Literal["preliminary", "first", "second", "third", "not_applicable", "unknown"]
 MotionType = Literal["adopt_bill", "reject_bill", "adopt_section", "reservation", "no_confidence", "agenda",
                      "secondary_legislation", "procedural", "other", "unknown"]

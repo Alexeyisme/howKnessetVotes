@@ -3,7 +3,7 @@ import Link from "@/components/Link";
 import { ChoiceMark, FactionName, PersonName, RateStat, Stats, Tabs } from "@/components/ui";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { FILTERS, ViewChips } from "@/components/VoteFeed";
-import { compareFactions, compareMembers, listFactions, listMembers, NotFound, type Comparison, type FactionSummary } from "@/lib/api";
+import { compareFactions, compareMembers, latestVotedTerm, listFactions, listMembers, NotFound, type Comparison, type FactionSummary } from "@/lib/api";
 import { ALL_MOTIONS } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 
@@ -27,7 +27,8 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
   const params = { ...(view.key === "all" ? { motion_type: ALL_MOTIONS } : view.params), cursor };
   const href = (extra: Record<string, string> = {}, key = view.key) =>
     `/compare?${new URLSearchParams({ kind, a: String(a), b: String(b), ...(key !== FILTERS[0].key ? { view: key } : {}), ...extra })}`;
-  const options = kind === "members" ? (await listMembers({ term: "25" })).data : (await listFactions({})).data;
+  const votedTerm = await latestVotedTerm();
+  const options = (kind === "members" ? await listMembers({ term: votedTerm }) : await listFactions({ term: votedTerm })).data;
   let result: Comparison | null = null;
   if (a && b && a !== b) {
     try {

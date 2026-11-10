@@ -103,7 +103,8 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web tests, lin
 - Coalition derivation (`hkv coalition`) is a full rebuild; rerun it after loading history or editing
   `overrides.toml`. The Norwegian-law extension applies only from 2015-01-01.
 - The plenum has no quorum: low-turnout votes are real, not missing data (the vote page explains this).
-- The Knesset is in recess until the 26th Knesset convenes on 2026-11-10 (roadmap O7: new term readiness).
+- The 26th Knesset was sworn in on 2026-11-10; what to do as the Knesset publishes its data (curated names, parties,
+  coalition) is in [docs/new-term.md](docs/new-term.md), and `hkv newterm` shows what is left (roadmap O7).
 - Since 2026-10-05 the Knesset blocks requests from outside Israel (redirect to `maintenance-page-geo`); updates
   reach it through an SSH tunnel to a $4 proxy server in Israel (Kamatera `hkv-il-proxy`;
   `HKV_KNESSET_PROXY`, [docs/knesset-proxy.md](docs/knesset-proxy.md)).

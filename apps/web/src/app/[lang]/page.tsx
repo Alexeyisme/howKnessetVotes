@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import Link from "@/components/Link";
+import { NewTermNotice } from "@/components/NewTermNotice";
 import { SearchBox } from "@/components/SearchBox";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { getStatus, listTopics, listVotes } from "@/lib/api";
-import { RECESS_UNTIL } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 import styles from "./home.module.css";
 
@@ -32,8 +32,6 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
   // between Knessets there are no contested votes yet: fall back to the latest final votes
   const feed = contested.data.length > 0 ? contested : await listVotes({ stage: "third", motion_type: "adopt_bill", limit: "5" });
   const top = [...topics.data].sort((a, b) => b.bills - a.bills).slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
-  const recess = today < RECESS_UNTIL;
   const ex = d.exampleQueries;
   const examples = pick([...pick(ex.members, 1), ...pick(ex.parties, 1), ...pick(ex.topics, 2)], 4);
 
@@ -50,9 +48,10 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
         </p>
         {status && (
           <p className={`small ${styles.fresh}`}>
-            {d.latestVote(t.date(status.coverage.last_vote_on))}{recess && <> · {d.recess(t.date(RECESS_UNTIL))}</>}
+            {d.latestVote(t.date(status.coverage.last_vote_on))}
           </p>
         )}
+        <NewTermNotice />
       </section>
 
       <section>

@@ -315,6 +315,30 @@ export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills$
 export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
 export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);
 
+/** The newest term that has started: the default for member lists, which show a new Knesset's MKs before its first vote. */
+export async function currentTerm(): Promise<string> {
+  const today = new Date().toISOString().slice(0, 10);
+  const terms = (await getTerms()).data;
+  return String((terms.find((x) => x.number > 0 && x.started_on <= today) ?? terms[0])?.number ?? "");
+}
+
+/** A term that has started but has no votes yet (by the latest data release): a new Knesset before its first vote.
+ *  Its MKs may have records from earlier terms, so counting their records does not tell. */
+export async function termWithoutVotes(term: string): Promise<boolean> {
+  const [terms, status] = await Promise.all([getTerms(), getStatus().then((r) => r.data, () => null)]);
+  const x = terms.data.find((t) => String(t.number) === term);
+  return !!x && !!status && status.coverage.last_vote_on < x.started_on;
+}
+
+/** The term of the latest vote: the default where only votes matter (comparisons). A new Knesset has no roll-call
+ *  records until its first vote, so its MKs and factions have nothing to compare yet. */
+export async function latestVotedTerm(): Promise<string> {
+  const [terms, status] = await Promise.all([getTerms(), getStatus().then((r) => r.data, () => null)]);
+  const last = status?.coverage.last_vote_on;
+  const term = terms.data.find((x) => x.number > 0 && (!last || x.started_on <= last));  // newest first
+  return String(term?.number ?? terms.data[0]?.number ?? "");
+}
+
 export interface TopicSummary { slug: string; label_ru: string; label_he: string; label_en?: string | null; label_ar?: string | null; bills: number }
 export interface TopicDetail extends TopicSummary {
   aliases_ru: string[];

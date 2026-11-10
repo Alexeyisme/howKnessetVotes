@@ -57,6 +57,9 @@ export default async function FactionPage({ params, searchParams }: PageProps<"/
         <RateStat label={d.unanimous} rate={faction.stats.unanimous_votes} unit={d.unanimousUnit} />
       </Stats>
 
+      {!faction.valid.valid_to && faction.alignment.length > 0 && faction.alignment.every((a) => a.role === "unknown") && (
+        <p className="small">{t.d.factions.noGovernment} <Link href="/about/methodology#coalition">{t.d.footer.methodology}</Link></p>
+      )}
       {faction.alignment.some((a) => a.role !== "unknown") && (
         <section className="card">
           <h2 className="section-title">{d.coalitionTitle}</h2>

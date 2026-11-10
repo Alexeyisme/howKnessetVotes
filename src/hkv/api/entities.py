@@ -11,7 +11,7 @@ from typing import Annotated, ClassVar, Literal
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
-from hkv.api.common import (VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_about, attach_sides,
+from hkv.api.common import (LISTED_FACTION, LISTED_PERSON, VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_about, attach_sides,
                             debate_sides, vote_summary)
 from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
                            TitleTranslations, TopicLabels, with_names)
@@ -385,8 +385,9 @@ def member_summary(r: dict) -> MemberSummary:
 @with_names
 def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Query(min_length=2)] = None,
                  faction: int | None = None):
-    """MKs with at least one roll-call record; filter by term (held a mandate), name substring (any language), or faction membership."""
-    where, params = ["EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)"], {}
+    """MKs with at least one roll-call record, and the newest Knesset's MKs before its first vote; filter by term (held a
+    mandate), name substring (any language), or faction membership."""
+    where, params = [LISTED_PERSON], {}
     if term:
         where.append("EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.term_number = %(term)s)"); params["term"] = term
     if q:
@@ -741,10 +742,11 @@ def faction_moves(conn, pks: list) -> dict:
 @router.get("/factions", response_model=Page[FactionSummary])
 @with_names
 def list_factions(conn: Conn, term: int | None = None):
-    """Factions with at least one roll-call record; by default of the latest term that has votes."""
+    """Factions with at least one roll-call record, and the newest Knesset's factions before its first vote; by default
+    of the newest term that has any of these."""
     if term is None:
-        term = conn.execute("SELECT max(term_number) AS t FROM vote").fetchone()["t"]
-    rows = conn.execute(f"{FACTION_SELECT} WHERE f.term_number = %s AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id) ORDER BY records DESC",
+        term = conn.execute(f"SELECT max(f.term_number) AS t FROM faction f WHERE {LISTED_FACTION}").fetchone()["t"]
+    rows = conn.execute(f"{FACTION_SELECT} WHERE f.term_number = %s AND {LISTED_FACTION} ORDER BY records DESC, members_ever DESC",
                         (term,)).fetchall()
     moves = faction_moves(conn, [r["pk"] for r in rows])
     return {"data": [faction_summary(r, moves) for r in rows], "meta": Meta(filters={"term": term})}
@@ -997,13 +999,14 @@ def get_party(slug: str, conn: Conn):
 
 
 PARTY_NOTE = ("A party links the factions it sat as in each Knesset (curated). A joint list belongs to every member party, "
-              "so its votes appear under each of them. Only factions with roll-call records are listed.")
+              "so its votes appear under each of them. Only factions with roll-call records are listed, and the newest Knesset's "
+              "factions before its first vote.")
 
 
 def party_summary(conn, p: dict) -> PartySummary:
     rows = conn.execute(
         f"""{FACTION_SELECT} WHERE EXISTS (SELECT 1 FROM party_faction pf WHERE pf.faction_id = f.id AND pf.party_slug = %s)
-              AND EXISTS (SELECT 1 FROM ballot b WHERE b.faction_id = f.id) ORDER BY lower(f.valid), f.knesset_faction_id""", (p["slug"],)).fetchall()
+              AND {LISTED_FACTION} ORDER BY lower(f.valid), f.knesset_faction_id""", (p["slug"],)).fetchall()
     factions = [faction_summary(r) for r in rows]
     return PartySummary(slug=p["slug"], name_he=p["name_he"], name_ru=p["name_ru"], name_en=p["name_en"], name_ar=p["name_ar"],
                         terms=sorted({f.term for f in factions}), factions=factions)

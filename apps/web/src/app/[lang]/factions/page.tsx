@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "@/components/Link";
+import { NewTermNotice } from "@/components/NewTermNotice";
 import { TermSelect } from "@/components/TermSelect";
 import { AlignmentBadge, FactionName } from "@/components/ui";
 import { listFactions } from "@/lib/api";
@@ -20,11 +21,16 @@ export default async function FactionsPage({ searchParams }: PageProps<"/[lang]/
   return (
     <div className="stack">
       <header className="page-head"><h1>{d.title}</h1></header>
+      <NewTermNotice fallback={term ? undefined : shown} />
       <form className="search" action={t.href("/factions")}>
         <TermSelect value={shown} />
         <button type="submit">{t.d.common.show}</button>
       </form>
       <p className="small muted">{d.lead} <Link href="/parties">{t.d.parties.title} →</Link></p>
+      {/* a new Knesset under the outgoing (transitional) government: no badges, and say why (hkv.coalition) */}
+      {data.length > 0 && data.every((f) => f.alignment_last === "unknown") && (
+        <p className="small">{d.noGovernment} <Link href="/about/methodology#coalition">{t.d.footer.methodology}</Link></p>
+      )}
       <div className="card table-scroll">
         <table>
           <thead><tr><th>{d.faction}</th><th>{d.period}</th><th className="num">{d.membersEver}</th><th className="num">{d.records}</th></tr></thead>

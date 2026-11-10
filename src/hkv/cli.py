@@ -91,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         x.add_argument("--redo", action="store_true", help="summarise again the stored debates that were cut or have no argument for one side (debate)")
         x.add_argument("--bill", type=int, action="append", help="only this Knesset bill id (repeatable); with --redo, its debate is redone whatever it is (debate)")
         x.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
+    nw = sub.add_parser("newterm", help="newest Knesset: what the source has published, what is left by hand, entries to paste (read-only)")
+    nw.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     st = sub.add_parser("status", help="load coverage per year and backfill worker liveness")
     st.add_argument("--log", type=Path, default=Path("logs/backfill.log"))
     st.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
@@ -98,6 +100,11 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "status":
         return status(args.db, args.log)
+    if args.cmd == "newterm":
+        from hkv.newterm import render, report
+        with psycopg.connect(args.db) as conn:
+            print(render(report(conn)))
+        return 0
     if args.cmd == "translate":
         import logging
 
