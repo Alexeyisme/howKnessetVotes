@@ -312,6 +312,7 @@ export const en: Dict = {
   },
   newTerm: {
     notice: (term, date) => `The ${ord(term)} Knesset was sworn in on ${date}. Its members, factions and votes will appear here automatically as soon as the Knesset publishes them in its open data: the site checks for new data at least once a day. Until the Knesset website lists the new members, their names are shown in Hebrew only and without photos; faction names in other languages are added by hand.`,
+    published: (term, date) => `The ${ord(term)} Knesset was sworn in on ${date}. Its members and factions are here; its votes will appear shortly after the first plenum vote. Until the Knesset website lists the new members, their names are shown in Hebrew only and without photos.`,
     fallback: (term) => `Until then this page shows the ${ord(term)} Knesset.`,
   },
   alignment: { coalition: "coalition", opposition: "opposition", external_support: "outside support", unknown: "no government yet" },

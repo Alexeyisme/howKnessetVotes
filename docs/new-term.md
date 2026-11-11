@@ -47,7 +47,8 @@ hand, in order, once the Knesset publishes the new Knesset's data. Every step is
   once the website lists them. Until then they are shown by their Hebrew names, without photos.
 - **The site.** The newest Knesset's MKs and factions are listed before its first vote (`LISTED_PERSON` /
   `LISTED_FACTION`, `src/hkv/api/common.py`). Until that first vote, the home, members and factions pages say that the
-  new Knesset's data appears as the Knesset publishes it (`components/NewTermNotice.tsx`); the notice goes away by
+  new Knesset's data appears as the Knesset publishes it, and once its MKs are in, that only the votes are still to
+  come (`components/NewTermNotice.tsx`); the notice goes away by
   itself after the first vote. While the source has no MKs for the new Knesset, the members and factions pages show the
   previous one and say so.
 - **No coalition yet.** While the outgoing government continues as a transitional government, the new Knesset's
