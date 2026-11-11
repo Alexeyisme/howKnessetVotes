@@ -404,9 +404,14 @@ def sync_factions(conn: psycopg.Connection, src: NameSources | None = None) -> d
                 continue
             for lang in ("ru", "en", "ar"):
                 if entry.get(lang):
+                    # over an official name only the short name is ours (as _official_current_factions sets it)
                     conn.execute("""INSERT INTO faction_label (faction_id, language, name, short_name, origin) VALUES (%s, %s, %s, %s, 'curated')
-                                    ON CONFLICT (faction_id, language) DO UPDATE SET name = EXCLUDED.name, short_name = EXCLUDED.short_name, origin = 'curated'
-                                    WHERE faction_label.origin IN ('machine', 'wikidata', 'curated')""",
+                                    ON CONFLICT (faction_id, language) DO UPDATE SET
+                                      name = CASE WHEN faction_label.origin = 'official' THEN faction_label.name ELSE EXCLUDED.name END,
+                                      short_name = CASE WHEN faction_label.origin = 'official' THEN coalesce(EXCLUDED.short_name, EXCLUDED.name)
+                                                        ELSE EXCLUDED.short_name END,
+                                      origin = CASE WHEN faction_label.origin = 'official' THEN 'official' ELSE 'curated' END
+                                    WHERE faction_label.origin IN ('machine', 'wikidata', 'curated', 'official')""",
                                  (fid, lang, entry[lang], entry.get(f"{lang}_short")))
                     counts[f"curated:{lang}"] += 1
             if entry.get("he_short"):

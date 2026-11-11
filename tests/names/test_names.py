@@ -75,6 +75,25 @@ def test_faction_names_official_full_curated_short(db):
         assert curated == ("New Hope",)
 
 
+def test_curated_short_name_changes_over_an_official_name(db, monkeypatch):
+    """The website's full name stays; a short name edited in factions.toml after it arrived still applies."""
+    import hkv.names as names
+    url, _ = db
+    real = names.load_curated()
+    changed = (real[0], {**real[1], OTZMA: {**real[1][OTZMA], "ru_short": "Оцма"}})
+
+    def ru_label(conn):
+        return conn.execute("""SELECT l.name, l.short_name, l.origin FROM faction_label l JOIN faction f ON f.id = l.faction_id
+                               WHERE f.knesset_faction_id = %s AND l.language = 'ru'""", (OTZMA,)).fetchone()
+    with psycopg.connect(url, autocommit=True) as conn:
+        monkeypatch.setattr(names, "load_curated", lambda: changed)
+        sync_factions(conn)
+        assert ru_label(conn) == ("«Оцма Йехудит» во главе с Итамаром Бен-Гвиром", "Оцма", "official")
+        monkeypatch.setattr(names, "load_curated", lambda: real)
+        sync_factions(conn)
+        assert ru_label(conn)[1] == "Оцма Йехудит"
+
+
 def test_api_returns_names_and_searches_them(db):
     url, _ = db
     with TestClient(create_app(url)) as c:
