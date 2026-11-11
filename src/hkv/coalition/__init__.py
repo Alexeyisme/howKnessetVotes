@@ -109,6 +109,7 @@ def derive(conn: psycopg.Connection) -> dict[str, int]:
         members: dict = defaultdict(list)   # faction -> [(person, span)]
         lifetimes: dict = {}
         faction_term: dict = {}
+        term_start = dict(conn.execute("SELECT number, started_on FROM knesset_term").fetchall())
         for fid, term, lo, hi in conn.execute("SELECT id, term_number, lower(valid), upper(valid) FROM faction WHERE lower(valid) >= '1999-01-01'"):
             lifetimes[fid] = (lo, hi or dt.date(9999, 1, 1))
             faction_term[fid] = term
@@ -125,7 +126,8 @@ def derive(conn: psycopg.Connection) -> dict[str, int]:
                 within = _clip(life, gspan)
                 if not within:
                     continue
-                if life[0] >= TRANSITION_RULE_FROM and gov_term[num] is not None and faction_term[fid] > gov_term[num]:
+                # by the faction's Knesset, not its own start: the source starts some new factions on election results day
+                if term_start[faction_term[fid]] >= TRANSITION_RULE_FROM and gov_term[num] is not None and faction_term[fid] > gov_term[num]:
                     conn.execute("""INSERT INTO faction_alignment (faction_id, government_number, valid, role, evidence, origin)
                                     VALUES (%s, %s, daterange(%s, %s), 'unknown', %s, 'derived')""",
                                  (fid, num, within[0], None if within[1].year == 9999 else within[1], TRANSITION_EVIDENCE))

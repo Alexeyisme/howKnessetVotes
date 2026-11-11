@@ -8,6 +8,17 @@ hand, in order, once the Knesset publishes the new Knesset's data. Every step is
 - **2026-11-10, 20:40 UTC** (after the deploy of `3c5807b`): `hkv newterm` on the server reports *0 MKs, 0 factions*
   for the 26th Knesset, so the Knesset has not published them yet. Government 37 (formed in the 25th Knesset) continues.
   The site says the new Knesset's data appears as the Knesset publishes it, and lists the 25th Knesset until then.
+- **2026-11-11:** the source has the 26th Knesset: 120 MKs, 11 factions. Two source changes needed code:
+  - On 2026-11-04 the source moved the start of the outgoing Knesset's open mandates and memberships (117 MKs) to
+    2026-11-03, which dropped their 2022–2026 votes from their statistics. The loader now keeps the earliest start a
+    row has had when the source moves it later by more than 30 days (`position_start_moved` in `data_issue`). This
+    relies on `row_revision`: a database rebuilt from scratch would take the source's dates.
+  - The 26th memberships start on 2026-11-03, the outgoing ones end on 2026-11-10; the 51 re-elected MKs' new
+    memberships were rejected as overlapping. They now start on the day the Knesset was sworn in
+    (`membership_before_term`). The transitional coalition rule goes by the faction's Knesset, since some new
+    factions also start on 2026-11-03.
+  - Curated names and parties for the 26th Knesset were added the same day (new parties: Yashar, Together, The
+    Democrats, Zehut). The Democrats is its own party, not linked to Labor or Meretz.
 - **How to know it has been published:** `hkv-newterm.timer` (hourly, from 2026-11-10) sends a Telegram message when
   the 26th Knesset's MKs and factions first appear in the database, and again when a government of the 26th Knesset is
   sworn in, each with the `hkv newterm` report ([scripts/newterm-check.sh](../scripts/newterm-check.sh)). The data comes

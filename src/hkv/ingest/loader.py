@@ -23,6 +23,8 @@ from hkv.sources.odata import Page, PageSource, chunks, or_filter
 
 log = logging.getLogger("hkv.ingest")
 
+START_MOVE_LIMIT = dt.timedelta(days=30)   # see Loader._position
+
 
 class Loader:
     def __init__(self, conn: psycopg.Connection, v4: PageSource) -> None:
@@ -173,12 +175,27 @@ class Loader:
         with self.run("KNS_PersonToPosition"):
             people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())
             factions = dict(self.conn.execute("SELECT knesset_faction_id, id FROM faction").fetchall())
+            self.term_starts = {n: d.isoformat() for n, d in self.conn.execute("SELECT number, started_on FROM knesset_term")}
+            # the earliest start each stored row has had, current or superseded (row_revision)
+            self.earliest_start = {}
+            for table in ("mandate", "faction_membership"):
+                for rid, lo in self.conn.execute(
+                        f"""SELECT t.knesset_position_row_id, least(lower(t.valid), min(lower((r.old_row->>'valid')::daterange)))
+                            FROM {table} t LEFT JOIN row_revision r ON r.table_name = %s AND r.row_id = t.id
+                            WHERE t.knesset_position_row_id IS NOT NULL GROUP BY t.id""", (table,)):
+                    self.earliest_start[rid] = lo
             for page in self.v4.pages("KNS_PersonToPosition", {"$filter": or_filter("PositionID", positions), "$orderby": "Id"}):
                 snap = self.snapshot(page)
                 for r in page.rows:
                     if r["PositionID"] not in positions:
                         continue
                     self._position(r, snap, people, factions)
+            # rows rejected as overlapping by an earlier run and stored since
+            self.conn.execute(
+                """UPDATE data_issue d SET status = 'resolved', resolved_at = now()
+                   WHERE d.status = 'open' AND d.issue_type = 'overlapping_interval' AND d.external_ref LIKE 'KNS_PersonToPosition:%'
+                     AND split_part(d.external_ref, ':', 2)::int IN (SELECT knesset_position_row_id FROM faction_membership
+                                                                     UNION ALL SELECT knesset_position_row_id FROM mandate)""")
 
     def _position(self, r: dict, snap: UUID, people: dict, factions: dict) -> None:
         ref = f"KNS_PersonToPosition:{r['Id']}"
@@ -191,6 +208,14 @@ class Loader:
         if finish is not None and finish <= start:
             self.issue("zero_length_position", "info", {"row": r}, external_ref=ref, snapshot=snap)
             return
+        # On 2026-11-04 the source moved the start of the outgoing Knesset's open mandates and memberships to the
+        # date the next Knesset was elected (2022 -> 2026-11-03), which would drop four years of votes from those
+        # MKs' statistics. A start does not legitimately move later by more than a month, so such an update keeps
+        # the earliest start the row has had and is recorded for review; the finish and everything else still apply.
+        kept = self.earliest_start.get(r["Id"])
+        if kept is not None and start > (kept + START_MOVE_LIMIT).isoformat():
+            self.issue("position_start_moved", "warning", {"row": r, "kept_start": kept}, external_ref=ref, snapshot=snap)
+            start = kept.isoformat()
         if r["PositionID"] in m.MANDATE_POSITIONS:
             sql = """INSERT INTO mandate (person_id, term_number, valid, knesset_position_row_id, source_updated_at, source_snapshot_id)
                      VALUES (%s, %s, daterange(%s::date, %s::date), %s, %s, %s)
@@ -210,8 +235,19 @@ class Loader:
             params = (person, faction, start, finish, r["Id"], r["LastUpdatedDate"], snap)
             kind = "faction_memberships"
         try:
-            with self.conn.transaction():  # savepoint: one conflicting row must not abort the run
-                self.conn.execute(sql, params)
+            try:
+                with self.conn.transaction():  # savepoint: one conflicting row must not abort the run
+                    self.conn.execute(sql, params)
+            except psycopg.errors.ExclusionViolation:
+                # Since the 26th Knesset the source starts the new Knesset's memberships on election results day,
+                # while the outgoing Knesset's run until the new one is sworn in. An MK is in one faction at a time:
+                # the new membership starts with its Knesset, and the source's start is recorded.
+                term_start = self.term_starts.get(r["KnessetNum"])
+                if kind != "faction_memberships" or term_start is None or start >= term_start or (finish is not None and finish <= term_start):
+                    raise
+                with self.conn.transaction():
+                    self.conn.execute(sql, (person, faction, term_start, *params[3:]))
+                self.issue("membership_before_term", "info", {"row": r, "stored_start": term_start}, external_ref=ref, snapshot=snap)
             self.counts[kind] += 1
         except psycopg.errors.ExclusionViolation as e:
             self.issue("overlapping_interval", "warning", {"row": r, "error": str(e).splitlines()[0]}, external_ref=ref, snapshot=snap)

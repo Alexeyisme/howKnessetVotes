@@ -22,7 +22,8 @@ def db(new_database):
         conn.execute("INSERT INTO knesset_term (number, name_he, started_on) VALUES (26, 'העשרים ושש', '2026-11-10') ON CONFLICT DO NOTHING")
         pid = conn.execute("""INSERT INTO person (knesset_person_id, first_name_he, last_name_he) VALUES (%s, 'חדשה', 'חברת כנסת')
                               RETURNING id""", (NEW_MK,)).fetchone()[0]
-        fid = conn.execute("""INSERT INTO faction (knesset_faction_id, term_number, name_he, valid) VALUES (%s, 26, 'סיעה חדשה', '[2026-11-10,)')
+        # the source starts some new factions on election results day, a week before the Knesset is sworn in
+        fid = conn.execute("""INSERT INTO faction (knesset_faction_id, term_number, name_he, valid) VALUES (%s, 26, 'סיעה חדשה', '[2026-11-03,)')
                               RETURNING id""", (NEW_FACTION,)).fetchone()[0]
         conn.execute("INSERT INTO mandate (person_id, term_number, valid) VALUES (%s, 26, '[2026-11-10,)')", (pid,))
         conn.execute("INSERT INTO faction_membership (person_id, faction_id, valid) VALUES (%s, %s, '[2026-11-10,)')", (pid, fid))
@@ -43,6 +44,7 @@ def db(new_database):
 def test_new_knesset_has_no_coalition_under_the_outgoing_government(db):
     with psycopg.connect(db) as conn:
         assert role(conn, NEW_FACTION, "2026-12-01") == "unknown"     # a caretaker minister does not make it coalition
+        assert role(conn, NEW_FACTION, "2026-11-05") == "unknown"     # nor before the swearing-in
         assert conn.execute("""SELECT a.evidence FROM faction_alignment a JOIN faction f ON f.id = a.faction_id
                                WHERE f.knesset_faction_id = %s AND a.government_number = 37""", (NEW_FACTION,)).fetchone() == (TRANSITION_EVIDENCE,)
         assert role(conn, NEW_FACTION, "2027-02-01") == "coalition"   # its own government is sworn in

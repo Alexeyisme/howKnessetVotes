@@ -267,3 +267,44 @@ def test_update_caps_machine_text_per_run(new_database, monkeypatch):
         upd.update(conn, FixtureSource(copy.deepcopy(SLICE)), days=5, today=dt.date(2026, 7, 30))
     # descriptions only for bills voted in the window: the backlog is a manual batch (`hkv notes --contested --batch`)
     assert calls == {"translate": {"limit": upd.TRANSLATE_LIMIT}, "notes": {"limit": upd.NOTES_LIMIT, "since": dt.date(2026, 7, 25)}}
+
+
+def test_new_knesset_does_not_move_outgoing_starts(loaded):
+    """What the source did on 2026-11-04: the outgoing Knesset's open mandates and memberships got start 2026-11-03
+    (election results) and finish 2026-11-10 (the 26th Knesset sworn in); the 26th memberships start 2026-11-03."""
+    data = copy.deepcopy(SLICE)
+    ballot_people = {r["MkId"] for r in data["KNS_PlenumVoteResult"] if r["VoteID"] == 46699}
+    rows = [r for r in data["KNS_PersonToPosition"]
+            if r["PersonID"] in ballot_people and r["KnessetNum"] == 25 and r["FinishDate"] is None and r["PositionID"] in (43, 54)]
+    pid = next(p for p in sorted(ballot_people) if {r["PositionID"] for r in rows if r["PersonID"] == p} == {43, 54})
+    old = {r["PositionID"]: r for r in rows if r["PersonID"] == pid}
+    for r in old.values():
+        r.update(StartDate="2026-11-03T00:00:00+02:00", FinishDate="2026-11-10T00:00:00+02:00")
+    data["KNS_KnessetDates"].append(dict(data["KNS_KnessetDates"][-1], Id=999, KnessetNum=26, Name="העשרים ושש",
+                                         PlenumStart="2026-11-10T00:00:00+02:00", PlenumFinish=None))
+    data["KNS_Faction"].append(dict(data["KNS_Faction"][-1], Id=1999, Name="סיעה חדשה", KnessetNum=26,
+                                    StartDate="2026-11-03T00:00:00+02:00", FinishDate=None))
+    data["KNS_PersonToPosition"] += [
+        dict(old[54], Id=999001, KnessetNum=26, FactionID=1999, FactionName="סיעה חדשה", StartDate="2026-11-03T00:00:00+02:00", FinishDate=None),
+        dict(old[43], Id=999002, KnessetNum=26, StartDate="2026-11-03T00:00:00+02:00", FinishDate=None)]
+    before = one(loaded, "SELECT count(*) FROM ballot WHERE faction_id IS NOT NULL")
+    ingest(loaded, data)
+
+    def valid(position_row: int) -> tuple:
+        return one(loaded, """SELECT lower(valid)::text, upper(valid)::text FROM (SELECT valid, knesset_position_row_id FROM mandate
+                              UNION ALL SELECT valid, knesset_position_row_id FROM faction_membership) x WHERE knesset_position_row_id = %s""",
+                   position_row)
+    for r in old.values():   # the start is kept, the finish applies
+        assert valid(r["Id"]) == (SLICE_START[r["Id"]], "2026-11-10")
+    assert valid(999001) == ("2026-11-10", None)     # the 26th membership starts with the 26th Knesset
+    assert valid(999002) == ("2026-11-03", None)     # mandates of different Knessets may overlap: as in the source
+    issues = dict(psycopg.connect(loaded).execute(
+        """SELECT issue_type, count(*) FROM data_issue WHERE status = 'open'
+             AND issue_type IN ('position_start_moved', 'membership_before_term', 'overlapping_interval') GROUP BY 1""").fetchall())
+    assert issues == {"position_start_moved": 2, "membership_before_term": 1}
+    assert one(loaded, "SELECT count(*) FROM ballot WHERE faction_id IS NOT NULL") == before
+    ingest(loaded, data)     # and again: nothing changes
+    assert valid(999001) == ("2026-11-10", None) and valid(old[54]["Id"])[0] == SLICE_START[old[54]["Id"]]
+
+
+SLICE_START = {r["Id"]: r["StartDate"][:10] for r in SLICE["KNS_PersonToPosition"]}
