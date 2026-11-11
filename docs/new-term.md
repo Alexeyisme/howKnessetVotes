@@ -17,8 +17,14 @@ hand, in order, once the Knesset publishes the new Knesset's data. Every step is
     memberships were rejected as overlapping. They now start on the day the Knesset was sworn in
     (`membership_before_term`). The transitional coalition rule goes by the faction's Knesset, since some new
     factions also start on 2026-11-03.
-  - Curated names and parties for the 26th Knesset were added the same day (new parties: Yashar, Together, The
-    Democrats, Zehut). The Democrats is its own party, not linked to Labor or Meretz.
+  - Curated names and parties for the 26th Knesset were added the same day (new parties: Yashar, Be'Yahad (Bennett
+    2026), The Democrats, Zehut). The Democrats is its own party, not linked to Labor or Meretz. The Knesset website
+    already lists the factions, so their official ru/en/ar names are shown; 47 new MKs are not on it yet.
+  - Every reference load is now checked before it is saved (`Loader._check_history`): if it would shorten more
+    than 5 stored mandates/memberships by over 30 days, or leave more than 5 sitting MKs without a faction, it is
+    rolled back, the update fails and Telegram alerts. After checking the source, `hkv update
+    --accept-source-changes` applies it once. A new Knesset whose memberships come a day after the old ones close
+    trips it too: that is the moment to look anyway.
 - **How to know it has been published:** `hkv-newterm.timer` (hourly, from 2026-11-10) sends a Telegram message when
   the 26th Knesset's MKs and factions first appear in the database, and again when a government of the 26th Knesset is
   sworn in, each with the `hkv newterm` report ([scripts/newterm-check.sh](../scripts/newterm-check.sh)). The data comes

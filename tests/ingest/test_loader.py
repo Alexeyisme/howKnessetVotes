@@ -308,3 +308,35 @@ def test_new_knesset_does_not_move_outgoing_starts(loaded):
 
 
 SLICE_START = {r["Id"]: r["StartDate"][:10] for r in SLICE["KNS_PersonToPosition"]}
+
+
+def test_load_that_rewrites_history_is_rolled_back(loaded):
+    """A source error that cuts years off many sitting MKs' memberships changes nothing and fails the load;
+    after review, accept_source_changes applies it."""
+    from hkv.ingest.loader import SourceDamage
+    data = copy.deepcopy(SLICE)
+    def stored(rid: int):
+        return one(loaded, "SELECT upper(valid) FROM faction_membership WHERE knesset_position_row_id = %s", rid)
+
+    open_rows = [r for r in data["KNS_PersonToPosition"] if r["PositionID"] == 54 and r["FinishDate"] is None and r["StartDate"] < "2023-05"
+                 and stored(r["Id"]) == (None,)][:8]
+    assert len(open_rows) == 8
+    for r in open_rows:
+        r["FinishDate"] = "2023-06-01T00:00:00+03:00"
+    before = table_counts(loaded)
+    with psycopg.connect(loaded) as conn, pytest.raises(SourceDamage, match=f"shorten {len(open_rows)} stored .* leave {len(open_rows)} MKs"):
+        Loader(conn, FixtureSource(data)).load_reference()
+    assert all(stored(r["Id"]) == (None,) for r in open_rows) and table_counts(loaded) == before
+    assert one(loaded, "SELECT status FROM ingestion_run WHERE resource = 'KNS_PersonToPosition' ORDER BY started_at DESC LIMIT 1") == ("failed",)
+    with psycopg.connect(loaded) as conn:
+        Loader(conn, FixtureSource(data), accept_source_changes=True).load_reference()
+    assert all(stored(r["Id"]) == (dt.date(2023, 6, 1),) for r in open_rows)
+
+
+def test_few_changes_pass_the_history_check(loaded):
+    """MKs resign and switch factions a few at a time: that is not a source error."""
+    data = copy.deepcopy(SLICE)
+    for r in [r for r in data["KNS_PersonToPosition"] if r["PositionID"] == 54 and r["FinishDate"] is None][:2]:
+        r["FinishDate"] = "2023-06-01T00:00:00+03:00"
+    ingest(loaded, data)
+    assert one(loaded, "SELECT count(*) FROM ingestion_run WHERE status <> 'succeeded'") == (0,)

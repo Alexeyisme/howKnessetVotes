@@ -1059,8 +1059,8 @@ ar = "أزرق أبيض – المعسكر الرسمي"
 ar_short = "أزرق أبيض"
 
 # --- 26th Knesset (2026–) ---
-# Short names as in the election coverage (newsru.co.il, 2026-10-29; ynetnews, Israel Hayom); en/ar full names are
-# replaced by the official ones from the Knesset website once it lists the 26th Knesset.
+# Short names as in the election coverage (newsru.co.il, 2026-10-29) and the Knesset website (Be'Yahad, 2026-11-11);
+# the full names shown are the official ones from the Knesset website.
 [faction.1113]
 he_short = "הליכוד"
 ru = "Ликуд с Биньямином Нетаньяху во главе правительства"
@@ -1079,12 +1079,12 @@ ar = "يشار! مع آيزنكوت لرئاسة الحكومة – نوحّد �
 ar_short = "يشار"
 [faction.1111]
 he_short = "ביחד"
-ru = "Бэяхад во главе с Нафтали Беннетом"
-ru_short = "Бэяхад"
-en = "Together headed by Naftali Bennett"
-en_short = "Together"
-ar = "معًا برئاسة نفتالي بينيت"
-ar_short = "معًا"
+ru = "Бе-Яхад во главе с Нафтали Беннетом"
+ru_short = "Бе-Яхад"
+en = "Be'Yahad headed by Naftali Bennett"
+en_short = "Be'Yahad"
+ar = "بياحد برئاسة نفتالي بينيت"
+ar_short = "بياحد"
 [faction.1115]
 ru = "Объединённый список"
 en = "Joint List"

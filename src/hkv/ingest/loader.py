@@ -24,16 +24,36 @@ from hkv.sources.odata import Page, PageSource, chunks, or_filter
 log = logging.getLogger("hkv.ingest")
 
 START_MOVE_LIMIT = dt.timedelta(days=30)   # see Loader._position
+# The history check (Loader._check_history): how many rows one load may shorten, or MKs it may leave without a
+# faction, before it is taken for a source error. MKs resign and switch factions a few at a time.
+HISTORY_LOSS_DAYS = 30
+HISTORY_LOSS_ROWS = 5
+FACTION_LOSS_MKS = 5
+
+
+class SourceDamage(RuntimeError):
+    """A reference load would rewrite history beyond the limits above; nothing of it is applied."""
+
+
+def _lost_days(old: tuple, new: tuple, today: dt.date) -> int:
+    """Days up to today that were inside the old interval and are not inside the new one (open upper = None)."""
+    a, b = old[0], min(old[1] or today, today)
+    c, d = new[0], min(new[1] or today, today)
+    if b <= a:
+        return 0
+    kept = max(0, (min(b, d) - max(a, c)).days)
+    return (b - a).days - kept
 
 
 class Loader:
-    def __init__(self, conn: psycopg.Connection, v4: PageSource) -> None:
+    def __init__(self, conn: psycopg.Connection, v4: PageSource, *, accept_source_changes: bool = False) -> None:
         # Autocommit, so every `with conn.transaction()` below is a real transaction that commits on exit.
         # Without it the first bare SELECT opens an implicit transaction and every block becomes a mere
         # savepoint: nothing is durable until the connection closes, and a killed worker loses everything.
         conn.autocommit = True
         self.conn = conn
         self.v4 = v4
+        self.accept_source_changes = accept_source_changes   # skip the history check once, after review
         self.run_id: UUID | None = None
         self.counts: Counter[str] = Counter()
 
@@ -173,6 +193,7 @@ class Loader:
     def load_positions(self) -> None:
         positions = sorted(m.MANDATE_POSITIONS | {m.FACTION_MEMBER_POSITION})
         with self.run("KNS_PersonToPosition"):
+            before = self._history()
             people = dict(self.conn.execute("SELECT knesset_person_id, id FROM person").fetchall())
             factions = dict(self.conn.execute("SELECT knesset_faction_id, id FROM faction").fetchall())
             self.term_starts = {n: d.isoformat() for n, d in self.conn.execute("SELECT number, started_on FROM knesset_term")}
@@ -196,6 +217,43 @@ class Loader:
                    WHERE d.status = 'open' AND d.issue_type = 'overlapping_interval' AND d.external_ref LIKE 'KNS_PersonToPosition:%'
                      AND split_part(d.external_ref, ':', 2)::int IN (SELECT knesset_position_row_id FROM faction_membership
                                                                      UNION ALL SELECT knesset_position_row_id FROM mandate)""")
+            self._check_history(before, self._history())
+
+    def _history(self) -> dict:
+        """What a source error would break: every stored mandate/membership interval, and who has a faction today."""
+        rows = {}
+        for table in ("mandate", "faction_membership"):
+            for rid, pid, lo, hi in self.conn.execute(
+                    f"SELECT knesset_position_row_id, person_id, lower(valid), upper(valid) FROM {table} WHERE knesset_position_row_id IS NOT NULL"):
+                rows[(table, rid)] = (pid, lo, hi)
+        in_faction = {r[0] for r in self.conn.execute(
+            "SELECT DISTINCT fm.person_id FROM faction_membership fm WHERE fm.valid @> current_date")}
+        return {"rows": rows, "in_faction": in_faction}
+
+    def _check_history(self, before: dict, after: dict) -> None:
+        """The source has rewritten history by mistake (2026-11-04: 117 MKs' mandates moved to start a week before
+        they ended). A load that shortens more than a few stored intervals by over a month, or takes the faction
+        away from more than a few sitting MKs, is rolled back whole: the site keeps the previous data, the update
+        fails and alerts. If the source is right, `hkv update --accept-source-changes` applies it once."""
+        today = dt.date.today()
+        shortened = []
+        for key, (pid, lo, hi) in before["rows"].items():
+            new = after["rows"].get(key)
+            lost = _lost_days((lo, hi), (new[1], new[2]) if new else (today, today), today)
+            if lost > HISTORY_LOSS_DAYS:
+                shortened.append((key, lo, hi, new[1:] if new else None, lost))
+        unfactioned = before["in_faction"] - after["in_faction"]
+        if len(shortened) <= HISTORY_LOSS_ROWS and len(unfactioned) <= FACTION_LOSS_MKS:
+            return
+        msg = (f"KNS_PersonToPosition: the source would shorten {len(shortened)} stored mandates/memberships by more than "
+               f"{HISTORY_LOSS_DAYS} days and leave {len(unfactioned)} MKs without a faction today; nothing was applied. "
+               + "; ".join(f"{t}:{rid} {lo}..{hi} -> {new[0]}..{new[1]}" if new else f"{t}:{rid} {lo}..{hi} -> gone"
+                           for (t, rid), lo, hi, new, _ in shortened[:5])
+               + ". Check the source; if it is right, run hkv update --accept-source-changes")
+        if self.accept_source_changes:
+            log.warning("accepted: %s", msg)
+            return
+        raise SourceDamage(msg)
 
     def _position(self, r: dict, snap: UUID, people: dict, factions: dict) -> None:
         ref = f"KNS_PersonToPosition:{r['Id']}"

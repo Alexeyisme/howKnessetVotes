@@ -27,6 +27,8 @@ def main(argv: list[str] | None = None) -> int:
         p.add_argument("--to", dest="date_to", type=dt.date.fromisoformat, required=True)
         p.add_argument("--db", default=os.environ.get("DATABASE_URL", DEFAULT_DB))
     sub.choices["ingest"].add_argument("--skip-reference", action="store_true", help="do not reload terms/people/factions/positions")
+    accept_help = "apply a reference load the history check stopped, after checking the source (Loader._check_history)"
+    sub.choices["ingest"].add_argument("--accept-source-changes", action="store_true", help=accept_help)
     sub.choices["verify"].add_argument("--sample", type=int, default=20)
     bf = sub.add_parser("backfill", help="parallel historical load of votes (reference data must be loaded)")
     bf.add_argument("--from", dest="date_from", type=dt.date.fromisoformat, required=True)
@@ -44,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     up = sub.add_parser("update", help="daily incremental update: reference data + trailing window of votes")
     up.add_argument("--days", type=int, default=30, help="re-read votes of the last N days (catches corrections)")
     up.add_argument("--skip-reference", action="store_true")
+    up.add_argument("--accept-source-changes", action="store_true", help=accept_help)
     up.add_argument("--quick", action="store_true",
                     help="no reference data, and stop right after the votes if nothing new was found (10-minute runs)")
     up.add_argument("--log", type=Path, default=Path("logs/update.log"), help="log file, or - for stderr")
@@ -203,7 +206,8 @@ def main(argv: list[str] | None = None) -> int:
         from hkv.sources.odata import SourceBlocked
         with psycopg.connect(args.db) as conn:
             try:
-                print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference, quick=args.quick))
+                print(update(conn, ODataClient(raw_dir=RAW_DIR), days=args.days, reference=not args.skip_reference, quick=args.quick,
+                             accept_source_changes=args.accept_source_changes))
             except SourceBlocked as e:
                 if not args.quick:
                     raise  # the full update fails, so the alert says the source is blocking us
@@ -231,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     v4 = ODataClient(raw_dir=RAW_DIR)
     with psycopg.connect(args.db) as conn:
         if args.cmd == "ingest":
-            loader = Loader(conn, v4)
+            loader = Loader(conn, v4, accept_source_changes=args.accept_source_changes)
             if not args.skip_reference:
                 loader.load_reference()
                 print("reference loaded", flush=True)

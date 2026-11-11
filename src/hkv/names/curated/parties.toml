@@ -26,9 +26,9 @@ factions = [812, 904, 917, 938, 955, 967, 1102, 1111]
 
 [party.together]
 he = "ביחד"
-ru = "Бэяхад (Беннет 2026)"
-en = "Together (Bennett 2026)"
-ar = "معًا (بينيت 2026)"
+ru = "Бе-Яхад (Беннет 2026)"
+en = "Be'Yahad (Bennett 2026)"
+ar = "بياحد (بينيت 2026)"
 factions = [1111]
 
 [party.shas]

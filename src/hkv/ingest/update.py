@@ -58,10 +58,11 @@ def _fingerprint(conn: psycopg.Connection) -> tuple:
 
 
 def update(conn: psycopg.Connection, v4: PageSource, *, days: int = 30, today: dt.date | None = None,
-           reference: bool = True, names: NameSources | None = None, quick: bool = False) -> dict:
+           reference: bool = True, names: NameSources | None = None, quick: bool = False,
+           accept_source_changes: bool = False) -> dict:
     today = today or dt.date.today()
     date_from = today - dt.timedelta(days=days)
-    loader = Loader(conn, v4)
+    loader = Loader(conn, v4, accept_source_changes=accept_source_changes)
     before = _fingerprint(conn)
     skipped = False
     if reference and not quick:
