@@ -1102,10 +1102,12 @@ ru = "РААМ"
 en = "Ra'am"
 ar = "الموحدة"
 [faction.1119]
+he_short = "ישראל ביתנו"
 ru = "Наш дом Израиль"
 en = "Yisrael Beytenu"
 ar = "يسرائيل بيتينو"
 [faction.1121]
+he_short = "עוצמה יהודית"
 ru = "Оцма Йехудит"
 en = "Otzma Yehudit"
 ar = "عوتسما يهوديت"

@@ -21,3 +21,11 @@ site_id = 1033
 site_id = 1080
 [mk.30833]  # אלמוג כהן
 site_id = 1104
+
+# 26th Knesset (2026-11-14): on the website's current MK list under these exact names, but not linked by `hkv names`.
+[mk.30954]  # אליקים שטארק
+site_id = 1178
+[mk.30958]  # עדי אלטשולר
+site_id = 1142
+[mk.30974]  # טליה לנקרי
+site_id = 1164
