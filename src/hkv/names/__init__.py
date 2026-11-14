@@ -213,7 +213,8 @@ def _set_alias(conn: psycopg.Connection, person_id, language: str, name: str | N
 
 
 def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = False) -> dict[str, int]:
-    """Names for every person who has ballots. Without `refresh`, people who already have official names are skipped
+    """Names for every person who has ballots, and the newest Knesset's MKs before they vote (as LISTED_PERSON in
+    api/common.py lists them). Without `refresh`, people who already have official names are skipped
     (so names added in a new language reach existing people only with `refresh`, e.g. `hkv names --refresh`)."""
     curated, _ = load_curated()
     people = conn.execute(
@@ -221,7 +222,8 @@ def sync_members(conn: psycopg.Connection, src: NameSources, *, refresh: bool = 
                   (SELECT value FROM person_external_id e WHERE e.person_id = p.id AND e.scheme = 'knesset_site') AS site_id,
                   EXISTS (SELECT 1 FROM person_alias a WHERE a.person_id = p.id AND a.language = 'ru' AND a.alias_type = 'official'
                           AND a.origin IN ('official', 'curated', 'human')) AS named
-           FROM person p WHERE EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)""").fetchall()
+           FROM person p WHERE EXISTS (SELECT 1 FROM ballot b WHERE b.person_id = p.id)
+             OR EXISTS (SELECT 1 FROM mandate m WHERE m.person_id = p.id AND m.term_number = (SELECT max(number) FROM knesset_term))""").fetchall()
     todo = [p for p in people if refresh or not p[4]]
     counts: Counter[str] = Counter(people=len(people), todo=len(todo))
     if not todo:

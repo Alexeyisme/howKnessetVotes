@@ -104,3 +104,19 @@ def test_newterm_state_changes_only_at_stages():
     # more MKs, names or votes do not change it; the new government does
     assert state(Report(mandates=121, government=(37, 25), **{**base, "votes": 5})) == published
     assert state(Report(mandates=120, government=(38, 26), **base)) == "26th Knesset: government 38 sworn in"
+
+
+def test_new_mks_get_names_before_they_vote(db):
+    """The names step covers the newest Knesset's MKs, not only people with ballots (3 MKs who missed the first
+    vote of the 26th Knesset stayed nameless)."""
+    from hkv.names import MkDetails, SiteMk, sync_members
+
+    class Site:
+        def site_codes(self): return {}
+        def current_mks(self): return [SiteMk(5555, "חדשה חברת כנסת")]
+        def wikidata_mks(self): return []
+        def mk_details(self, site_id, lang): return MkDetails({"en": "New Member", "ru": "Новая депутатка", "ar": "عضوة جديدة"}[lang], None) if site_id == 5555 else None
+    with psycopg.connect(db, autocommit=True) as conn:
+        assert sync_members(conn, Site())["site_id:site_current_list"] == 1
+        assert conn.execute("""SELECT n.en, n.ru FROM person_name n JOIN person p ON p.id = n.person_id
+                               WHERE p.knesset_person_id = %s""", (NEW_MK,)).fetchone() == ("New Member", "Новая депутатка")
