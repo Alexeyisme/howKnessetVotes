@@ -10,7 +10,7 @@ import styles from "./VoteCard.module.css";
 const PLENUM = 120;
 
 /** One vote as a card: the outcome in words first, the Hebrew title second, then one bar for the whole plenum (so a
- *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line, and on final votes the
+ *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), and on final votes the
  *  start of the law's official summary and the two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
 export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode }) {
@@ -54,6 +54,10 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
         )}
         {vote.blocs?.contested && (
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.short(vote.blocs.coalition, vote.blocs.opposition)}</span>
+        )}
+        {/* no government on the vote date (a new Knesset before its government): how the factions divided instead */}
+        {!vote.blocs && vote.faction_sides?.opposed && (
+          <span className={`small num ${styles.blocs}`}>{t.d.blocs.factions(vote.faction_sides.for, vote.faction_sides.against)}</span>
         )}
         {note && <span className={`small ${styles.note}`}>{note}</span>}
         {sides && <Sides sides={sides} />}

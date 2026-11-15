@@ -170,7 +170,16 @@ def _norwegian(membership: Span, post: Span, person_starts: list[dt.date]) -> Sp
 
 def refresh_blocs(conn: psycopg.Connection) -> int:
     """Rebuild vote_bloc: cast votes by coalition and opposition members per vote, and whether the blocs' strict
-    majorities differed (a contested vote)."""
+    majorities differed (a contested vote). Also vote_factions, which needs no coalition: how many factions' majorities
+    voted for and how many against (migration 0020)."""
+    conn.execute("DELETE FROM vote_factions")
+    conn.execute("""
+        INSERT INTO vote_factions (vote_id, factions_for, factions_against)
+        SELECT vote_id, count(*) FILTER (WHERE f * 2 > f + a + ab), count(*) FILTER (WHERE a * 2 > f + a + ab)
+        FROM (SELECT vote_id, faction_id, count(*) FILTER (WHERE choice = 'for') AS f,
+                     count(*) FILTER (WHERE choice = 'against') AS a, count(*) FILTER (WHERE choice = 'abstain') AS ab
+              FROM ballot WHERE choice IS NOT NULL AND faction_id IS NOT NULL GROUP BY vote_id, faction_id) x
+        GROUP BY vote_id""")
     conn.execute("DELETE FROM vote_bloc")
     return conn.execute("""
         INSERT INTO vote_bloc

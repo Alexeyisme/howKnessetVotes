@@ -54,6 +54,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         q: Annotated[str | None, Query(min_length=2, description="Substring of the Hebrew title")] = None,
         topic: Annotated[list[str] | None, Query(description="Topic slug (rule-based, inherited from the bill)")] = None,
         contested: Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")] = False,
+        factions_opposed: Annotated[bool, Query(description="only votes where some factions' majorities voted for and others' against (needs no coalition)")] = False,
         min_cast: Annotated[int | None, Query(ge=0, le=120, description="at least this many for/against/abstain records")] = None,
         limit: Annotated[int, Query(ge=1, le=100)] = 50,
         cursor: str | None = None,
@@ -62,6 +63,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
                                          faction=faction, person=person, q=q, topic=topic, min_cast=min_cast).items() if v is not None}
         if contested:
             filters["contested"] = True
+        if factions_opposed:
+            filters["factions_opposed"] = True
         where, params = ["true"], {}
         if date_from:
             where.append("v.occurred_on >= %(date_from)s"); params["date_from"] = date_from
@@ -88,6 +91,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
             params["topic"] = topic
         if contested:
             where.append("vb.contested")
+        if factions_opposed:
+            where.append("vf.opposed")
         if min_cast is not None:
             where.append("c.n_for + c.n_against + c.n_abstain >= %(min_cast)s"); params["min_cast"] = min_cast
         if cursor:

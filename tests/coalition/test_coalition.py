@@ -95,3 +95,25 @@ def test_api_governments_parties_and_contested_votes(db):
         some = next(v for v in votes if v["blocs"])
         detail = c.get(f"/api/v1/votes/{some['id']}").json()["data"]
         assert {r["alignment"] for r in detail["by_faction"]} <= {"coalition", "opposition", None}
+
+
+def test_factions_on_opposite_sides_need_no_coalition(db):
+    """vote_factions counts the factions whose majority voted for and against, as the vote page's per-faction table
+    shows them; the filter keeps the votes with factions on both sides, whatever the coalition."""
+    from fastapi.testclient import TestClient
+
+    from hkv.api.app import create_app
+    with TestClient(create_app(db)) as c:
+        votes = c.get("/api/v1/votes", params={"limit": 100}).json()["data"]
+        cast = [v for v in votes if v["roll_call"]["for"] + v["roll_call"]["against"] + v["roll_call"]["abstain"]]
+        assert cast and all(v["faction_sides"] is not None for v in cast)
+        for v in cast[:20]:
+            majorities = [f["majority"] for f in c.get(f"/api/v1/votes/{v['id']}").json()["data"]["by_faction"]]
+            sides = v["faction_sides"]
+            assert (sides["for"], sides["against"]) == (majorities.count("for"), majorities.count("against"))
+            assert sides["opposed"] == (sides["for"] > 0 and sides["against"] > 0)
+        opposed = c.get("/api/v1/votes", params={"factions_opposed": "true", "min_cast": 3}).json()
+        assert opposed["meta"]["filters"]["factions_opposed"] is True and opposed["data"]
+        assert all(v["faction_sides"]["opposed"] for v in opposed["data"])
+        mine = c.get(f"/api/v1/factions/{LIKUD}/votes", params={"factions_opposed": "true", "limit": 10}).json()["data"]
+        assert mine and all(x["vote"]["faction_sides"]["opposed"] for x in mine)

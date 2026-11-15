@@ -10,6 +10,8 @@ import styles from "./VoteFeed.module.css";
 export const FILTERS: { key: string; params: Record<string, string | string[]> }[] = [
   { key: "main", params: { motion_type: MAIN_MOTIONS } },
   { key: "contested", params: { stage: "third", motion_type: "adopt_bill", contested: "true", min_cast: "60" } },
+  // factions on opposite sides, any motion: needs no coalition, so it also works while a new government is formed
+  { key: "opposed", params: { factions_opposed: "true", min_cast: "60" } },
   { key: "final", params: { stage: "third", motion_type: "adopt_bill" } },
   { key: "first", params: { stage: "first", motion_type: "adopt_bill" } },
   { key: "preliminary", params: { stage: "preliminary", motion_type: "adopt_bill" } },

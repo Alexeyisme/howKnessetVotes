@@ -98,7 +98,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
       })}
       {result && (
         <>
-          <ViewChips current={view.key} href={(key) => href({}, key)} />
+          <ViewChips current={view.key} href={(key) => href({}, key)} hide={["opposed"]} />
           {t.d.votes.lead[view.key] && <p className="small muted">{t.d.votes.lead[view.key]}</p>}
           <Stats>
             <RateStat label={`${d.agreement}: ${name(a)} · ${name(b)}`} rate={result.agreement} unit={d.agreementUnit} />

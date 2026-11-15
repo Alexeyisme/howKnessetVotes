@@ -138,11 +138,12 @@ export const en: Dict = {
   votes: {
     title: "Plenum votes",
     filtersLabel: "Which votes to show",
-    filters: { main: "Bills (all readings)", contested: "Contested", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
+    filters: { main: "Bills (all readings)", contested: "Contested", opposed: "Factions split", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
     lead: {
       main: "Votes on bills as a whole at every reading, and no-confidence motions. Reservations, sections and procedural votes are under “All votes”.",
       final: "Votes after which a bill becomes law (or does not).",
       contested: "Final votes where the coalition majority and the opposition majority voted differently, with at least 60 members voting: the laws that were fought over.",
+      opposed: "Votes of any kind where some factions voted for and others against (by the majority of each faction\u2019s members who voted), with at least 60 members voting. Unlike “Contested”, this needs no coalition, so it also shows the fights in a new Knesset before its government is formed.",
       all: "All votes, including reservations (amendments), individual sections and procedural decisions.",
     },
   },
@@ -322,6 +323,7 @@ export const en: Dict = {
     contested: "Coalition and opposition voted differently",
     note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
     short: (c, o) => `Coalition ${c.for}:${c.against} · Opposition ${o.for}:${o.against}`,
+    factions: (f, a) => `Factions: ${f} for, ${a} against`,
   },
   sides: {
     for: "Supporters said", against: "Opponents said",

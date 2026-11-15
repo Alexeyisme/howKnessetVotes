@@ -94,6 +94,15 @@ class Blocs(BaseModel):
     contested: bool  # both blocs had a strict majority, and they differed
 
 
+class FactionSides(BaseModel):
+    """How many factions' majorities voted for and against (a strict majority of the faction's members who voted).
+    Needs no government, unlike Blocs: it shows which votes were fought over while a new government is formed."""
+    model_config = ConfigDict(populate_by_name=True)
+    for_: int = Field(alias="for")
+    against: int
+    opposed: bool  # factions on both sides
+
+
 class VoteSummary(TitleTranslations):
     id: int
     occurred_on: dt.date
@@ -109,6 +118,7 @@ class VoteSummary(TitleTranslations):
     bills: list[BillRef]
     roll_call: Counts
     blocs: Blocs | None = None
+    faction_sides: FactionSides | None = None
     source_url: str
 
 
@@ -196,10 +206,11 @@ VOTE_SELECT = f"""
                          WHERE bt.bill_id = b.id AND bt.review_state <> 'rejected' ORDER BY t.sort)) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
            c.*, vb.coalition_for, vb.coalition_against, vb.coalition_abstain, vb.opposition_for, vb.opposition_against,
-           vb.opposition_abstain, vb.contested
+           vb.opposition_abstain, vb.contested, vf.factions_for, vf.factions_against, vf.opposed
     FROM vote v
     LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
     LEFT JOIN vote_bloc vb ON vb.vote_id = v.id
+    LEFT JOIN vote_factions vf ON vf.vote_id = v.id
     CROSS JOIN LATERAL (SELECT {COUNT_COLUMNS} FROM ballot b WHERE b.vote_id = v.id) c"""
 
 
@@ -223,7 +234,9 @@ def vote_summary(r: dict) -> VoteSummary:
     return VoteSummary(id=r["id"], occurred_on=r["occurred_on"], occurred_at=r["occurred_at"], term=r["term_number"],
                        title_he=r["title_he"], subject_he=r["subject_he"], question_he=r["for_option_he"],
                        motion_type=r["motion_type"], stage=r["stage"], method=r["method"], status=r["status"],
-                       bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), blocs=blocs(r), source_url=VOTE_CARD.format(r["id"]))
+                       bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), blocs=blocs(r),
+                       faction_sides=None if r.get("opposed") is None else FactionSides(for_=r["factions_for"], against=r["factions_against"], opposed=r["opposed"]),
+                       source_url=VOTE_CARD.format(r["id"]))
 
 
 def blocs(r: dict) -> Blocs | None:

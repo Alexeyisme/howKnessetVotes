@@ -798,6 +798,7 @@ def get_faction(faction_id: int, conn: Conn):
 def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | None, Query()] = None,
                   motion_type: Annotated[list[MotionType] | None, Query()] = None, split_only: bool = False,
                   contested: Annotated[bool, Query(description="only votes where the coalition and opposition majorities differed")] = False,
+                  factions_opposed: Annotated[bool, Query(description="only votes where some factions' majorities voted for and others' against")] = False,
                   min_cast: Annotated[int | None, Query(ge=0, le=120, description="at least this many for/against/abstain records in the plenum")] = None,
                   limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     r = faction_pk(conn, faction_id)
@@ -813,6 +814,8 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
     after = ["greatest(c.f, c.a, c.ab) < c.f + c.a + c.ab"] if split_only else ["true"]
     if contested:
         after.append("EXISTS (SELECT 1 FROM vote_bloc vb WHERE vb.vote_id = v.id AND vb.contested)")
+    if factions_opposed:
+        after.append("EXISTS (SELECT 1 FROM vote_factions vf WHERE vf.vote_id = v.id AND vf.opposed)")
     if min_cast is not None:
         after.append("(SELECT count(*) FROM ballot x WHERE x.vote_id = v.id AND x.choice IS NOT NULL) >= %(min_cast)s"); params["min_cast"] = min_cast
     rows = conn.execute(f"""
@@ -830,7 +833,8 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
                         faction_counts={"for": x["f"], "against": x["a"], "abstain": x["ab"], "present_not_voting": x["p"], "total_records": x["n"]})
             for x in rows]
     attach_sides(conn, [x.vote for x in data])
-    return {"data": data, "meta": Meta(filters={"id": faction_id, "split_only": split_only, "contested": contested, "min_cast": min_cast}),
+    return {"data": data, "meta": Meta(filters={"id": faction_id, "split_only": split_only, "contested": contested,
+                                             "factions_opposed": factions_opposed, "min_cast": min_cast}),
             "next_cursor": encode_cursor(rows[-1]["occurred_on"], rows[-1]["vid"]) if more else None}
 
 

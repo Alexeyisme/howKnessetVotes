@@ -26,6 +26,8 @@ export type Alignment = "coalition" | "opposition" | "external_support" | "unkno
 export interface BlocCounts { for: number; against: number; abstain: number }
 /** cast votes by coalition / opposition members on the vote date; contested = the two majorities differed */
 export interface Blocs { coalition: BlocCounts; opposition: BlocCounts; contested: boolean }
+/** factions whose majority (of its members who voted) voted for / against; opposed = factions on both sides. Needs no coalition. */
+export interface FactionSides { for: number; against: number; opposed: boolean }
 
 /** R4: machine or editor translation of a Hebrew title; `title` is in the ?lang= language (null when none) */
 export interface Titled { title?: string | null; title_origin?: "machine" | "editor" | null; title_en?: string | null; title_ru?: string | null; title_ar?: string | null }
@@ -45,6 +47,7 @@ export interface VoteSummary extends Titled {
   bills: ({ id: number; title_he: string; topics: string[]; sides?: DebateSides | null; about?: BillAbout | null } & Titled)[];
   roll_call: Counts;
   blocs?: Blocs | null;
+  faction_sides?: FactionSides | null;
   source_url: string;
 }
 
