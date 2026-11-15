@@ -80,7 +80,7 @@ GLOSSARY = {
            ("מבצע עם כלביא (June 2025, Iran)", "операция «Народ как лев»"), ("מבצע מרכבות גדעון", "операция «Колесницы Гидеона»"),
            ("מבצע שאגת הארי", "операция «Рык льва»"), ("בג\"ץ", "БАГАЦ (Высший суд справедливости)"),
            # as the vote page explains it (apps/web i18n/content/voteKinds.tsx); not «Комитет по регламенту»
-           ("הוועדה המסדרת", "Организационная комиссия")],
+           ("הוועדה המסדרת", "Организационная комиссия"), ("הכנסת / כנסת", "Кнессет (double с)")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
            ("תקנות", "أنظمة"), ("הצעת אי-אמון", "اقتراح حجب الثقة"), ("התשפ\"ו-2026", "2026"),
@@ -260,6 +260,17 @@ class ClaudeTranslator:
         return out
 
 
+# The site's spellings that a model sometimes misses, fixed before a translation is stored (they never change a
+# number or a meaning): "Кнесет" is not a substring of "Кнессет", and the replacement keeps the ending (Кнесета).
+SPELLING = {"ru": [(re.compile(r"Кнесет"), "Кнессет"), (re.compile(r"кнесет"), "кнессет")]}
+
+
+def spell(text: str, lang: str) -> str:
+    for pattern, repl in SPELLING.get(lang, []):
+        text = pattern.sub(repl, text)
+    return text
+
+
 def check(source: str, target: str, kind: str = "title") -> str | None:
     """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane.
     In a summary a numeric date ("1.4.2026", "31.03") is written with the month as a word ("1 April 2026"), so only
@@ -381,7 +392,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
                     continue
                 conn.execute(
                     """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
-                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, target.strip(), model))
+                       ON CONFLICT (source_sha256, language) DO NOTHING""", (h, lang, spell(target.strip(), lang), model))
                 stored += 1
             _resolve_translated(conn, lang)
             conn.commit()
@@ -401,7 +412,7 @@ def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
         counts["open"] += 1
         if d.get("target") and check(d["source"], d["target"], d.get("kind", "title")) is None:
             conn.execute("""INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
-                            ON CONFLICT (source_sha256, language) DO NOTHING""", (h, d["language"], d["target"].strip(), d.get("model")))
+                            ON CONFLICT (source_sha256, language) DO NOTHING""", (h, d["language"], spell(d["target"].strip(), d["language"]), d.get("model")))
             counts["stored"] += 1
     for lang in LANGUAGES:
         _resolve_translated(conn, lang)

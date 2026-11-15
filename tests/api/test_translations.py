@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.translate import BATCH, StubTranslator, check, pending, recheck_failed, sha256, sync
+from hkv.translate import BATCH, StubTranslator, check, pending, recheck_failed, sha256, spell, sync
 from tests.ingest.test_loader import SLICE, ingest
 
 BILL = 2229019
@@ -57,6 +57,11 @@ def test_checks():
     assert check("סעיף 14טו", "Section 14טו") == "hebrew_left"                       # titles stay strict
     assert check("החל מיום 1.4.2026", "from April 2026", "summary") == "numbers_missing:1"
     assert check("החל מיום 1.4.2026", "from 1 April 2026") == "numbers_missing:4"
+
+
+def test_russian_knesset_is_spelled_as_on_the_site():
+    assert spell("Решение Кнесета и кнесетской комиссии; Кнессет", "ru") == "Решение Кнессета и кнессетской комиссии; Кнессет"
+    assert spell("Knesset", "en") == "Knesset"
 
 
 def test_sync_stores_and_rejects(url):
