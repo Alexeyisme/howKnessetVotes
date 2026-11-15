@@ -124,6 +124,8 @@ export const en: Dict = {
     finalTitle: "Latest final votes",
     finalAll: "All votes →",
     contestedTitle: "Laws the coalition and opposition fought over",
+    splitTitle: (term) => `The ${ord(term)} Knesset: where the factions split`,
+    splitLead: "There is no government yet, so there is no coalition or opposition either. These are the votes where some factions voted for and others against.",
     latestVote: (d) => `Latest vote ${d}`,
     browse: "Browse",
     tiles: [

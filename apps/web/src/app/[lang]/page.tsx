@@ -3,7 +3,7 @@ import Link from "@/components/Link";
 import { NewTermNotice } from "@/components/NewTermNotice";
 import { SearchBox } from "@/components/SearchBox";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
-import { getStatus, listTopics, listVotes } from "@/lib/api";
+import { getStatus, listTopics, listVotes, type VoteSummary } from "@/lib/api";
 import { getT } from "@/i18n/server";
 import styles from "./home.module.css";
 
@@ -18,7 +18,7 @@ function pick<T>(xs: readonly T[], k: number): T[] {
 }
 
 // U1: a start page for first-time visitors: one search box for any language, the laws the coalition and opposition
-// fought over (the question a voter asks), topics as the way in to "how did my party vote on...", and the sections.
+// fought over (the question a voter asks; before a new Knesset has a government, where its factions split), topics as the way in to "how did my party vote on...", and the sections.
 export default async function Home({ searchParams }: PageProps<"/[lang]">) {
   const sp = await searchParams;
   const t = await getT();
@@ -26,9 +26,17 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
   if (sp.view || sp.cursor) redirect(t.href(`/votes?${new URLSearchParams(sp as Record<string, string>)}`));
   const d = t.d.home;
   const contestedQuery = { stage: "third", motion_type: "adopt_bill", contested: "true", min_cast: "60", limit: "5" };
-  const [topics, contested, status] = await Promise.all([
-    listTopics(), listVotes(contestedQuery), getStatus().then((r) => r.data, () => null),
+  const [topics, contested, opposed, status] = await Promise.all([
+    listTopics(), listVotes(contestedQuery), listVotes({ factions_opposed: "true", min_cast: "60", limit: "5" }),
+    getStatus().then((r) => r.data, () => null),
   ]);
+  // a new Knesset before its government: no coalition, so no contested votes; its latest votes where the factions
+  // split (no bloc data on the vote date) get a section of their own, which goes away once the government is sworn in
+  const split: VoteSummary[] = [];
+  for (const v of opposed.data) {
+    if (v.blocs || v.term !== opposed.data[0].term) break;
+    split.push(v);
+  }
   // between Knessets there are no contested votes yet: fall back to the latest final votes
   const feed = contested.data.length > 0 ? contested : await listVotes({ stage: "third", motion_type: "adopt_bill", limit: "5" });
   const top = [...topics.data].sort((a, b) => b.bills - a.bills).slice(0, 10);
@@ -53,6 +61,17 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
         )}
         <NewTermNotice />
       </section>
+
+      {split.length > 0 && (
+        <section>
+          <h2 className="section-title">{d.splitTitle(split[0].term)}</h2>
+          <p className="small muted" style={{ marginBottom: 8 }}>{d.splitLead}</p>
+          <VoteCards>
+            {split.map((v) => <VoteCard key={v.id} vote={v} />)}
+          </VoteCards>
+          <p className="small" style={{ marginTop: 8 }}><Link href="/votes?view=opposed">{t.d.votes.filters.opposed} →</Link></p>
+        </section>
+      )}
 
       <section>
         <h2 className="section-title">{contested.data.length > 0 ? d.contestedTitle : d.finalTitle}</h2>
