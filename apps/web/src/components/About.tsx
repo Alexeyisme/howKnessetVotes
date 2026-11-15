@@ -5,7 +5,7 @@ import styles from "./Title.module.css";
 
 /** The start of a long text: whole sentences up to `max` characters; a first sentence far longer than that is cut
  *  at a word. */
-function lead(text: string, locale: string, max: number): string {
+export function lead(text: string, locale: string, max: number): string {
   let out = "";
   for (const { segment } of new Intl.Segmenter(locale, { granularity: "sentence" }).segment(text)) {
     if (!out && segment.length > max * 1.5) return segment.slice(0, segment.lastIndexOf(" ", max)).trimEnd() + " …";

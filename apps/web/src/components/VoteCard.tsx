@@ -1,13 +1,19 @@
-import { About } from "./About";
+import { About, lead } from "./About";
 import Link from "./Link";
 import { Sides } from "./Sides";
 import { Title } from "./Title";
 import type { VoteSummary } from "@/lib/api";
 import { missingRollCallText, verdict } from "@/lib/labels";
+import { voteKind, type VoteKind } from "@/lib/voteKinds";
+import { voteKindText } from "@/i18n/content/voteKinds";
 import { getT } from "@/i18n/server";
 import styles from "./VoteCard.module.css";
 
 const PLENUM = 120;
+
+// kinds whose explanation the card repeats: agenda motions and summary resolutions are thousands of votes with the
+// same text, and their titles already say what they are (the vote page still explains them)
+const CARD_KINDS: VoteKind[] = ["speaker", "deputies", "arrangements", "arrangementsProposal", "continuity", "government"];
 
 /** One vote as a card: the outcome in words first, the Hebrew title second, then one bar for the whole plenum (so a
  *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), and on final votes the
@@ -22,6 +28,9 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
     .filter(Boolean).join(" · ");
   const sides = vote.bills.find((b) => b.sides)?.sides;
   const described = vote.bills.find((b) => b.about);
+  // a vote not on a bill: the start of what this kind of vote decides, as a bill's card shows its description
+  const kind = vote.bills.length === 0 ? voteKind(vote) : null;
+  const kindText = kind && CARD_KINDS.includes(kind) ? voteKindText(t.locale, kind) : null;
   const sideCounts = sides ? t.d.sides.counts(sides.speakers, sides.reservations) : "";
   const segments = [
     { key: "for", n: rc.for, cls: styles.for, label: t.d.breakdown.for },
@@ -40,6 +49,12 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
         )}
         <Title he={vote.title_he} t={vote} compact className={styles.title} />
         {described?.about && <span className={styles.about}><About about={described.about} bill={described.id} max={240} compact /></span>}
+        {kindText && (
+          <span className={styles.about}>
+            <span className="small muted">{t.d.vote.kindLabel}</span>
+            <span>{lead(kindText.text, t.locale, 240)}</span>
+          </span>
+        )}
         {cast > 0 && (
           <>
             <span className={styles.bar} role="img" aria-label={`${t.d.rc.line(rc.for, rc.against, rc.abstain)}; ${t.d.rc.cast120(cast)}`}>
