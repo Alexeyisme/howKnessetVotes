@@ -7,6 +7,8 @@ import { Summary, Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getBill, getVote, NotFound, type Ballot, type BillDetail, type Counts, type VoteDetail } from "@/lib/api";
 import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
+import { KIND_SOURCE, voteKind } from "@/lib/voteKinds";
+import { voteKindText } from "@/i18n/content/voteKinds";
 import { getT, type T } from "@/i18n/server";
 import styles from "./vote.module.css";
 
@@ -163,6 +165,9 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
   const hasRollCall = rc.total_records > 0;
   const outcome = verdict(vote, t);
   const stageHint = vote.stage ? t.d.stageHint[vote.stage] : undefined;
+  // votes not on a bill: what this kind of vote decides, from the law or the Rules of Procedure it links to
+  const kind = vote.bills.length === 0 ? voteKind(vote) : null;
+  const kindText = kind ? voteKindText(t.locale, kind) : null;
   const cast = rc.for + rc.against + rc.abstain;
   const rows = hasRollCall ? ballotRows(vote, ballots, t) : [];
   const factionOptions = vote.by_faction.map((f) => ({ id: f.faction_id, name: t.faction(f) }));
@@ -198,6 +203,14 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <p className={`${styles.question} he`} lang="he" dir="rtl">«{vote.question_he}»</p>
         )}
         {hint && <p className="note" style={{ marginTop: 10 }}>{hint}</p>}
+        {kind && kindText && (
+          <div className="note" style={{ marginTop: 10 }}>
+            <p><strong>{kindText.title}.</strong> {kindText.text}</p>
+            <p className="small muted" style={{ marginTop: 6 }}>
+              {d.kindSource} <a href={KIND_SOURCE[kind]} target="_blank" rel="noopener">{kindText.source}</a>
+            </p>
+          </div>
+        )}
         {stageHint && <p className="small muted" style={{ marginTop: 10 }}><strong>{t.d.stage[vote.stage!]}:</strong> {stageHint} <Link href="/about/glossary">{t.d.common.glossaryLink}</Link></p>}
         {vote.bills.length > 0 && (
           <p className="small" style={{ marginTop: 10 }}>
