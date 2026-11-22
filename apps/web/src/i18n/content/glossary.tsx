@@ -13,7 +13,7 @@ export function glossary(locale: Locale, d: Dict, link: L): Term[] {
   const h = d.stageHint;
   if (locale === "en") return [
     { id: "plenum", term: "Plenum", he: "מליאה", text: "The full sitting of all 120 members. The votes on this site are plenum votes; committee votes are not included." },
-    { id: "term", term: "Knesset (the 25th Knesset)", he: "הכנסת ה־25", text: "The Knesset elected in one election. It usually serves until the next election: by law up to four years, in practice often less." },
+    { id: "term", term: "Knesset (for example, the 25th Knesset)", he: "הכנסת ה־25", text: "The Knesset elected in one election. It usually serves until the next election: by law up to four years, in practice often less." },
     { id: "faction", term: "Faction (party)", he: "סיעה", text: <>A group of members in the Knesset. Usually matches a list that won seats in the election, but it can split or merge with another. The site shows a member&apos;s faction <strong>on the day of the vote</strong>, not today&apos;s.</> },
     { id: "preliminary", term: "Preliminary reading", he: "קריאה טרומית", text: h.preliminary },
     { id: "first", term: "First reading", he: "קריאה ראשונה", text: h.first },
@@ -31,7 +31,7 @@ export function glossary(locale: Locale, d: Dict, link: L): Term[] {
   ];
   if (locale === "ar") return [
     { id: "plenum", term: "الهيئة العامة", he: "מליאה", text: "الجلسة العامة لكل أعضاء الكنيست الـ120. التصويتات في هذا الموقع هي تصويتات الهيئة العامة؛ تصويتات اللجان غير مشمولة." },
-    { id: "term", term: "دورة الكنيست (الكنيست الـ25)", he: "הכנסת ה־25", text: "الكنيست المنتخبة في انتخابات واحدة. تعمل عادةً حتى الانتخابات التالية: وفق القانون حتى أربع سنوات، وفي الواقع أقل في أحيان كثيرة." },
+    { id: "term", term: "دورة الكنيست (مثلًا الكنيست الـ25)", he: "הכנסת ה־25", text: "الكنيست المنتخبة في انتخابات واحدة. تعمل عادةً حتى الانتخابات التالية: وفق القانون حتى أربع سنوات، وفي الواقع أقل في أحيان كثيرة." },
     { id: "faction", term: "الكتلة (الحزب)", he: "סיעה", text: <>مجموعة من أعضاء الكنيست. تطابق عادةً قائمة فازت بمقاعد في الانتخابات، لكنها قد تنقسم أو تتّحد مع أخرى. يعرض الموقع كتلة العضو <strong>يوم التصويت</strong>، لا كتلته اليوم.</> },
     { id: "preliminary", term: "القراءة التمهيدية", he: "קריאה טרומית", text: h.preliminary },
     { id: "first", term: "القراءة الأولى", he: "קריאה ראשונה", text: h.first },
@@ -49,7 +49,7 @@ export function glossary(locale: Locale, d: Dict, link: L): Term[] {
   ];
   if (locale === "he") return [
     { id: "plenum", term: "מליאה", he: "", text: "הישיבה של כל 120 חברי הכנסת. ההצבעות באתר הן הצבעות המליאה; הצבעות בוועדות אינן כלולות." },
-    { id: "term", term: "כנסת (הכנסת ה-25)", he: "", text: "הכנסת שנבחרה בבחירות מסוימות. בדרך כלל היא מכהנת עד הבחירות הבאות: לפי החוק עד ארבע שנים, ובפועל לעיתים פחות." },
+    { id: "term", term: "כנסת (למשל הכנסת ה-25)", he: "", text: "הכנסת שנבחרה בבחירות מסוימות. בדרך כלל היא מכהנת עד הבחירות הבאות: לפי החוק עד ארבע שנים, ובפועל לעיתים פחות." },
     { id: "faction", term: "סיעה", he: "", text: <>קבוצת חברי כנסת. בדרך כלל תואמת רשימה שנבחרה בבחירות, אך היא יכולה להתפצל או להתאחד עם אחרת. האתר מציג את סיעת חבר הכנסת <strong>ביום ההצבעה</strong>, ולא את סיעתו היום.</> },
     { id: "preliminary", term: "קריאה טרומית", he: "", text: h.preliminary },
     { id: "first", term: "קריאה ראשונה", he: "", text: h.first },

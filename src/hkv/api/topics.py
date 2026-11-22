@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from hkv.api.common import LISTED_FACTION, LISTED_PERSON, Conn, Meta
+from hkv.api.common import LISTED_FACTION, LISTED_PERSON, Conn, Meta, detect_script, translated_title_match
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, attach_bill_sides, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
@@ -43,7 +43,6 @@ class SearchMember(PersonNames):
     name_he: str
 
 
-FTS_CONFIG = {"ru": "russian", "en": "english", "ar": "arabic"}   # must match the indexes of migration 0019
 BILL_LIMIT = 20
 
 
@@ -94,25 +93,6 @@ def get_topic(slug: str, conn: Conn):
     return {"data": detail, "meta": Meta(filters={"slug": slug}, note=TOPIC_NOTE)}
 
 
-_HEBREW = re.compile(r"[֐-׿]")
-_CYRILLIC = re.compile(r"[Ѐ-ӿ]")
-_ARABIC = re.compile(r"[\u0600-\u06FF]")
-
-
-def detect_script(q: str) -> str:
-    if q.strip().isdigit():
-        return "number"
-    if _HEBREW.search(q):
-        return "hebrew"
-    if _CYRILLIC.search(q):
-        return "cyrillic"
-    if _ARABIC.search(q):
-        return "arabic"
-    if re.search(r"[a-zA-Z]", q):
-        return "latin"
-    return "other"
-
-
 @router.get("/search", response_model=dict)
 @with_names
 def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
@@ -140,13 +120,10 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
         # bills by their translated titles (text_translation, R4), every word in any form: "налоги" finds "налоговый"
         # (stemmed prefix, index from migration 0019). A query of stop words only has no terms and finds no bills.
-        tsq = " & ".join(f"{w}:*" for w in re.findall(r"[^\W_]+", q))
-        if tsq:
-            match = f"""EXISTS (SELECT 1 FROM text_translation x WHERE x.language = %(lang)s
-                          AND to_tsvector('{FTS_CONFIG[lang]}'::regconfig, x.text) @@ to_tsquery('{FTS_CONFIG[lang]}'::regconfig, %(tsq)s)
-                          AND x.source_sha256 = title_sha(b.title_he))
-                        AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"""
-            p = {"lang": lang, "tsq": tsq}
+        found = translated_title_match(q)
+        if found:
+            match = f"{found[0]} AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"
+            p = found[1]
             bills = [bill_summary(r) for r in conn.execute(
                 f"SELECT * FROM ({BILL_SELECT} WHERE {match}) q ORDER BY last_vote_on DESC NULLS LAST LIMIT {BILL_LIMIT}", p)]
             if len(bills) == BILL_LIMIT:

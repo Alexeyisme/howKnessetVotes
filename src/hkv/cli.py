@@ -69,6 +69,7 @@ def main(argv: list[str] | None = None) -> int:
     tr.add_argument("--retry-failed", action="store_true", help="also retry titles whose translation failed the checks before")
     tr.add_argument("--since", help="only titles last voted on or after this date (YYYY-MM-DD)")
     tr.add_argument("--recheck", action="store_true", help="no API calls: store earlier rejected translations that pass the current checks")
+    tr.add_argument("--redo-terms", action="store_true", help="no API calls: delete machine translations that lack an enforced glossary term; the next run translates them again")
     tr.add_argument("--batch", action="store_true", help="send the backlog as one Message Batch (half price, waits for the results, often up to an hour)")
     tr.add_argument("--kind", default="title,summary,notes,positions",
                     help="comma-separated: title (bill and vote titles), summary (official bill summaries), notes (descriptions from explanatory notes), "
@@ -119,6 +120,11 @@ def main(argv: list[str] | None = None) -> int:
             from hkv.translate import recheck_failed
             with psycopg.connect(args.db) as conn:
                 print(recheck_failed(conn))
+            return 0
+        if args.redo_terms:
+            from hkv.translate import drop_missing_terms
+            with psycopg.connect(args.db) as conn:
+                print(drop_missing_terms(conn))
             return 0
         translator = StubTranslator() if args.stub else ClaudeTranslator()
         with psycopg.connect(args.db) as conn:

@@ -68,7 +68,9 @@ GLOSSARY = {
            ("מבצע עם כלביא (June 2025, Iran)", "Operation Rising Lion"), ("מבצע מרכבות גדעון", "Operation Gideon's Chariots"),
            ("מבצע שאגת הארי", "Operation Lion's Roar"),
            # as the vote page explains it (apps/web i18n/content/voteKinds.tsx)
-           ("הוועדה המסדרת", "Arrangements Committee")],
+           ("הוועדה המסדרת", "Arrangements Committee"),
+           # vote 42577 (2026-11-22): the title came out as "tax and Nmexes updates"
+           ("מס יסף (the extra income tax on high incomes; not VAT)", "surtax")],
     "ru": [("הצעת חוק", "Законопроект"), ("חוק", "Закон"), ("חוק-יסוד / חוק יסוד", "Основной закон"), ("תיקון מס' N", "поправка № N"),
            ("הוראת שעה", "временное положение"), ("תיקוני חקיקה", "поправки к законодательству"), ("פקודת", "Указ"),
            ("תקנות", "Правила"), ("הצעת אי-אמון", "вотум недоверия"), ("התשפ\"ו-2026", "2026"),
@@ -80,7 +82,8 @@ GLOSSARY = {
            ("מבצע עם כלביא (June 2025, Iran)", "операция «Народ как лев»"), ("מבצע מרכבות גדעון", "операция «Колесницы Гидеона»"),
            ("מבצע שאגת הארי", "операция «Рык льва»"), ("בג\"ץ", "БАГАЦ (Высший суд справедливости)"),
            # as the vote page explains it (apps/web i18n/content/voteKinds.tsx); not «Комитет по регламенту»
-           ("הוועדה המסדרת", "Организационная комиссия"), ("הכנסת / כנסת", "Кнессет (double с)")],
+           ("הוועדה המסדרת", "Организационная комиссия"), ("הכנסת / כנסת", "Кнессет (double с)"),
+           ("מס יסף (the extra income tax on high incomes; NOT НДС)", "дополнительный налог")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
            ("תקנות", "أنظمة"), ("הצעת אי-אמון", "اقتراح حجب الثقة"), ("התשפ\"ו-2026", "2026"),
@@ -108,7 +111,8 @@ GLOSSARY = {
            ("דיינים (judges of the rabbinical courts; NOT sharia judges)", "قضاة المحاكم الحاخامية (الدايانيم)"),
            ("אסירים ביטחוניים", "الأسرى الأمنيون"), ("תקני כשרות / ריבוי תקנים (kashrut standards, not staff positions)", "معايير الكشروت"),
            ("מבצע עם כלביא (June 2025, Iran)", "عملية «الأسد الصاعد»"), ("מבצע מרכבות גדעון", "عملية «عربات جدعون»"),
-           ("מבצע שאגת הארי", "عملية «زئير الأسد»"), ("ציני (cynical)", "انتهازي (not ساخر, which means sarcastic)")],
+           ("מבצע שאגת הארי", "عملية «زئير الأسد»"), ("ציני (cynical)", "انتهازي (not ساخر, which means sarcastic)"),
+           ("מס יסף (the extra income tax on high incomes)", "الضريبة الإضافية")],
 }
 
 
@@ -265,14 +269,20 @@ class ClaudeTranslator:
 SPELLING = {"ru": [(re.compile(r"Кнесет"), "Кнессет"), (re.compile(r"кнесет"), "кнессет")]}
 
 
+# Glossary terms the checks enforce: where the Hebrew has the term, the translation must contain one of these (lower
+# case, a stem where the word inflects). For terms a model has got wrong: "מס יסף" came out as "Nmexes" and as VAT.
+REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн",), "ar": ("إضافي",)})]
+
+
 def spell(text: str, lang: str) -> str:
     for pattern, repl in SPELLING.get(lang, []):
         text = pattern.sub(repl, text)
     return text
 
 
-def check(source: str, target: str, kind: str = "title") -> str | None:
-    """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane.
+def check(source: str, target: str, kind: str = "title", lang: str | None = None) -> str | None:
+    """Why a translation must not be stored, or None. Numbers must survive, Hebrew must not, length must be sane, and
+    with `lang` the enforced glossary terms (REQUIRED) must be there.
     In a summary a numeric date ("1.4.2026", "31.03") is written with the month as a word ("1 April 2026"), so only
     its day and year have to survive; thousands separators and leading zeros may change; section numbers may keep
     their Hebrew letters."""
@@ -291,6 +301,13 @@ def check(source: str, target: str, kind: str = "title") -> str | None:
         return f"numbers_missing:{','.join(missing)}"
     if len(target) > 3 * len(source) + 40:
         return "too_long"
+    return missing_term(source, target, lang) if lang else None
+
+
+def missing_term(source: str, target: str, lang: str) -> str | None:
+    for term, wanted in REQUIRED:
+        if term in source and lang in wanted and not any(w in target.lower() for w in wanted[lang]):
+            return f"term_missing:{term}"
     return None
 
 
@@ -379,7 +396,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
             rows = ([(h, source, target) for (h, source), target in zip(chunk, out, strict=True)] if out is not None
                     else _translate_batch(translator, chunk, lang, kind))
             for h, source, target in rows:
-                why = check(source, target, kind)
+                why = check(source, target, kind, lang)
                 if why:
                     failed += 1
                     details = json.dumps({"language": lang, "kind": kind, "reason": why, "source": source, "target": target, "model": model})
@@ -410,7 +427,7 @@ def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
     for h, d in conn.execute("""SELECT external_ref, details FROM data_issue
                                  WHERE issue_type = 'translation_check_failed' AND status = 'open'""").fetchall():
         counts["open"] += 1
-        if d.get("target") and check(d["source"], d["target"], d.get("kind", "title")) is None:
+        if d.get("target") and check(d["source"], d["target"], d.get("kind", "title"), d["language"]) is None:
             conn.execute("""INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
                             ON CONFLICT (source_sha256, language) DO NOTHING""", (h, d["language"], spell(d["target"].strip(), d["language"]), d.get("model")))
             counts["stored"] += 1
@@ -418,6 +435,26 @@ def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
         _resolve_translated(conn, lang)
     conn.commit()
     log.info("recheck: %s", counts)
+    return counts
+
+
+def drop_missing_terms(conn: psycopg.Connection) -> dict[str, int]:
+    """Delete stored machine translations that lack an enforced glossary term (REQUIRED), so the next run translates
+    them again with the term in the prompt. No API call. Translations an editor wrote or approved are kept."""
+    counts: dict[str, int] = {}
+    for kind in KINDS:
+        for term, wanted in REQUIRED:
+            rows = conn.execute(
+                f"""WITH src AS ({SOURCES[kind]})
+                    SELECT DISTINCT x.source_sha256, x.language, s.t, x.text FROM src s
+                    JOIN text_translation x ON x.source_sha256 = title_sha(s.t)
+                    WHERE s.t LIKE %s AND x.origin = 'machine'""", (f"%{term}%",)).fetchall()
+            for h, lang, source, text in rows:
+                if missing_term(source, text, lang):
+                    conn.execute("DELETE FROM text_translation WHERE source_sha256 = %s AND language = %s AND origin = 'machine'", (h, lang))
+                    counts[lang] = counts.get(lang, 0) + 1
+    conn.commit()
+    log.info("dropped translations missing a glossary term: %s", counts)
     return counts
 
 

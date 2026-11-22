@@ -1,3 +1,4 @@
+import { termRanges } from "@/lib/terms";
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { Title } from "@/components/Title";
@@ -44,7 +45,7 @@ export default async function SearchPage({ searchParams }: PageProps<"/[lang]/se
             return (
               <p key={p.slug}>
                 <Link href={`/parties/${p.slug}`}><strong>{t.party(p)}</strong></Link>{" "}
-                <span className="small muted">· {t.d.parties.knessets(p.terms.length)}: {p.terms[0]}–{p.terms[p.terms.length - 1]}</span>
+                <span className="small muted">· {t.d.parties.knessets(p.terms.length)}: {termRanges(p.terms)}</span>
                 {last?.alignment_last && <> <AlignmentBadge role={last.alignment_last} /></>}
               </p>
             );

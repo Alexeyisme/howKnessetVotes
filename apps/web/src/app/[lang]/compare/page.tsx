@@ -3,7 +3,7 @@ import Link from "@/components/Link";
 import { ChoiceMark, FactionName, PersonName, RateStat, Stats, Tabs } from "@/components/ui";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { FILTERS, ViewChips } from "@/components/VoteFeed";
-import { compareFactions, compareMembers, latestVotedTerm, listFactions, listMembers, NotFound, type Comparison, type FactionSummary } from "@/lib/api";
+import { compareFactions, compareMembers, getFaction, getMember, latestVotedTerm, listFactions, listMembers, NotFound, type Comparison, type FactionSummary, type MemberSummary } from "@/lib/api";
 import { ALL_MOTIONS } from "@/lib/labels";
 import { getT } from "@/i18n/server";
 
@@ -11,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: (await getT()).d.compare.title };
 }
 
-// U7 / R14: "does X vote like Y?" — two parties (factions of the current Knesset) or two members, the agreement rate
+// U7 / R14: "does X vote like Y?" — two parties (factions of one Knesset) or two members, the agreement rate
 // with its denominator, then the votes where they differed, as cards in the same views as /votes (the rate follows the
 // view). Selection lives in the URL: ?kind=members&a=…&b=…&view=…
 export default async function ComparePage({ searchParams }: PageProps<"/[lang]/compare">) {
@@ -27,8 +27,18 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
   const params = { ...(view.key === "all" ? { motion_type: ALL_MOTIONS } : view.params), cursor };
   const href = (extra: Record<string, string> = {}, key = view.key) =>
     `/compare?${new URLSearchParams({ kind, a: String(a), b: String(b), ...(key !== FILTERS[0].key ? { view: key } : {}), ...extra })}`;
-  const votedTerm = await latestVotedTerm();
-  const options = (kind === "members" ? await listMembers({ term: votedTerm }) : await listFactions({ term: votedTerm })).data;
+  // The lists offer one Knesset: the one of the latest vote, or the one of faction A when a link names an earlier
+  // faction. Whatever else the link names (a member or faction of another Knesset) is added, so it has a name.
+  const missing = <T,>(load: () => Promise<{ data: T }>) => load().then((r) => r.data, (e) => { if (e instanceof NotFound) return null; throw e; });
+  const factionA = kind === "factions" && a ? await missing(() => getFaction(a)) : null;
+  const listed = factionA ? String(factionA.term) : await latestVotedTerm();
+  const options: (MemberSummary | FactionSummary)[] =
+    (kind === "members" ? await listMembers({ term: listed }) : await listFactions({ term: listed })).data;
+  for (const id of [a, b]) {
+    if (!id || options.some((o) => o.id === id)) continue;
+    const extra = await missing<MemberSummary | FactionSummary>(() => (kind === "members" ? getMember(id) : getFaction(id)));
+    if (extra) options.unshift(extra);
+  }
   let result: Comparison | null = null;
   if (a && b && a !== b) {
     try {
@@ -52,10 +62,12 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
       .filter((x) => x.on && x.moves.length)
       .map((x) => ({ ...x, other, swap }));
   });
+  // a faction of another Knesset than the listed one says which: "Likud · 25th Knesset"
+  const factionLabel = (f: FactionSummary) => `${t.faction(f)}${f.term !== Number(listed) ? ` · ${t.d.common.term(f.term)}` : ""}`;
   const name = (id: number | undefined) => {
     const o = options.find((x) => x.id === id);
     if (!o) return "";
-    return "name_he" in o && "terms" in o ? t.person(o) : t.faction(o as Parameters<typeof t.faction>[0]);
+    return "terms" in o ? t.person(o) : factionLabel(o);
   };
 
   return (
@@ -72,7 +84,11 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
         {(["a", "b"] as const).map((side) => (
           <select key={side} name={side} defaultValue={String((side === "a" ? a : b) ?? "")} aria-label={side.toUpperCase()}>
             <option value="">{side.toUpperCase()}…</option>
-            {options.map((o) => <option key={o.id} value={o.id}>{"terms" in o ? t.person(o) : t.faction(o)}</option>)}
+            {options.map((o) => (
+              <option key={o.id} value={o.id}>
+                {"terms" in o ? t.person(o) : factionLabel(o)}
+              </option>
+            ))}
           </select>
         ))}
         <button type="submit">{t.d.common.show}</button>
@@ -103,6 +119,7 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
           <Stats>
             <RateStat label={`${d.agreement}: ${name(a)} · ${name(b)}`} rate={result.agreement} unit={d.agreementUnit} />
           </Stats>
+          {result.agreement.denominator === 0 && <p className="note small">{d.noShared}</p>}
           <section>
             <h2 className="section-title">{d.differences(result.differences_total)}</h2>
             <p className="small muted">{d.range(result.differences.length ? result.differences_offset + 1 : 0, result.differences.length ? result.differences_offset + result.differences.length : 0, result.differences_total)}</p>

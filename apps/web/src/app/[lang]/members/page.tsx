@@ -36,8 +36,9 @@ export default async function MembersPage({ searchParams }: PageProps<"/[lang]/m
       </form>
       <p className="small muted">{q ? d.searchAll(data.length)
         : noVotes ? d.termCountNoVotes(term, data.length) : d.termCount(term, data.length)}</p>
+      {!q && data.length > 120 && <p className="small muted">{d.termNote}</p>}
       <MemberGrid>
-        {data.map((m) => <MemberChip key={m.id} m={m} faction={m.last_faction} />)}
+        {data.map((m) => <MemberChip key={m.id} m={m} faction={q ? m.last_faction : m.term_faction ?? m.last_faction} />)}
       </MemberGrid>
       {data.length === 0 && <p className="muted">{t.d.common.nothingFound}</p>}
     </div>

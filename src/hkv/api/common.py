@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import re
 from typing import Annotated, ClassVar, Literal
 
 from fastapi import Depends, Request
@@ -290,3 +291,41 @@ def attach_sides(conn, votes: list[VoteSummary]) -> None:
         for b in v.bills:
             b.sides = found.get(b.id)
     attach_about(conn, finals)
+
+
+# -- search helpers ----------------------------------------------------------------------------------
+
+_HEBREW = re.compile(r"[֐-׿]")
+_CYRILLIC = re.compile(r"[Ѐ-ӿ]")
+_ARABIC = re.compile(r"[\u0600-\u06FF]")
+
+
+def detect_script(q: str) -> str:
+    if q.strip().isdigit():
+        return "number"
+    if _HEBREW.search(q):
+        return "hebrew"
+    if _CYRILLIC.search(q):
+        return "cyrillic"
+    if _ARABIC.search(q):
+        return "arabic"
+    if re.search(r"[a-zA-Z]", q):
+        return "latin"
+    return "other"
+
+
+FTS_CONFIG = {"ru": "russian", "en": "english", "ar": "arabic"}   # must match the indexes of migration 0019
+SCRIPT_LANG = {"cyrillic": "ru", "latin": "en", "arabic": "ar"}
+
+
+def translated_title_match(q: str) -> tuple[str, dict] | None:
+    """SQL condition on `bill b` and its parameters: the bill's title translated into the query's language
+    (text_translation, R4) has every word of the query in any form — "налоги" finds "налоговый" (stemmed prefix, index
+    from migration 0019). None for a Hebrew query, a number, or a query of stop words only."""
+    lang = SCRIPT_LANG.get(detect_script(q))
+    tsq = " & ".join(f"{w}:*" for w in re.findall(r"[^\W_]+", q))
+    if not lang or not tsq:
+        return None
+    return (f"""EXISTS (SELECT 1 FROM text_translation x WHERE x.language = %(lang)s
+                  AND to_tsvector('{FTS_CONFIG[lang]}'::regconfig, x.text) @@ to_tsquery('{FTS_CONFIG[lang]}'::regconfig, %(tsq)s)
+                  AND x.source_sha256 = title_sha(b.title_he))""", {"lang": lang, "tsq": tsq})

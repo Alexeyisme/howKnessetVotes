@@ -21,11 +21,12 @@ export const FILTERS: { key: string; params: Record<string, string | string[]> }
 type Row = { vote: VoteSummary; party?: FactionVote };
 
 /** The vote list with its view chips and paging, on /votes, topic pages (`filter`: the topic) and party pages
- *  (`faction`: the party's list, each card saying how its majority voted). When the visitor has not picked a view and
- *  the default one is empty, `fallback` is shown instead (a topic with no contested votes shows its final votes). */
-export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback, faction }: {
+ *  (`faction`: the party's list, each card saying how its majority voted; `keep`: query parameters the view links
+ *  carry). When the visitor has not picked a view and the default one is empty, `fallback` is shown instead (a topic
+ *  with no contested votes shows its final votes). */
+export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback, faction, keep = {} }: {
   base: string; sp: Record<string, string | string[] | undefined>; filter?: Record<string, string>;
-  defaultView?: string; fallback?: string; faction?: { id: number; name: string };
+  defaultView?: string; fallback?: string; faction?: { id: number; name: string }; keep?: Record<string, string>;
 }) {
   const t = await getT();
   const d = t.d.votes;
@@ -46,7 +47,7 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
     res = await load({ ...view.params, ...filter, limit: "30" });
   }
   const href = (key: string, extra: Record<string, string> = {}) => {
-    const qs = new URLSearchParams({ ...(key !== defaultView ? { view: key } : {}), ...extra }).toString();
+    const qs = new URLSearchParams({ ...keep, ...(key !== defaultView ? { view: key } : {}), ...extra }).toString();
     return qs ? `${base}?${qs}` : base;
   };
 
@@ -62,7 +63,11 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
                       <span className="num muted">({t.d.rc.line(party.faction_counts.for, party.faction_counts.against, party.faction_counts.abstain)})</span></>} />
         ))}
       </VoteCards>
-      {res.rows.length === 0 && <p className="muted">{t.d.common.noVotes}</p>}
+      {res.rows.length === 0 && (
+        <p className="muted">
+          {view.key === "all" ? t.d.common.noVotes : <>{t.d.common.noVotesInView} <Link href={href("all")}>{t.d.common.seeAll}</Link></>}
+        </p>
+      )}
       {res.next && (
         <p style={{ marginTop: 16 }}><Link href={href(view.key, { cursor: res.next })}>{t.d.common.earlier}</Link></p>
       )}

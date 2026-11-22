@@ -140,6 +140,8 @@ export interface MemberSummary extends PersonNames {
   gender: string | null;
   terms: number[];
   last_faction: FactionRef | null;
+  /** with ?term=: the member's last faction in that Knesset (a per-Knesset list must not show a later faction) */
+  term_faction?: FactionRef | null;
   roll_call_records: number;
   photo_url: string | null;
   photo_medium_url?: string | null;
@@ -316,7 +318,7 @@ export const getParty = (slug: string) => get<{ data: PartySummary; meta: Meta }
 export const listGovernments = () => get<PageOf<Government>>(`/api/v1/governments`);
 export const listBills = (p: Params) => get<PageOf<BillSummary>>(`/api/v1/bills${qs(p)}`);
 export const getBill = (id: number) => get<{ data: BillDetail; meta: Meta }>(`/api/v1/bills/${id}`);
-export const getStatus = () => get<{ data: { published_at: string; coverage: { last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);
+export const getStatus = () => get<{ data: { published_at: string; coverage: { first_vote_on?: string; last_vote_on: string; votes: number; ballots: number } } | null }>(`/api/v1/status`);
 
 /** The newest term that has started: the default for member lists, which show a new Knesset's MKs before its first vote. */
 export async function currentTerm(): Promise<string> {

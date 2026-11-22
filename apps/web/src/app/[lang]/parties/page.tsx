@@ -1,3 +1,4 @@
+import { termRanges } from "@/lib/terms";
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { AlignmentBadge } from "@/components/ui";
@@ -24,7 +25,7 @@ export default async function PartiesPage() {
           return (
             <li key={p.slug} style={{ padding: "6px 0", breakInside: "avoid" }}>
               <Link href={`/parties/${p.slug}`}><strong>{t.party(p)}</strong></Link>{" "}
-              <span className="small muted">· {d.knessets(p.terms.length)}: {p.terms[0]}–{p.terms[p.terms.length - 1]}</span>
+              <span className="small muted">· {d.knessets(p.terms.length)}: {termRanges(p.terms)}</span>
               {last.term === Math.max(...data.flatMap((x) => x.terms)) && last.alignment_last && <> <AlignmentBadge role={last.alignment_last} /></>}
             </li>
           );

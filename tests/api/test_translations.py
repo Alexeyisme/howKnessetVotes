@@ -45,6 +45,11 @@ def test_checks():
     assert check("חוק (תיקון מס' 4), 2026", "Law (Amendment), 2026") == "numbers_missing:4"
     assert check("חוק", "חוק Law") == "hebrew_left"
     assert check("חוק", "  ") == "empty"
+    # an enforced glossary term (REQUIRED): "מס יסף" once came out as "Nmexes", and in Russian as VAT
+    assert check("הקפאת עדכוני מס ומס יסף", "freeze on tax and Nmexes updates", lang="en") == "term_missing:מס יסף"
+    assert check("הקפאת עדכוני מס ומס יסף", "freeze on updates of tax and surtax", lang="en") is None
+    assert check("הקפאת עדכוני מס ומס יסף", "замораживание налогов и налога на добавленную стоимость", lang="ru") == "term_missing:מס יסף"
+    assert check("הקפאת עדכוני מס ומס יסף", "замораживание налога и дополнительного налога", lang="ru") is None
     # summaries: a numeric date keeps its day and year, the month becomes a word
     assert check("החל מיום 03.07.2026", "from 3 July 2026", "summary") is None
     assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None
@@ -287,3 +292,7 @@ def test_search_translated_titles_in_any_word_form(client, url):
     assert ids("налоги") == [BILL]
     assert ids("Налоговые льготы") == [BILL]
     assert ids("налоги пенсии") == []
+    # the bills list searches the same translated titles; a number still finds the bill
+    def listed(q):
+        return [b["id"] for b in client.get("/api/v1/bills", params={"q": q, "lang": "ru"}).json()["data"]]
+    assert listed("налоги") == [BILL] and listed("налоги пенсии") == [] and listed(str(BILL)) == [BILL]

@@ -45,6 +45,10 @@ def test_member_faction_history_after_split(client):
     m = client.get(f"/api/v1/members/{BEN_GVIR}").json()["data"]
     names = [f["faction"]["name_he"] for f in m["factions"] if f["faction"]["term"] == 25]
     assert names[0] == "הציונות הדתית" and "עוצמה יהודית" in names[-1]
+    # a list of one Knesset names the member's last faction in that Knesset, whatever came later
+    listed = {x["id"]: x for x in client.get("/api/v1/members", params={"term": 25}).json()["data"]}
+    assert "עוצמה יהודית" in listed[BEN_GVIR]["term_faction"]["name_he"] and listed[BEN_GVIR]["term_faction"]["term"] == 25
+    assert all(x["term_faction"] is None for x in client.get("/api/v1/members").json()["data"])
 
 
 def test_faction_cohesion_counts_the_dissent(client):

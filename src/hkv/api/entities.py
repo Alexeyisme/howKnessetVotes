@@ -12,7 +12,7 @@ from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel
 
 from hkv.api.common import (LISTED_FACTION, LISTED_PERSON, VOTE_SELECT, BillRef, Conn, DebateSides, Meta, MotionType, Stage, VoteSummary, attach_about, attach_sides,
-                            debate_sides, vote_summary)
+                            debate_sides, translated_title_match, vote_summary)
 from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
                            TitleTranslations, TopicLabels, with_names)
 from hkv.debate import FINAL_VOTE
@@ -61,6 +61,7 @@ class MemberSummary(PersonNames):
     gender: str | None
     terms: list[int]
     last_faction: FactionRef | None
+    term_faction: FactionRef | None = None   # in a list filtered by term: the member's last faction in that Knesset
     roll_call_records: int
     photo_url: str | None = None   # official Knesset portrait: our copy (/api/v1/members/{id}/photo.jpg), else the fs.knesset.gov.il URL
     # smaller copies for the page (migration 0016): 240 px wide for a portrait, 96 px for a chip; None until they exist
@@ -400,7 +401,18 @@ def list_members(conn: Conn, term: int | None = None, q: Annotated[str | None, Q
         where.append("""EXISTS (SELECT 1 FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
                                WHERE fm.person_id = p.id AND f.knesset_faction_id = %(faction)s)"""); params["faction"] = faction
     rows = conn.execute(f"{MEMBER_SELECT} WHERE {' AND '.join(where)} ORDER BY p.last_name_he, p.first_name_he", params).fetchall()
-    return {"data": [member_summary(r) for r in rows], "meta": Meta(filters={"term": term, "q": q, "faction": faction})}
+    data = [member_summary(r) for r in rows]
+    if term:
+        # the last faction is the one of the member's latest Knesset: a list of the 16th would name parties founded later
+        in_term = {r["person_id"]: r for r in conn.execute(
+            """SELECT DISTINCT ON (fm.person_id) fm.person_id, f.knesset_faction_id, f.name_he, f.term_number
+               FROM faction_membership fm JOIN faction f ON f.id = fm.faction_id
+               WHERE f.term_number = %s AND fm.person_id = ANY(%s) ORDER BY fm.person_id, lower(fm.valid) DESC""",
+            (term, [r["pk"] for r in rows])).fetchall()}
+        for m, r in zip(data, rows):
+            if f := in_term.get(r["pk"]):
+                m.term_faction = faction_ref(f["knesset_faction_id"], f["name_he"], f["term_number"])
+    return {"data": data, "meta": Meta(filters={"term": term, "q": q, "faction": faction})}
 
 
 def member_votes_cte(vote_where: str = "true") -> str:
@@ -868,9 +880,13 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
                limit: Annotated[int, Query(ge=1, le=100)] = 50, cursor: str | None = None):
     """Bills that were voted on in the plenum; newest vote first."""
     where, params = ["EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"], {"limit": limit + 1}
-    if q:
+    qraw = (q or "").strip().lstrip("פP/-")   # a bill number, with or without the private-bill prefix
+    if q and not qraw.isdigit() and (translated := translated_title_match(q)):   # Russian, English, Arabic: the translated titles
+        where.append(translated[0])
+        params.update(translated[1])
+    elif q:
         where.append("(b.title_he ILIKE %(q)s OR b.knesset_bill_id::text = %(qraw)s OR b.private_number::text = %(qraw)s)")
-        params.update(q=f"%{q}%", qraw=q.strip().lstrip("פP/-"))
+        params.update(q=f"%{q}%", qraw=qraw)
     if term:
         where.append("b.term_number = %(term)s"); params["term"] = term
     if topic:

@@ -1,3 +1,4 @@
+import { billStatus } from "@/i18n/content/billStatus";
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { TermSelect } from "@/components/TermSelect";
@@ -26,7 +27,7 @@ export default async function BillsPage({ searchParams }: PageProps<"/[lang]/bil
     <div className="stack">
       <header className="page-head"><h1>{d.title}</h1></header>
       <form className="search" action={t.href("/bills")}>
-        <input name="q" defaultValue={q} placeholder={d.searchPh} lang="he" dir="auto" />
+        <input name="q" defaultValue={q} placeholder={d.searchPh} dir="auto" />
         <TermSelect value={term} all />
         {topic && <input type="hidden" name="topic" value={topic} />}
         <label className="small" style={{ alignSelf: "center" }}>
@@ -42,7 +43,7 @@ export default async function BillsPage({ searchParams }: PageProps<"/[lang]/bil
             <span className="small muted">
               {t.d.common.term(b.term)} · {t.d.common.votesCount(b.votes)}{b.last_vote_on && ` · ${t.d.common.lastVote(t.date(b.last_vote_on))}`}
               {b.passed_third_reading && ` · ${t.d.common.passedThird}`}
-              {b.status_he && <> · <He>{b.status_he}</He></>}
+              {b.status_he && !(b.passed_third_reading && b.status_he === "התקבלה בקריאה שלישית") && <> · {billStatus(t.locale, b.status_he) ?? <He>{b.status_he}</He>}</>}
               {b.sides?.speakers || b.sides?.reservations ? ` · ${t.d.sides.counts(b.sides.speakers, b.sides.reservations)}` : null}
             </span>
           </li>

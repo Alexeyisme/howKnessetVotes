@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { AlignmentBadge, FactionName, MemberChip, MemberGrid, RateStat, Stat, Stats } from "@/components/ui";
 import { VoteFeed } from "@/components/VoteFeed";
-import { getFaction, getParty, listMembers, NotFound } from "@/lib/api";
+import { getFaction, getFactionVotes, getParty, listMembers, NotFound } from "@/lib/api";
 import { getT } from "@/i18n/server";
 
 async function load(slug: string) {
@@ -21,7 +21,8 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/parties/[s
 
 // R1: the party is the hub a voter thinks in. The page answers "where do they stand now" first — the current list,
 // coalition or opposition, how its majority voted (the same views as /votes, opening on the contested laws), who is
-// in it — and keeps the Knesset-by-Knesset history behind a fold.
+// in it — and keeps the Knesset-by-Knesset history behind a fold. The votes can be read Knesset by Knesset (?term=);
+// while a new Knesset has held no final vote, they open on the party's list in the previous one, and say so.
 export default async function PartyPage({ params, searchParams }: PageProps<"/[lang]/parties/[slug]">) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -38,6 +39,14 @@ export default async function PartyPage({ params, searchParams }: PageProps<"/[l
     : [null, []];
   const current = faction ? new Set(faction.members.filter((m) => !m.valid_to).map((m) => m.person_id)) : new Set<number>();
   const membersNow = members.filter((m) => current.has(m.id));
+  // the newest list of each Knesset the party sat in, newest first
+  const byTerm = [...new Map(p.factions.map((f) => [f.term, f])).values()].reverse();
+  const asked = typeof sp.term === "string" ? byTerm.find((f) => String(f.term) === sp.term) : undefined;
+  let shown = asked ?? latest;
+  if (!asked && latest && byTerm.length > 1 && !sp.view && !sp.cursor) {
+    const finals = await getFactionVotes(latest.id, { stage: "third", motion_type: "adopt_bill", limit: "1" });
+    if (finals.data.length === 0) shown = byTerm[1];
+  }
 
   return (
     <div className="stack">
@@ -65,9 +74,23 @@ export default async function PartyPage({ params, searchParams }: PageProps<"/[l
       {latest && (
         <section>
           <h2 className="section-title">{d.votesTitle}</h2>
-          <VoteFeed base={`/parties/${slug}`} sp={sp} faction={{ id: latest.id, name: t.faction(latest) }} defaultView="contested" fallback="final" />
+          {byTerm.length > 1 && (
+            <p className="small" style={{ marginBottom: 8 }}>
+              <span className="muted">{t.d.common.termLabel}: </span>
+              {byTerm.map((f, i) => (
+                <span key={f.id}>
+                  {i > 0 && " · "}
+                  {f.id === shown.id ? <strong className="num">{f.term}</strong>
+                    : <Link href={f.id === latest.id ? `/parties/${slug}` : `/parties/${slug}?term=${f.term}`} scroll={false} className="num">{f.term}</Link>}
+                </span>
+              ))}
+            </p>
+          )}
+          {!asked && shown.id !== latest.id && <p className="note small">{d.earlierTerm(latest.term, shown.term)}</p>}
+          <VoteFeed base={`/parties/${slug}`} sp={sp} faction={{ id: shown.id, name: t.faction(shown) }} defaultView="contested" fallback="final"
+                    keep={shown.id !== latest.id ? { term: String(shown.term) } : {}} />
           <p className="small" style={{ marginTop: 8 }}>
-            <Link href={`/factions/${latest.id}?split=1`}>{t.d.faction.tabSplit} →</Link> · <Link href={`/factions/${latest.id}`}>{d.allVotes}</Link>
+            <Link href={`/factions/${shown.id}?split=1`}>{t.d.faction.tabSplit} →</Link> · <Link href={`/factions/${shown.id}`}>{d.allVotes}</Link>
           </p>
         </section>
       )}
