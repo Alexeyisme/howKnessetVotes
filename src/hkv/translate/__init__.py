@@ -48,9 +48,21 @@ _HEBREW = re.compile(r"[֐-׿]")
 _DIGITS = re.compile(r"\d+")
 # Summaries only (prose, where the model rightly reformats): "31.03" is written "31 March"; "1000" may become "1,000"
 # or "1 000"; section numbers keep their Hebrew letters ("סעיף 14טו", "406(ה)"), as translations of Israeli law do.
-_SHORT_DATE = re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})(?![\d.])")
+_SHORT_DATE = re.compile(r"(?<![\d.])(\d{1,2})\.(\d{1,2})(?!\d|\.\d)")   # "עד ה-15.04." ends a sentence
 _THOUSANDS = re.compile(r"(?<=\d)[,\u00a0\u202f ](?=\d{3}(?!\d))")
 _SECTION_LETTERS = re.compile(r"(?<=\d)[\u05d0-\u05ea]{1,3}|\([\u05d0-\u05ea]{1,2}\)|[\u05d0-\u05ea](?=\d)")
+# A Hebrew-calendar day before its month ("27 באב התשע״ו (31 באוגוסט 2016)"): the prompt says to write only the
+# Gregorian date, so the day number need not survive.
+_HEBREW_DAY = re.compile(r"(?<!\d)\d{1,2}(?=\s+ב(?:תשרי|חשוון|חשון|מרחשוון|כסלו|טבת|שבט|אדר|ניסן|אייר|סיוון|סיון|תמוז|אב|אלול)(?![\u05d0-\u05ea]))")
+# Typos in the Knesset's own text, by the words around them: the number named need not be in a translation, which
+# cannot repeat it sensibly. The Hebrew stays as published; only the check is waived.
+SOURCE_TYPOS = [
+    ('התשס"ג 20000', "20000"),                                  # the year 2003 with a stray "20000"
+    ("לשנות 207 ו-2018", "207"),                               # "the years 207 and 2018": 2017
+    ('2005ת אויב או תושב אזור עימות), התשס"ב-2002', "2002"),      # the tail of another title glued on
+    ('2005וטקים), התשס"ד-2004', "2004"),                        # the same
+    ("14,5000 מקומות", "5000"),                                 # 14,500 prison places
+]
 _NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{2,4})(?!\d)")   # also "ב1.9.2025"
 
 LANGUAGE_NAME = {"en": "English", "ru": "Russian", "ar": "Arabic"}
@@ -153,7 +165,8 @@ def system_prompt(lang: str, kind: str = "title") -> str:
             f"You translate {what} from Hebrew into {name} for a public "
             f"voting-record website. Each summary is a short paragraph of plain prose. Translate it faithfully and "
             f"completely, in clear neutral {name}: no omissions, no additions, no explanations, no editorialising. "
-            f"Keep every number, amount, percentage and date as digits. Dates: the Hebrew text often gives a "
+            f"Keep every number, amount, percentage and date as digits, never as a word (ה-90 is 'the 90th' or 'the 90s', "
+            f"2 ילדים is '2 children', ערוץ 2 is 'Channel 2'). Dates: the Hebrew text often gives a "
             f"Hebrew-calendar date followed by the Gregorian one in parentheses, e.g. 'כ\"ג בשבט התשפ\"ז (31 בינואר 2027)'; "
             f"write only the Gregorian date ('31 January 2027'), never the Hebrew month, day or year. Law names follow the register of official "
             f"legal titles in {name}. Names of military operations are translated as {name}-language media name "
@@ -166,9 +179,12 @@ def system_prompt(lang: str, kind: str = "title") -> str:
     return (
         f"You translate titles of Israeli Knesset bills and plenum votes from Hebrew into {name} for a public "
         f"voting-record website. Translate each title faithfully and tersely, in the register of official legal "
-        f"titles in {name}. Keep every number, amendment number and year exactly; drop the Hebrew calendar year and "
+        f"titles in {name}. Keep every number, amendment number and year exactly, as digits and never as a word "
+        f"(פי 5 is '5-fold', 5 שנים is '5 years', שנות ה-50 is 'the 50s'); drop the Hebrew calendar year and "
         f"keep only the Gregorian one; keep parentheses and their order; do not add, explain or editorialise; do not "
-        f"transliterate Hebrew words that have a standard {name} equivalent. Use this glossary consistently:\n{glossary}\n"
+        f"transliterate Hebrew words that have a standard {name} equivalent. Names of places, hospitals, companies, "
+        f"organisations and customs that have none are written in {name} letters: the result has no Hebrew letter, "
+        f"not even one inside a name. Use this glossary consistently:\n{glossary}\n"
         f"{LANGUAGE_NOTES.get(lang, '')}"
         f"Return only the translations, one per input, in the same order."
     )
@@ -290,7 +306,9 @@ def check(source: str, target: str, kind: str = "title", lang: str | None = None
         return "empty"
     if _HEBREW.search(_SECTION_LETTERS.sub("", target) if kind in PROSE else target):
         return "hebrew_left"
+    waived = {n for words, n in SOURCE_TYPOS if words in source}
     if kind in PROSE:
+        source = _HEBREW_DAY.sub("", source)
         source = _NUMERIC_DATE.sub(lambda m: f"{int(m[1])} {m[3]}", source)
         source = _SHORT_DATE.sub(lambda m: str(int(m[1])) if 1 <= int(m[1]) <= 31 and 1 <= int(m[2]) <= 12 else m[0], source)
         target = _THOUSANDS.sub("", target)
@@ -299,6 +317,7 @@ def check(source: str, target: str, kind: str = "title", lang: str | None = None
         # "ה-07 באוקטובר" is rightly "7 October": a leading zero may go, the number may not
         missing = [d for d in _DIGITS.findall(source) if d not in target and str(int(d)) not in _DIGITS.findall(target)
                    and not _is_hebrew_year(source, d)]
+    missing = [d for d in missing if d not in waived]
     if missing:
         return f"numbers_missing:{','.join(missing)}"
     if len(target) > 3 * len(source) + 40:

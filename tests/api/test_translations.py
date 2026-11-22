@@ -57,6 +57,13 @@ def test_checks():
     assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None
     assert check("עד ה-31.03, ומה-07 באוקטובר", "by 31 March, and from 7 October", "summary") is None
     assert check("קנס בסך 1000 ₪", "a fine of NIS 1,000", "summary") is None
+    assert check("תתקבל ההחלטה עד ה-15.04. בנוסף קוצר הזמן", "the decision is taken by 15 April. In addition", "summary") is None
+    # a Hebrew-calendar date before the Gregorian one is dropped, as the prompt asks; other numbers still count
+    assert check("מ-27 באב התשע״ו (31 באוגוסט 2016) ל-2 בטבת", "from 31 August 2016 to 2 Tevet", "positions") is None
+    assert check("בסעיף 27 נקבע (31 באוגוסט 2016)", "it was set (31 August 2016)", "positions") == "numbers_missing:27"
+    # a typo in the Knesset's own title is not asked of the translation; the real year still is
+    assert check("יעדי התקציב לשנות 207 ו-2018), התשע\"ז-2016", "budget targets for 2017 and 2018), 2016") is None
+    assert check("יעדי התקציב לשנות 207 ו-2018), התשע\"ז-2016", "budget targets for 2017), 2016") == "numbers_missing:2018"
     assert check("קנס בסך 6000 ₪", "штраф 6 000 шекелей", "summary") is None
     assert check("סעיף 14טו וסעיף 406(ה)", "Section 14טו and Section 406(ה)", "summary") is None
     assert check("ארגון איחוד הצלה", "منظمة إيחוד הצלה", "summary") == "hebrew_left"
