@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
-from hkv.translate import BATCH, StubTranslator, check, pending, recheck_failed, sha256, spell, sync
+from hkv.translate import BATCH, StubTranslator, check, one_script, pending, recheck_failed, sha256, spell, sync
 from tests.ingest.test_loader import SLICE, ingest
 
 BILL = 2229019
@@ -61,6 +61,14 @@ def test_checks():
     # a Hebrew-calendar date before the Gregorian one is dropped, as the prompt asks; other numbers still count
     assert check("מ-27 באב התשע״ו (31 באוגוסט 2016) ל-2 בטבת", "from 31 August 2016 to 2 Tevet", "positions") is None
     assert check("בסעיף 27 נקבע (31 באוגוסט 2016)", "it was set (31 August 2016)", "positions") == "numbers_missing:27"
+    # a number may be a word where the language writes it so; another number is still missing
+    assert check("משנות ה-50 ועד היום", "منذ الخمسينيات وحتى اليوم", lang="ar") is None
+    assert check("בערוץ-2", "في القناة الثانية", "positions", "ar") is None
+    assert check("גידול פי 5 במספר הילדים", "Five-fold increase in the number of children", lang="en") is None
+    assert check("משנות ה-50 ועד היום", "منذ الستينيات وحتى اليوم", lang="ar") == "numbers_missing:50"
+    # Arabic: a Hebrew letter inside a name in Arabic letters is repaired; a word left in Hebrew is not
+    assert one_script("مستشفى برזيلي في أشكلون", "ar") == "مستشفى برزيلي في أشكلون"
+    assert one_script("منظمة «איחוד הצלה»", "ar") == "منظمة «איחוד הצלה»" and one_script("Barזilai", "en") == "Barזilai"
     # a typo in the Knesset's own title is not asked of the translation; the real year still is
     assert check("יעדי התקציב לשנות 207 ו-2018), התשע\"ז-2016", "budget targets for 2017 and 2018), 2016") is None
     assert check("יעדי התקציב לשנות 207 ו-2018), התשע\"ז-2016", "budget targets for 2017), 2016") == "numbers_missing:2018"
@@ -248,7 +256,7 @@ def test_claude_params_turn_thinking_off():
 def test_recheck_stores_what_passes_relaxed_checks(url):
     with psycopg.connect(url) as conn:
         h = sha256("קנס בסך 1000 ₪")
-        for src, target, ref in (("קנס בסך 1000 ₪", "a fine of NIS 1,000", h), ("קנס בסך 7 ₪", "a fine of NIS seven", sha256("x"))):
+        for src, target, ref in (("קנס בסך 1000 ₪", "a fine of NIS 1,000", h), ("קנס בסך 7 ₪", "a fine of NIS nine", sha256("x"))):
             conn.execute("""INSERT INTO data_issue (external_ref, issue_type, severity, details)
                             VALUES (%s, 'translation_check_failed', 'warning', %s)""",
                          (ref, json.dumps({"language": "en", "kind": "summary", "reason": "numbers_missing", "source": src,

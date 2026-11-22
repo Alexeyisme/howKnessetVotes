@@ -290,6 +290,39 @@ SPELLING = {"ru": [(re.compile(r"Кнесет"), "Кнессет"), (re.compile(
 REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн",), "ar": ("إضافي",)})]
 
 
+# A number the translation rightly writes as a word: decades and ordinals read that way in Arabic ("التسعينيات",
+# "القناة الثانية"), and small numbers sometimes in every language ("five-fold"). Lower-case stems per language; a
+# number whose word is in the translation is not missing.
+NUMBER_WORDS = {
+    "en": {"2": ("two", "second", "twice"), "3": ("three", "third"), "4": ("four",), "5": ("five", "fifth"), "6": ("six",),
+           "7": ("seven",), "8": ("eight",), "9": ("nine", "ninth"), "10": ("ten",), "20": ("twent",), "30": ("thirt",),
+           "40": ("fort",), "50": ("fift",), "60": ("sixt",), "70": ("sevent",), "80": ("eight",), "90": ("ninet",)},
+    "ru": {"2": ("дв", "втор"), "3": ("тр", "трет"), "4": ("четыр", "четв"), "5": ("пят",), "6": ("шест",), "7": ("сем", "седьм"),
+           "8": ("восьм", "восем"), "9": ("девят",), "10": ("десят",), "20": ("двадцат",), "30": ("тридцат",), "40": ("сорок", "сороков"),
+           "50": ("пятидесят", "пятьдесят"), "60": ("шестидесят", "шестьдесят"), "70": ("семидесят", "семьдесят"),
+           "80": ("восьмидесят", "восемьдесят"), "90": ("девяност",)},
+    "ar": {"2": ("اثن", "ثاني"), "3": ("ثلاث", "ثالث"), "4": ("أربع", "رابع"), "5": ("خمس", "خامس"), "6": ("ست", "سادس"),
+           "7": ("سبع", "سابع"), "8": ("ثمان", "ثامن"), "9": ("تسع", "تاسع"), "10": ("عشر", "عاشر"), "20": ("عشرين", "عشرون"),
+           "30": ("ثلاثين", "ثلاثون"), "40": ("أربعين", "أربعون"), "50": ("خمسين", "خمسون"), "60": ("ستين", "ستون"),
+           "70": ("سبعين", "سبعون"), "80": ("ثمانين", "ثمانون"), "90": ("تسعين", "تسعون")},
+}
+
+# Arabic only: the model now and then leaves a Hebrew letter inside a name it is writing in Arabic letters
+# ("برזيلي", "بזק"). Inside a word that has Arabic letters, each Hebrew letter becomes its Arabic counterpart; a word
+# left wholly in Hebrew is not touched and still fails the check.
+_HE_TO_AR = str.maketrans({"א": "ا", "ב": "ب", "ג": "غ", "ד": "د", "ה": "ه", "ו": "و", "ז": "ز", "ח": "ح", "ט": "ط", "י": "ي",
+                           "כ": "ك", "ך": "ك", "ל": "ل", "מ": "م", "ם": "م", "נ": "ن", "ן": "ن", "ס": "س", "ע": "ع", "פ": "ف",
+                           "ף": "ف", "צ": "ص", "ץ": "ص", "ק": "ق", "ר": "ر", "ש": "ش", "ת": "ت"})
+_MIXED_WORD = re.compile(r"[^\s]*[\u0600-\u06FF][^\s]*")
+
+
+def one_script(text: str, lang: str) -> str:
+    """Arabic: Hebrew letters inside a word written in Arabic letters, as Arabic letters. Other languages: unchanged."""
+    if lang != "ar":
+        return text
+    return _MIXED_WORD.sub(lambda m: m[0].translate(_HE_TO_AR) if _HEBREW.search(m[0]) else m[0], text)
+
+
 def spell(text: str, lang: str) -> str:
     for pattern, repl in SPELLING.get(lang, []):
         text = pattern.sub(repl, text)
@@ -317,7 +350,9 @@ def check(source: str, target: str, kind: str = "title", lang: str | None = None
         # "ה-07 באוקטובר" is rightly "7 October": a leading zero may go, the number may not
         missing = [d for d in _DIGITS.findall(source) if d not in target and str(int(d)) not in _DIGITS.findall(target)
                    and not _is_hebrew_year(source, d)]
-    missing = [d for d in missing if d not in waived]
+    words = NUMBER_WORDS.get(lang or "", {})
+    low = target.lower()
+    missing = [d for d in missing if d not in waived and not any(w in low for w in words.get(str(int(d)), ()))]
     if missing:
         return f"numbers_missing:{','.join(missing)}"
     if len(target) > 3 * len(source) + 40:
@@ -417,6 +452,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
             rows = ([(h, source, target) for (h, source), target in zip(chunk, out, strict=True)] if out is not None
                     else _translate_batch(translator, chunk, lang, kind))
             for h, source, target in rows:
+                target = one_script(target, lang)
                 why = check(source, target, kind, lang)
                 if why:
                     failed += 1
@@ -448,6 +484,8 @@ def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
     for h, d in conn.execute("""SELECT external_ref, details FROM data_issue
                                  WHERE issue_type = 'translation_check_failed' AND status = 'open'""").fetchall():
         counts["open"] += 1
+        if d.get("target"):
+            d["target"] = one_script(d["target"], d["language"])
         if d.get("target") and check(d["source"], d["target"], d.get("kind", "title"), d["language"]) is None:
             conn.execute("""INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
                             ON CONFLICT (source_sha256, language) DO NOTHING""", (h, d["language"], spell(d["target"].strip(), d["language"]), d.get("model")))
