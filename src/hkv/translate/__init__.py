@@ -24,7 +24,9 @@ import logging
 import os
 import re
 import time
+import tomllib
 from collections.abc import Iterable, Sequence
+from pathlib import Path
 from typing import Protocol
 
 import psycopg
@@ -63,6 +65,8 @@ SOURCE_TYPOS = [
     ('2005וטקים), התשס"ד-2004', "2004"),                        # the same
     ("14,5000 מקומות", "5000"),                                 # 14,500 prison places
 ]
+# Idioms: the number is a figure of speech and a translation rightly has none ("at the last minute").
+IDIOMS = [("בדקה ה-90", "90")]
 _NUMERIC_DATE = re.compile(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{2,4})(?!\d)")   # also "ב1.9.2025"
 
 LANGUAGE_NAME = {"en": "English", "ru": "Russian", "ar": "Arabic"}
@@ -291,17 +295,17 @@ REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн
 
 
 # A number the translation rightly writes as a word: decades and ordinals read that way in Arabic ("التسعينيات",
-# "القناة الثانية"), and small numbers sometimes in every language ("five-fold"). Lower-case stems per language; a
+# "القناة الثانية"), and small numbers sometimes in every language ("five-fold", "one-twelfth", "the first schedule"). Lower-case stems per language; a
 # number whose word is in the translation is not missing.
 NUMBER_WORDS = {
-    "en": {"2": ("two", "second", "twice"), "3": ("three", "third"), "4": ("four",), "5": ("five", "fifth"), "6": ("six",),
+    "en": {"1": ("first", "one-", " one "), "12": ("twel",), "2": ("two", "second", "twice"), "3": ("three", "third"), "4": ("four",), "5": ("five", "fifth"), "6": ("six",),
            "7": ("seven",), "8": ("eight",), "9": ("nine", "ninth"), "10": ("ten",), "20": ("twent",), "30": ("thirt",),
            "40": ("fort",), "50": ("fift",), "60": ("sixt",), "70": ("sevent",), "80": ("eight",), "90": ("ninet",)},
-    "ru": {"2": ("дв", "втор"), "3": ("тр", "трет"), "4": ("четыр", "четв"), "5": ("пят",), "6": ("шест",), "7": ("сем", "седьм"),
+    "ru": {"1": ("перв", " один ", " одна ", " одно "), "12": ("двенадцат",), "2": ("дв", "втор"), "3": ("тр", "трет"), "4": ("четыр", "четв"), "5": ("пят",), "6": ("шест",), "7": ("сем", "седьм"),
            "8": ("восьм", "восем"), "9": ("девят",), "10": ("десят",), "20": ("двадцат",), "30": ("тридцат",), "40": ("сорок", "сороков"),
            "50": ("пятидесят", "пятьдесят"), "60": ("шестидесят", "шестьдесят"), "70": ("семидесят", "семьдесят"),
            "80": ("восьмидесят", "восемьдесят"), "90": ("девяност",)},
-    "ar": {"2": ("اثن", "ثاني"), "3": ("ثلاث", "ثالث"), "4": ("أربع", "رابع"), "5": ("خمس", "خامس"), "6": ("ست", "سادس"),
+    "ar": {"1": ("الأول", "واحد"), "12": ("اثني عشر", "اثنا عشر", "الثاني عشر", "الثانية عشرة"), "2": ("اثن", "ثاني"), "3": ("ثلاث", "ثالث"), "4": ("أربع", "رابع"), "5": ("خمس", "خامس"), "6": ("ست", "سادس"),
            "7": ("سبع", "سابع"), "8": ("ثمان", "ثامن"), "9": ("تسع", "تاسع"), "10": ("عشر", "عاشر"), "20": ("عشرين", "عشرون"),
            "30": ("ثلاثين", "ثلاثون"), "40": ("أربعين", "أربعون"), "50": ("خمسين", "خمسون"), "60": ("ستين", "ستون"),
            "70": ("سبعين", "سبعون"), "80": ("ثمانين", "ثمانون"), "90": ("تسعين", "تسعون")},
@@ -339,7 +343,7 @@ def check(source: str, target: str, kind: str = "title", lang: str | None = None
         return "empty"
     if _HEBREW.search(_SECTION_LETTERS.sub("", target) if kind in PROSE else target):
         return "hebrew_left"
-    waived = {n for words, n in SOURCE_TYPOS if words in source}
+    waived = {n for words, n in SOURCE_TYPOS + IDIOMS if words in source}
     if kind in PROSE:
         source = _HEBREW_DAY.sub("", source)
         source = _NUMERIC_DATE.sub(lambda m: f"{int(m[1])} {m[3]}", source)
@@ -432,6 +436,7 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
     titles and `en_summary`, `en_summary_failed` for summaries. `batch`: everything pending, in every language, goes
     as one Message Batch first (translators with `translate_many`); requests that failed in it are sent directly."""
     plan = []
+    apply_fixes(conn)
     for lang in langs:
         _resolve_translated(conn, lang)
         for kind in kinds:
@@ -480,7 +485,9 @@ def sync(conn: psycopg.Connection, translator: Translator, langs: Iterable[str] 
 def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
     """Run the current checks again on translations that failed earlier ones (the target is kept in the issue), and
     store those that pass now. No API call: after a check is relaxed, the earlier work is not paid for twice."""
-    counts: dict[str, int] = {"open": 0, "stored": 0}
+    counts: dict[str, int] = {"open": 0, "stored": 0, "fixes": apply_fixes(conn)}
+    for lang in LANGUAGES:
+        _resolve_translated(conn, lang)
     for h, d in conn.execute("""SELECT external_ref, details FROM data_issue
                                  WHERE issue_type = 'translation_check_failed' AND status = 'open'""").fetchall():
         counts["open"] += 1
@@ -495,6 +502,23 @@ def recheck_failed(conn: psycopg.Connection) -> dict[str, int]:
     conn.commit()
     log.info("recheck: %s", counts)
     return counts
+
+
+def apply_fixes(conn: psycopg.Connection) -> int:
+    """Store the hand-corrected machine translations of fixes.toml for texts that have none yet. No API call. A fix
+    that fails the checks is not stored (and is logged): the file gets no way around them."""
+    stored = 0
+    for f in tomllib.loads((Path(__file__).parent / "fixes.toml").read_text())["fix"]:
+        lang, text = f["language"], one_script(f["text"], f["language"])
+        why = check(f["he"], text, f.get("kind", "title"), lang)
+        if why:
+            log.warning("fixes.toml: a %s fix fails the check (%s): %s", lang, why, f["he"][:60])
+            continue
+        stored += conn.execute(
+            """INSERT INTO text_translation (source_sha256, language, text, origin, model) VALUES (%s, %s, %s, 'machine', %s)
+               ON CONFLICT (source_sha256, language) DO NOTHING""", (sha256(f["he"]), lang, spell(text.strip(), lang), f.get("model"))).rowcount
+    conn.commit()
+    return stored
 
 
 def drop_missing_terms(conn: psycopg.Connection) -> dict[str, int]:

@@ -1,0 +1,28 @@
+# Machine translations corrected by hand, for texts the translation model keeps getting wrong (a name left in Hebrew,
+# a number the checks cannot see). `hkv translate` stores them before it asks the model, with origin 'machine' and
+# the model named here: they are still unreviewed machine text, not an editor's. `he` is the Hebrew exactly as the
+# Knesset published it (the translation is keyed by its hash); the text must pass the same checks as any other.
+
+[[fix]]
+language = "ar"
+kind = "title"
+model = "claude-fable-5-2"
+why = "the dual «منزلين» alone carries no number the check can see"
+he = '''הצעה לסדר-היום בנושא: "פשע שנאה  שריפת 2 הבתים בכפר דומא ורציחת תינוק בן שנה"'''
+text = '''اقتراح لجدول الأعمال بشأن: "جريمة كراهية - حرق منزلين اثنين في قرية دوما وقتل رضيع عمره سنة واحدة"'''
+
+[[fix]]
+language = "ar"
+kind = "title"
+model = "claude-fable-5-2"
+why = "the model left «תקשורת» in Hebrew inside the company name"
+he = '''הודעת הממשלה להעביר לשר הדיגיטל הלאומי את הסמכות הנתונה לראש הממשלה לאשר את מכירת אחזקות "בזק", החברה הישראלית לתקשורת בע"מ בחברת "וואלה! תקשורת בע"מ" - הצבעה'''
+text = '''إعلان الحكومة نقل الصلاحية الممنوحة لرئيس الحكومة للموافقة على بيع حصص شركة "بيزك"، الشركة الإسرائيلية للاتصالات ذ.م.م، في شركة "والا! للاتصالات ذ.م.م" إلى وزير الرقمنة الوطنية - تصويت'''
+
+[[fix]]
+language = "ar"
+kind = "title"
+model = "claude-fable-5-2"
+why = "the model left the organisation's name in Hebrew"
+he = '''הצעה לסדר-היום בנושא: "חובת הממשלה למנף את ארגון מתנדבי "איחוד הצלה""'''
+text = '''اقتراح لجدول الأعمال بشأن: "واجب الحكومة في تعزيز منظمة متطوعي «إيحود هتسلاه»"'''

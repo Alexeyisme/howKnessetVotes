@@ -325,3 +325,16 @@ def test_search_translated_titles_in_any_word_form(client, url):
     assert ids("признание") == [BILL]
     # as written first: both titles have the stem "закон", only one the word "заслуг"
     assert ids("законопроект") and ids("заслуг законопроект") == [BILL]
+
+
+def test_numbers_as_words_idioms_and_hand_fixes(url):
+    from hkv.translate import apply_fixes
+    assert check("ישלם את החלק ה-12 של הסכום", "shall pay one-twelfth of the amount", "summary", "en") is None
+    assert check("ישלם את החלק ה-12 של הסכום", "shall pay part of the amount", "summary", "en") == "numbers_missing:12"
+    assert check("התנאים שבתוספת הראשונה1 לחוק", "условия первого приложения к Закону", "summary", "ru") is None
+    assert check("ההצעה שונתה בדקה ה-90", "the bill was changed at the last minute", "positions", "en") is None   # an idiom
+    assert check("המשחק הוכרע בדקה 90", "the match was decided late", "positions", "en") == "numbers_missing:90"
+    with psycopg.connect(url) as conn:
+        apply_fixes(conn)
+        assert apply_fixes(conn) == 0   # stored once (an earlier sync in this module may have done it)
+        assert conn.execute("SELECT count(*), min(origin) FROM text_translation WHERE model = 'claude-fable-5-2'").fetchone() == (3, "machine")   # all pass the checks
