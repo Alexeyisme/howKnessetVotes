@@ -147,6 +147,11 @@ def name_tokens(name: str) -> frozenset[str]:
     return frozenset(he_norm(name).replace("-", " ").split())
 
 
+def load_bill_statuses() -> dict[str, dict[str, str]]:
+    """The Knesset's bill statuses in en/ru/ar by their Hebrew label (curated/bill_status.toml)."""
+    return tomllib.loads((CURATED / "bill_status.toml").read_text())["status"]
+
+
 def load_curated() -> tuple[dict[int, dict], dict[int, dict]]:
     mks = tomllib.loads((CURATED / "mk_names.toml").read_text())
     factions = tomllib.loads((CURATED / "factions.toml").read_text())

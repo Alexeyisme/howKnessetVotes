@@ -16,6 +16,7 @@ from hkv.api.common import (LISTED_FACTION, LISTED_PERSON, VOTE_SELECT, BillRef,
 from hkv.api.names import (BallotFactionNames, ExplanationTranslations, FactionNames, PersonNames, ProseText, SummaryTranslations,
                            TitleTranslations, TopicLabels, with_names)
 from hkv.debate import FINAL_VOTE
+from hkv.names import load_bill_statuses
 
 router = APIRouter(prefix="/api/v1")
 BILL_URL = "https://main.knesset.gov.il/APPS/legislation/main/bills/{}"
@@ -187,6 +188,9 @@ class BillSummary(TitleTranslations):
     term: int
     origin: str | None
     status_he: str | None
+    status_en: str | None = None   # ours (names/curated/bill_status.toml); None for a status without a translation
+    status_ru: str | None = None
+    status_ar: str | None = None
     votes: int
     last_vote_on: dt.date | None
     passed_third_reading: bool
@@ -852,6 +856,8 @@ def faction_votes(faction_id: int, conn: Conn, stage: Annotated[list[Stage] | No
 
 # -- bills -------------------------------------------------------------------------------------------
 
+BILL_STATUS: dict[str, dict[str, str]] = load_bill_statuses()   # Hebrew label → {en, ru, ar}
+
 BILL_SELECT = """
     SELECT b.id AS pk, b.knesset_bill_id AS id, b.title_he, b.term_number AS term, b.origin_type AS origin, s.label_he AS status_he,
            b.summary_he, b.published_on,
@@ -869,7 +875,9 @@ def attach_bill_sides(conn, bills: list[BillSummary]) -> None:
 
 
 def bill_summary(r: dict) -> BillSummary:
+    status = BILL_STATUS.get((r["status_he"] or "").strip(), {})
     return BillSummary(id=r["id"], title_he=r["title_he"], term=r["term"], origin=r["origin"], status_he=r["status_he"],
+                       status_en=status.get("en"), status_ru=status.get("ru"), status_ar=status.get("ar"),
                        votes=r["votes"], last_vote_on=r["last_vote_on"], passed_third_reading=r["third"], source_url=BILL_URL.format(r["id"]))
 
 

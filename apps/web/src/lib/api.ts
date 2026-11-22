@@ -209,6 +209,10 @@ export interface BillSummary extends Titled {
   term: number;
   origin: string | null;
   status_he: string | null;
+  /** our translation of the status; null where there is none (the page then shows the Hebrew) */
+  status_en?: string | null;
+  status_ru?: string | null;
+  status_ar?: string | null;
   votes: number;
   last_vote_on: string | null;
   passed_third_reading: boolean;

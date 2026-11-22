@@ -45,6 +45,8 @@ def test_checks():
     assert check("חוק (תיקון מס' 4), 2026", "Law (Amendment), 2026") == "numbers_missing:4"
     assert check("חוק", "חוק Law") == "hebrew_left"
     assert check("חוק", "  ") == "empty"
+    assert check("מחדל ה-07 באוקטובר", "the failure of 7 October") is None
+    assert check("מחדל ה-07 באוקטובר", "the failure of 17 October") == "numbers_missing:07"
     # an enforced glossary term (REQUIRED): "מס יסף" once came out as "Nmexes", and in Russian as VAT
     assert check("הקפאת עדכוני מס ומס יסף", "freeze on tax and Nmexes updates", lang="en") == "term_missing:מס יסף"
     assert check("הקפאת עדכוני מס ומס יסף", "freeze on updates of tax and surtax", lang="en") is None

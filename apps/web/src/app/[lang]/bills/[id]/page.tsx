@@ -1,4 +1,3 @@
-import { billStatus } from "@/i18n/content/billStatus";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Debate, Reservations } from "@/components/BillPositions";
@@ -42,7 +41,7 @@ export default async function BillPage({ params }: PageProps<"/[lang]/bills/[id]
           {bill.published_on && d.published(t.date(bill.published_on))}
         </p>
         <Title as="h1" he={bill.title_he} t={bill} page={`/bills/${bill.id}`} />
-        {bill.status_he && <p style={{ marginTop: 8 }}><span className="badge" title={bill.status_he}>{d.status} {billStatus(t.locale, bill.status_he) ?? <He>{bill.status_he}</He>}</span></p>}
+        {bill.status_he && <p style={{ marginTop: 8 }}><span className="badge" title={bill.status_he}>{d.status} {t.billStatus(bill) ?? <He>{bill.status_he}</He>}</span></p>}
         {bill.topics.length > 0 && (
           <p className="small" style={{ marginTop: 8 }}>
             {d.topics}{" "}

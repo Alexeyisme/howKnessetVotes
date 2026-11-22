@@ -1,4 +1,3 @@
-import { billStatus } from "@/i18n/content/billStatus";
 import type { Metadata } from "next";
 import Link from "@/components/Link";
 import { TermSelect } from "@/components/TermSelect";
@@ -43,7 +42,7 @@ export default async function BillsPage({ searchParams }: PageProps<"/[lang]/bil
             <span className="small muted">
               {t.d.common.term(b.term)} · {t.d.common.votesCount(b.votes)}{b.last_vote_on && ` · ${t.d.common.lastVote(t.date(b.last_vote_on))}`}
               {b.passed_third_reading && ` · ${t.d.common.passedThird}`}
-              {b.status_he && !(b.passed_third_reading && b.status_he === "התקבלה בקריאה שלישית") && <> · {billStatus(t.locale, b.status_he) ?? <He>{b.status_he}</He>}</>}
+              {b.status_he && !(b.passed_third_reading && b.status_he === "התקבלה בקריאה שלישית") && <> · {t.billStatus(b) ?? <He>{b.status_he}</He>}</>}
               {b.sides?.speakers || b.sides?.reservations ? ` · ${t.d.sides.counts(b.sides.speakers, b.sides.reservations)}` : null}
             </span>
           </li>

@@ -272,6 +272,13 @@ def status(db_url: str, log_file: Path) -> int:
             print(f"{y}  {n:5}  {w:12}  {b:7}")
         issues = conn.execute("SELECT issue_type, count(*) FROM data_issue WHERE status = 'open' GROUP BY 1 ORDER BY 2 DESC").fetchall()
         print("open issues:", dict(issues))
+        from hkv.names import load_bill_statuses
+        known = load_bill_statuses()
+        new = [label for (label,) in conn.execute(
+            """SELECT DISTINCT btrim(s.label_he) FROM bill b JOIN bill_status s ON s.knesset_status_id = b.status_id
+               WHERE EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id) ORDER BY 1""") if label not in known]
+        if new:   # shown in Hebrew on the en/ru/ar sites until names/curated/bill_status.toml has them
+            print("bill statuses without a translation:", new)
     if log_file.exists():
         now = dt.datetime.now()
         last: dict[str, dt.datetime] = {}

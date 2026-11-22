@@ -1,4 +1,4 @@
-# Roadmap (updated 2026-10-06)
+# Roadmap (updated 2026-11-22)
 
 ## Where we are
 
@@ -10,7 +10,7 @@
 | Updates | Server timers: daily, every 2 h on plenum days, and a quick check every 10 minutes during sittings. Since the Knesset's geo-block (2026-10-05) they go through a $4 proxy server in Israel ([knesset-proxy.md](knesset-proxy.md)). Nightly DB dump on the server. |
 | Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew) and an Arabic beta (`/ar`); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all four languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
 | API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in four languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
-| Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and official summaries are machine-translated (L6, L7 step 1); the plenum debate and the reservations (L7 steps 2–3) cover the laws whose final vote split the coalition and the opposition (413 debates, 327 reservation sets); descriptions from explanatory notes cover 92 of the 120 such laws without an official summary, other bills only from now on. No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). |
+| Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and official summaries are machine-translated (L6, L7 step 1); the plenum debate and the reservations (L7 steps 2–3) cover the laws whose final vote split the coalition and the opposition (413 debates, 327 reservation sets); descriptions from explanatory notes cover 92 of the 120 such laws without an official summary, other bills only from now on. The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -48,6 +48,41 @@ The site answers the questions a voter asks, in plain words, before it shows tab
 - What the law does, on cards: final-vote cards (home, /votes, topic and party pages), quiz questions and comparison cards show the start of the Knesset's official summary, or where there is none our description of the sponsors' notes, labelled as on the bill page (`about` on bill refs: final votes, every reading in a comparison). Official summaries exist only for laws that passed, so early readings of bills that died often have none.
 - `/compare` shows its disagreements as vote cards in the `/votes` views (main, contested, final, first, preliminary, all); the agreement rate follows the view (`contested` and `min_cast` on both comparison endpoints).
 - Faction splits and renames on `/compare` (2026-10-10): factions carry `continued_as` / `continued_from` from `faction_membership` (members who left on the faction's last day for another faction of the same Knesset, and the reverse), with `renamed` when the same group was re-registered under a new name (the old faction ended, everyone who stayed continued in one new faction that started that day, nobody joined it from another faction). The comparison says which votes it misses and, for a rename, links to the comparison under the other name. Across all Knessets the rule finds 29 renames (e.g. HaMa'arach → Labor 1991, National Responsibility → Kadima 2006, National Unity → Blue and White – National Unity 2025); the historical ones are unverified against other sources (Shinui → the Secular Faction 2006 may be a split).
+
+### Site review (2026-11-22)
+
+A click-through of the live site in all four languages, checked against a copy of the production database. Three phases:
+
+**Phase 1 — fixes (done 2026-11-22).** The Knesset dropdown lists every Knesset with votes (16–26). `/compare` names any
+faction or member a link carries and lists the Knesset of faction A. A member list of one Knesset shows the faction in
+that Knesset (`term_faction`). The party page reads its votes per Knesset (`?term=`) and opens on the previous one while
+a new Knesset has no final votes. Empty vote lists and comparisons say why. Bill statuses are translated
+(`names/curated/bill_status.toml`, `status_en/ru/ar`; `hkv status` lists statuses without a translation); the bills
+list searches translated titles. Translated-title search matches a word by its stem or by a word starting with it as
+typed («призыв» used to find every «признание»), and lists titles with the words as written first. "מס יסף" is an
+enforced glossary term (`REQUIRED` in `hkv.translate`; `hkv translate --redo-terms`). Unknown addresses get the site
+layout. `scripts/deploy.sh` waits for green CI and ends with `scripts/smoke.sh`.
+
+**Phase 2 — one Knesset across the site.**
+
+| # | Item | Size |
+|---|---|---|
+| R1 | A Knesset switcher in the header, kept in the URL and carried through the navigation ("All Knessets" included, with term dates) | M |
+| R2 | MK page per Knesset: participation, votes against the party, votes with the coalition, vote list and sponsored bills for the chosen Knesset, plus "entire career"; government posts from `gov_position` (a minister's low participation needs the context) | M |
+| R3 | `/compare`: choose the Knesset first, then the factions or members | S |
+| R4 | `/votes`: Knesset, date range and text filters with a result count (the API has `date_from`, `date_to`, `q`) | S |
+
+**Phase 3 — features.**
+
+| # | Item | Size |
+|---|---|---|
+| R5 | Vote page: factions and members with no record are listed (the 2023 reasonableness law reads "64 for, 0 against" with no sign that the opposition walked out); seats per faction as the denominator. No record stays separate from abstention | S |
+| R6 | Topic page: a table of parties × the topic's contested laws (for / against / split / no record), each cell a link to the vote | M |
+| R7 | Law names: one fixed translation for the most common laws. 151 law names cover 59% of the voted bills, and each is translated per title today (the Penal Law has 14 English and 21 Russian wordings; one Criminal Procedure title says "civil"). Glossary + enforced check + retranslation, 20 laws first | M |
+| R8 | Search: popular names of well-known laws ("reasonableness", "draft law", "nation-state"), which their official titles do not contain; every result reachable (today "latest 20 of N") | S |
+| R9 | `/match`: questions on which parties of one bloc differed. All 12 are coalition-against-opposition laws that passed, so a result is six parties tied for first place | M |
+| R10 | Translated title first on non-Hebrew pages, the Hebrew original second (today the Hebrew is the large one); share images in the page's language; a page description per vote for link previews | S |
+| R11 | One chosen MK highlighted on every vote page ("no record" explicit); CSV export of filtered lists | M |
 
 ## Track 2 — Hebrew, English, Russian and Arabic
 

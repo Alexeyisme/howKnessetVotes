@@ -1,0 +1,119 @@
+# The Knesset's bill statuses (KNS_Status; 23 values on bills with a plenum vote) in the site's languages. The Hebrew
+# label is the official text and the key; the translations are ours. A status that is not here is shown in Hebrew
+# (`hkv status` lists such statuses). "Continuity" (דין רציפות): carrying a bill over from the previous Knesset at
+# the stage it had reached.
+
+[status."התקבלה בקריאה שלישית"]
+en = "passed third reading"
+ru = "принят в третьем чтении"
+ar = "أُقرّ في القراءة الثالثة"
+
+[status."נעצרה"]
+en = "stopped"
+ru = "остановлен"
+ar = "توقّف"
+
+[status."מוזגה עם הצעת חוק אחרת"]
+en = "merged with another bill"
+ru = "объединён с другим законопроектом"
+ar = "دُمج مع اقتراح قانون آخر"
+
+[status."הוסבה להצעה לסדר היום"]
+en = "converted into a motion for the agenda"
+ru = "преобразован в предложение к повестке дня"
+ar = "حُوّل إلى اقتراح لجدول الأعمال"
+
+[status."הונחה על שולחן הכנסת לדיון מוקדם"]
+en = "tabled for the preliminary reading"
+ru = "внесён в Кнессет к предварительному чтению"
+ar = "وُضع على طاولة الكنيست للقراءة التمهيدية"
+
+[status."במליאה לדיון מוקדם"]
+en = "in the plenum for the preliminary reading"
+ru = "в пленуме, предварительное чтение"
+ar = "في الهيئة العامة للقراءة التمهيدية"
+
+[status."בוועדת הכנסת לקביעת הוועדה המטפלת"]
+en = "in the House Committee, which decides the committee to handle it"
+ru = "в комиссии Кнессета, которая определит профильную комиссию"
+ar = "في لجنة الكنيست لتحديد اللجنة المختصة"
+
+[status."הכנה לקריאה ראשונה"]
+en = "in committee, being prepared for the first reading"
+ru = "готовится в комиссии к первому чтению"
+ar = "قيد الإعداد في اللجنة للقراءة الأولى"
+
+[status."אושרה בוועדה לקריאה ראשונה"]
+en = "approved by the committee for the first reading"
+ru = "одобрен комиссией к первому чтению"
+ar = "أقرّته اللجنة للقراءة الأولى"
+
+[status."הונחה על שולחן הכנסת לקריאה ראשונה"]
+en = "tabled for the first reading"
+ru = "внесён в Кнессет к первому чтению"
+ar = "وُضع على طاولة الكنيست للقراءة الأولى"
+
+[status."לדיון במליאה לקראת הקריאה הראשונה"]
+en = "awaiting the plenum debate before the first reading"
+ru = "ожидает обсуждения в пленуме перед первым чтением"
+ar = "بانتظار نقاش الهيئة العامة قبل القراءة الأولى"
+
+[status."הכנה לקריאה שנייה ושלישית"]
+en = "in committee, being prepared for the second and third readings"
+ru = "готовится в комиссии ко второму и третьему чтениям"
+ar = "قيد الإعداد في اللجنة للقراءتين الثانية والثالثة"
+
+[status."אושרה בוועדה לקריאה שנייה-שלישית"]
+en = "approved by the committee for the second and third readings"
+ru = "одобрен комиссией ко второму и третьему чтениям"
+ar = "أقرّته اللجنة للقراءتين الثانية والثالثة"
+
+[status."הונחה על שולחן הכנסת לקריאה שנייה-שלישית"]
+en = "tabled for the second and third readings"
+ru = "внесён в Кнессет ко второму и третьему чтениям"
+ar = "وُضع على طاولة الكنيست للقراءتين الثانية والثالثة"
+
+[status."לדיון במליאה לקראת קריאה שנייה-שלישית"]
+en = "awaiting the plenum debate before the second and third readings"
+ru = "ожидает обсуждения в пленуме перед вторым и третьим чтениями"
+ar = "بانتظار نقاش الهيئة العامة قبل القراءتين الثانية والثالثة"
+
+[status."הוחזרה לוועדה להכנה לקריאה שלישית"]
+en = "returned to the committee to be prepared for the third reading"
+ru = "возвращён в комиссию для подготовки к третьему чтению"
+ar = "أُعيد إلى اللجنة للإعداد للقراءة الثالثة"
+
+[status."לדיון במליאה לקראת קריאה שלישית"]
+en = "awaiting the plenum debate before the third reading"
+ru = "ожидает обсуждения в пленуме перед третьим чтением"
+ar = "بانتظار نقاش الهيئة العامة قبل القراءة الثالثة"
+
+[status."בדיון בוועדה על החלת דין רציפות"]
+en = "in committee: whether to carry the bill over from the previous Knesset"
+ru = "в комиссии: вопрос о переносе законопроекта из прошлого созыва"
+ar = "في اللجنة: نقاش حول مواصلة تشريع الاقتراح من الدورة السابقة"
+
+[status."לדיון במליאה על החלת דין רציפות"]
+en = "awaiting the plenum debate on carrying the bill over from the previous Knesset"
+ru = "ожидает обсуждения в пленуме о переносе законопроекта из прошлого созыва"
+ar = "بانتظار نقاش الهيئة العامة حول مواصلة تشريع الاقتراح من الدورة السابقة"
+
+[status."הבקשה לדין רציפות נדחתה במליאה"]
+en = "the plenum refused to carry the bill over from the previous Knesset"
+ru = "пленум отказал в переносе законопроекта из прошлого созыва"
+ar = "رفضت الهيئة العامة مواصلة تشريع الاقتراح من الدورة السابقة"
+
+[status."לאישור פיצול במליאה"]
+en = "awaiting the plenum's approval of a split"
+ru = "ожидает одобрения разделения в пленуме"
+ar = "بانتظار مصادقة الهيئة العامة على التقسيم"
+
+[status."לאישור מיזוג בוועדת הכנסת"]
+en = "awaiting the House Committee's approval of a merger"
+ru = "ожидает одобрения объединения в комиссии Кнессета"
+ar = "بانتظار مصادقة لجنة الكنيست على الدمج"
+
+[status."להסרה מסדר היום לבקשת ועדה"]
+en = "to be removed from the agenda at a committee's request"
+ru = "подлежит снятию с повестки дня по просьбе комиссии"
+ar = "للشطب من جدول الأعمال بطلب من لجنة"

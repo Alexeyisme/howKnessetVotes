@@ -84,7 +84,9 @@ export default async function ComparePage({ searchParams }: PageProps<"/[lang]/c
         {(["a", "b"] as const).map((side) => (
           <select key={side} name={side} defaultValue={String((side === "a" ? a : b) ?? "")} aria-label={side.toUpperCase()}>
             <option value="">{side.toUpperCase()}…</option>
-            {options.map((o) => (
+            {/* a list that lasted under a month has a vote or two and the name of the one that followed it (the
+                Religious Zionism joint list of November 2022): offered only when a link names it */}
+            {options.filter((o) => "terms" in o || lasted(o) || o.id === a || o.id === b).map((o) => (
               <option key={o.id} value={o.id}>
                 {"terms" in o ? t.person(o) : factionLabel(o)}
               </option>

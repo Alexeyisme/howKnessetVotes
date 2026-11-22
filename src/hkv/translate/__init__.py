@@ -296,7 +296,9 @@ def check(source: str, target: str, kind: str = "title", lang: str | None = None
         target = _THOUSANDS.sub("", target)
         missing = [d for d in _DIGITS.findall(source) if str(int(d)) not in target]
     else:
-        missing = [d for d in _DIGITS.findall(source) if d not in target and not _is_hebrew_year(source, d)]
+        # "ה-07 באוקטובר" is rightly "7 October": a leading zero may go, the number may not
+        missing = [d for d in _DIGITS.findall(source) if d not in target and str(int(d)) not in _DIGITS.findall(target)
+                   and not _is_hebrew_year(source, d)]
     if missing:
         return f"numbers_missing:{','.join(missing)}"
     if len(target) > 3 * len(source) + 40:

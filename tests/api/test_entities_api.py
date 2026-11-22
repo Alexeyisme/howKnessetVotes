@@ -82,6 +82,17 @@ def test_member_votes_topic_filter_and_coalition_stat(client):
     assert client.get(f"/api/v1/members/{DISSENTER}/votes", params={"topic": "no-such-topic"}).json()["data"] == []
 
 
+def test_bill_statuses_are_translated(client):
+    """Every curated status has all three languages, and the API serves them next to the Hebrew."""
+    from hkv.names import load_bill_statuses
+    statuses = load_bill_statuses()
+    assert "התקבלה בקריאה שלישית" in statuses
+    assert all(set(tr) == {"en", "ru", "ar"} and all(tr.values()) for tr in statuses.values())
+    listed = client.get("/api/v1/bills").json()["data"]
+    assert any(b["status_he"] for b in listed)
+    assert all(b["status_en"] == statuses.get((b["status_he"] or "").strip(), {}).get("en") for b in listed)
+
+
 def test_bills(client):
     listed = client.get("/api/v1/bills").json()["data"]
     assert {b["id"] for b in listed} == {2196976, 2229019}

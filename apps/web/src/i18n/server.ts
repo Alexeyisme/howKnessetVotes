@@ -43,6 +43,9 @@ export function makeT(locale: Locale) {
       const [name, short] = locale === "he" ? [f.name_he, f.short_he] : [f[`name_${locale}`], f[`short_${locale}`]];
       return (full ? name ?? short : short ?? name) ?? f.name_he;
     },
+    /** a bill's status in the UI language, or null where only the official Hebrew exists (and in the Hebrew UI) */
+    billStatus: (b: { status_en?: string | null; status_ru?: string | null; status_ar?: string | null }): string | null =>
+      (locale === "he" ? null : b[`status_${locale}`]) ?? null,
     party: (p: PartyRef) => (locale === "he" ? p.name_he : p[`name_${locale}`] ?? p.name_he),
     topic: (x: { label_ru: string; label_he: string; label_en?: string | null; label_ar?: string | null }) =>
       locale === "ru" ? x.label_ru : locale === "he" ? x.label_he : x[`label_${locale}`] ?? x.label_ru,
