@@ -12,7 +12,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from hkv.api.common import LISTED_FACTION, LISTED_PERSON, Conn, Meta, detect_script, translated_title_match
+from hkv.api.common import LISTED_FACTION, LISTED_PERSON, Conn, Meta, TITLE_WORD_HITS, detect_script, translated_title_match
 from hkv.api.entities import BILL_SELECT, BillSummary, FactionRef, attach_bill_sides, bill_summary
 from hkv.api.names import PersonNames, TopicLabels, with_names
 from hkv.topics import HE_PREFIX, RULES_VERSION, ar_norm, he_norm
@@ -118,14 +118,14 @@ def search(conn: Conn, q: Annotated[str, Query(min_length=2, max_length=200)]):
                WHERE fl.language = %(lang)s AND ({norm}(fl.name) LIKE %(like)s OR {norm}(fl.short_name) LIKE %(like)s OR similarity({norm}(coalesce(fl.short_name, fl.name)), %(q)s) > 0.4)
                  AND {LISTED_FACTION}
                ORDER BY f.term_number DESC, f.knesset_faction_id LIMIT 20""", {"q": ql, "like": f"%{ql}%", "lang": lang})]
-        # bills by their translated titles (text_translation, R4), every word in any form: "налоги" finds "налоговый"
-        # (stemmed prefix, index from migration 0019). A query of stop words only has no terms and finds no bills.
-        found = translated_title_match(q)
+        # bills by their translated titles (text_translation, R4), every word of the query; titles that have the words
+        # as written come first, then the newest. A query of stop words only has no terms and finds no bills.
+        found = translated_title_match(conn, q)
         if found:
             match = f"{found[0]} AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"
             p = found[1]
             bills = [bill_summary(r) for r in conn.execute(
-                f"SELECT * FROM ({BILL_SELECT} WHERE {match}) q ORDER BY last_vote_on DESC NULLS LAST LIMIT {BILL_LIMIT}", p)]
+                f"SELECT * FROM ({BILL_SELECT} WHERE {match}) q ORDER BY {TITLE_WORD_HITS} DESC, last_vote_on DESC NULLS LAST LIMIT {BILL_LIMIT}", p)]
             if len(bills) == BILL_LIMIT:
                 bills_total = conn.execute(f"SELECT count(*) AS n FROM bill b WHERE {match}", p).fetchone()["n"]
         # members by their names in that language and variants (Wikidata alternative labels), typo-tolerant

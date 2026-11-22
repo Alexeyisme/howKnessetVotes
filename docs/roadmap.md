@@ -10,7 +10,7 @@
 | Updates | Server timers: daily, every 2 h on plenum days, and a quick check every 10 minutes during sittings. Since the Knesset's geo-block (2026-10-05) they go through a $4 proxy server in Israel ([knesset-proxy.md](knesset-proxy.md)). Nightly DB dump on the server. |
 | Web | Russian, English and Hebrew sites (`/ru`, `/en`, `/he`, RTL for Hebrew) and an Arabic beta (`/ar`); home page for first-time visitors; MK pages with photo and a one-line summary; filterable roll call. Search in all four languages. Parties across Knessets; coalition/opposition labels; "Contested" votes. |
 | API | `/api/v1`, documented at `/docs`; `?lang=` display fields, names in four languages on every response; `/parties`, `/governments`, coalition blocs per vote, `?contested=`. |
-| Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and official summaries are machine-translated (L6, L7 step 1); the plenum debate and the reservations (L7 steps 2–3) cover the laws whose final vote split the coalition and the opposition (413 debates, 327 reservation sets); descriptions from explanatory notes cover 92 of the 120 such laws without an official summary, other bills only from now on. No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). Deploys don't wait for green CI. |
+| Gaps | The Arabic version is a beta until a native speaker reviews it (L10). Bill titles and official summaries are machine-translated (L6, L7 step 1); the plenum debate and the reservations (L7 steps 2–3) cover the laws whose final vote split the coalition and the opposition (413 debates, 327 reservation sets); descriptions from explanatory notes cover 92 of the 120 such laws without an official summary, other bills only from now on. No "voted with the coalition N of M" on MK pages yet (rest of U11). The 26th Knesset opens on 2026-11-10 and its new factions need curated names (O7). |
 
 The plan has four tracks, followed by a proposed order. Sizes are rough, for one developer with
 Claude: S ≈ under a day, M ≈ 1–3 days, L ≈ a week.
@@ -98,7 +98,7 @@ Message Batch): debates ~20M input tokens (~$20), reservations ~8M (~$8).
 |---|---|---|
 | O1 ✅ | Off-server backups: Hetzner server backups (~€1–2/month) or Storage Box (~€4/month); monthly restore test | S |
 | O2 ✅ | Failure alerts: Telegram bot for the update and backup timers, and for "no update in 36 h" | S |
-| O3 ✅ (tests; deploy gate open) | CI: GitHub Actions runs the tests on push; deploy only from green `main` | S |
+| O3 ✅ | CI: GitHub Actions runs the tests on push; `scripts/deploy.sh` deploys only a commit whose CI run is green and ends with a smoke check (`scripts/smoke.sh`, 2026-11-22) | S |
 | O4 | Uptime check on `/api/v1/status` (external) | S |
 | O5 | Raw source pages (366 MB) archived off-server for provenance | S |
 | O6 ✅ | Privacy-friendly analytics (self-hosted Umami) to learn what people search for: dashboard at stats.knessetvotes.org, setup in [deploy.md](deploy.md#statistics-umami) | S |

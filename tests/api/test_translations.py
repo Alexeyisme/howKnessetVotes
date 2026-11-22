@@ -282,7 +282,9 @@ def test_turnstile_and_per_visitor_limit(client, url, monkeypatch):
 
 
 def test_search_translated_titles_in_any_word_form(client, url):
-    """Russian search stems and matches word prefixes: "налоги" finds a title with "налоговых"; every word must match."""
+    """Russian search stems; where no title has the word, it also matches as the start of a longer one: "налоги" finds a
+    lone title with "налоговых". Every word must match. A short stem must not match unrelated words when a title has
+    the word itself: "призыв" (stem "приз") finds "призыве", not "признании"."""
     with psycopg.connect(url) as conn:
         conn.execute("""INSERT INTO text_translation (source_sha256, language, text) VALUES (%s, 'ru', %s)
                         ON CONFLICT (source_sha256, language) DO UPDATE SET text = excluded.text""",
@@ -296,3 +298,13 @@ def test_search_translated_titles_in_any_word_form(client, url):
     def listed(q):
         return [b["id"] for b in client.get("/api/v1/bills", params={"q": q, "lang": "ru"}).json()["data"]]
     assert listed("налоги") == [BILL] and listed("налоги пенсии") == [] and listed(str(BILL)) == [BILL]
+    other = client.get("/api/v1/bills").json()["data"]
+    other = next(b for b in other if b["id"] != BILL)
+    with psycopg.connect(url) as conn:
+        for he, text in ((TITLE, "Законопроект о признании заслуг, 2024"), (other["title_he"], "Законопроект о призыве на военную службу, 2024")):
+            conn.execute("""INSERT INTO text_translation (source_sha256, language, text) VALUES (%s, 'ru', %s)
+                            ON CONFLICT (source_sha256, language) DO UPDATE SET text = excluded.text""", (sha256(he), text))
+    assert ids("призыв") == [other["id"]] and listed("призыв") == [other["id"]]
+    assert ids("признание") == [BILL]
+    # as written first: both titles have the stem "закон", only one the word "заслуг"
+    assert ids("законопроект") and ids("заслуг законопроект") == [BILL]

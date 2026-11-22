@@ -881,7 +881,7 @@ def list_bills(conn: Conn, q: Annotated[str | None, Query(min_length=2)] = None,
     """Bills that were voted on in the plenum; newest vote first."""
     where, params = ["EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)"], {"limit": limit + 1}
     qraw = (q or "").strip().lstrip("פP/-")   # a bill number, with or without the private-bill prefix
-    if q and not qraw.isdigit() and (translated := translated_title_match(q)):   # Russian, English, Arabic: the translated titles
+    if q and not qraw.isdigit() and (translated := translated_title_match(conn, q)):   # Russian, English, Arabic: the translated titles
         where.append(translated[0])
         params.update(translated[1])
     elif q:

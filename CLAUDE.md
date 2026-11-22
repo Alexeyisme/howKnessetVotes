@@ -88,8 +88,8 @@ CI (`.github/workflows/ci.yml`) runs pytest against Postgres plus web tests, lin
   `deploy`, no passwordless sudo), `hkv-root`, `hkv-il` (server addresses are kept out of the repo, `docs/deploy.md`);
   manual `systemd-run` jobs go over `ssh hkv-root`. Examples in `docs/deploy.md`.
 - **Deploy = `scripts/deploy.sh`** after committing (it rsyncs tracked files only and deletes untracked files in
-  the code dirs). Check CI first: `gh run list --limit 1`. Deploying changes the public site — confirm with the
-  owner unless they asked for it.
+  the code dirs). It refuses unless CI is green for the commit and ends with `scripts/smoke.sh`. Deploying changes
+  the public site — confirm with the owner unless they asked for it.
 - `hkv update` runs from systemd timers (daily + every 2 h on sitting days, plus a 10-minute `--quick` check during
   sittings; in a recess reference data is reloaded once a day); failures of the full update alert to Telegram.
 - Secrets live only in `/srv/hkv/.env` on the server. Never print them, never ask the owner to paste tokens into

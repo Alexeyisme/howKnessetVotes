@@ -318,14 +318,33 @@ FTS_CONFIG = {"ru": "russian", "en": "english", "ar": "arabic"}   # must match t
 SCRIPT_LANG = {"cyrillic": "ru", "latin": "en", "arabic": "ar"}
 
 
-def translated_title_match(q: str) -> tuple[str, dict] | None:
+def translated_title_match(conn: Connection, q: str) -> tuple[str, dict] | None:
     """SQL condition on `bill b` and its parameters: the bill's title translated into the query's language
-    (text_translation, R4) has every word of the query in any form — "налоги" finds "налоговый" (stemmed prefix, index
-    from migration 0019). None for a Hebrew query, a number, or a query of stop words only."""
+    (text_translation, R4) has every word of the query. None for a Hebrew query, a number, or no words at all.
+
+    A title has a word if it has the same stem, or a word that starts with the query's word as typed. Stems alone
+    miss forms the stemmer splits ("призыв" is stemmed to "приз", "призыве" to "призыв"). Only when no voted bill
+    matches that way does a stem also match as the start of a longer one, so "налоги" still finds a lone
+    "налоговый"; doing that always found "признание" for "призыв" and "банкротство" for "банки". The stem-start
+    condition stays in both cases: it is the one the index of migration 0019 answers."""
     lang = SCRIPT_LANG.get(detect_script(q))
-    tsq = " & ".join(f"{w}:*" for w in re.findall(r"[^\W_]+", q))
-    if not lang or not tsq:
+    words = re.findall(r"[^\W_]+", q)
+    if not lang or not words:
         return None
-    return (f"""EXISTS (SELECT 1 FROM text_translation x WHERE x.language = %(lang)s
-                  AND to_tsvector('{FTS_CONFIG[lang]}'::regconfig, x.text) @@ to_tsquery('{FTS_CONFIG[lang]}'::regconfig, %(tsq)s)
-                  AND x.source_sha256 = title_sha(b.title_he))""", {"lang": lang, "tsq": tsq})
+    cfg = f"'{FTS_CONFIG[lang]}'::regconfig"
+    params = {"lang": lang, "tsq": " & ".join(f"{w}:*" for w in words), "words": words} | {f"w{i}": w for i, w in enumerate(words)}
+    loose = f"""x.language = %(lang)s AND to_tsvector({cfg}, x.text) @@ to_tsquery({cfg}, %(tsq)s)
+                AND x.source_sha256 = title_sha(b.title_he)"""
+    strict = loose + "".join(
+        f" AND (to_tsvector({cfg}, x.text) @@ plainto_tsquery({cfg}, %(w{i})s) OR x.text ~* ('\\m' || %(w{i})s))" for i in range(len(words)))
+    found = conn.execute(f"""SELECT EXISTS (SELECT 1 FROM bill b WHERE EXISTS (SELECT 1 FROM text_translation x WHERE {strict})
+                                            AND EXISTS (SELECT 1 FROM vote_subject vs WHERE vs.bill_id = b.id)) AS found""", params).fetchone()
+    found = found["found"] if isinstance(found, dict) else found[0]
+    return f"EXISTS (SELECT 1 FROM text_translation x WHERE {strict if found else loose})", params
+
+
+# How many of the query's words the translated title of row `q` has as written (not only as a stem): the order of
+# search results, so that "reasonableness" lists titles with that word before those with "reasonable".
+TITLE_WORD_HITS = """(SELECT count(*) FROM unnest(%(words)s::text[]) w WHERE EXISTS (
+                         SELECT 1 FROM text_translation x WHERE x.language = %(lang)s AND x.source_sha256 = title_sha(q.title_he)
+                           AND x.text ILIKE '%%' || w || '%%'))"""

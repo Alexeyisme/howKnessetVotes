@@ -71,7 +71,11 @@ The server holds no GitHub credentials and gets only the files that git tracks (
 so **commit before deploying**. Files that are no longer tracked are removed from the server's code directories
 (`apps src db infra scripts tests docs`); `.env`, `backups/` and everything else there is left alone.
 
-A deploy does not wait for CI; check the GitHub Actions run first (`gh run list --limit 1`).
+The script refuses to deploy unless the commit is pushed and its latest CI run is green (it asks `gh`; `HKV_SKIP_CI=1`
+skips the check). It ends with [scripts/smoke.sh](../scripts/smoke.sh): one page of each kind must answer with the
+expected status once the containers are back. If that fails, the new version is already running: read
+`scripts/prod.sh logs web api` on the server, and to go back, `git revert` the commit and deploy again.
+`scripts/smoke.sh` also runs on its own, against the live site or `scripts/smoke.sh http://localhost:3000`.
 
 Without the `hkv` alias (a new machine): `ssh-add ~/.ssh/hkv_hetzner && HKV_HOST=deploy@<hkv-1 address> scripts/deploy.sh`.
 After a change to `infra/Caddyfile`, also `scripts/prod.sh restart caddy`: the file is bind-mounted, and the running
