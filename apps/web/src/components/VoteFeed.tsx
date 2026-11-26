@@ -25,9 +25,12 @@ type Row = { vote: VoteSummary; party?: FactionVote };
  *  (`faction`: the party's list, each card saying how its majority voted; `keep`: query parameters the view links
  *  carry). When the visitor has not picked a view and the default one is empty, `fallback` is shown instead (a topic
  *  with no contested votes shows its final votes). */
-export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback, faction, keep = {} }: {
+export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fallback, faction, keep = {}, lead }: {
   base: string; sp: Record<string, string | string[] | undefined>; filter?: Record<string, string>;
   defaultView?: string; fallback?: string; faction?: { id: number; name: string }; keep?: Record<string, string>;
+  /** a chip before the views that leads to a page of its own (the new Knesset's overview, which is what `base` alone
+   *  shows then): every view link names its view */
+  lead?: { label: string; href: string };
 }) {
   const t = await getT();
   const d = t.d.votes;
@@ -48,7 +51,7 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
     res = await load({ ...view.params, ...filter, limit: "30" });
   }
   const href = (key: string, extra: Record<string, string> = {}) => {
-    const qs = new URLSearchParams({ ...keep, ...(key !== defaultView ? { view: key } : {}), ...extra }).toString();
+    const qs = new URLSearchParams({ ...keep, ...(key !== defaultView || lead ? { view: key } : {}), ...extra }).toString();
     return qs ? `${base}?${qs}` : base;
   };
 
@@ -56,7 +59,8 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
     <>
       {d.lead[view.key] && <p className="muted" style={{ marginBottom: 12 }}>{d.lead[view.key]}</p>}
       {/* "bills, all readings" only repeats the reading chips where it is not the default (topic and party pages) */}
-      <ViewChips current={view.key} href={href} hide={defaultView === "main" ? [] : ["main"]} />
+      <ViewChips current={view.key} href={href} hide={defaultView === "main" ? [] : ["main"]} lead={lead}
+                 primary={lead ? ["main", "all"] : [defaultView, "contested", "all"]} />
       <VoteCards>
         {res.rows.map(({ vote, party }, i) => (
           <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"} brief={repeatsKind(res.rows.map((r) => r.vote), i)}
@@ -77,15 +81,30 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
 }
 
 /** The view chips (main, contested, final, …), each a link built by `href(key)`; `hide` drops some (an old link to a
- *  hidden view still works). */
-export async function ViewChips({ current, href, hide = [] }: { current: string; href: (key: string) => string; hide?: string[] }) {
+ *  hidden view still works). With `primary`, only those views are in the row and the others are under "more filters"
+ *  (open when one of them is the current view): seven chips took a third of a phone's screen, and two thirds of the
+ *  visits never changed the view. `lead` is a chip before the views that leads elsewhere; it is the current one when
+ *  `current` is no view. */
+export async function ViewChips({ current, href, hide = [], primary, lead }:
+  { current: string; href: (key: string) => string; hide?: string[]; primary?: string[]; lead?: { label: string; href: string } }) {
   const d = (await getT()).d.votes;
+  const shown = FILTERS.filter((f) => !hide.includes(f.key));
+  const first = primary ? shown.filter((f) => primary.includes(f.key)) : shown;
+  const rest = primary ? shown.filter((f) => !primary.includes(f.key)) : [];
+  const chip = (f: { key: string }) => (
+    <Link key={f.key} href={href(f.key)} className={styles.chip} scroll={false}
+          aria-current={f.key === current ? "page" : undefined}>{d.filters[f.key]}</Link>
+  );
   return (
     <nav className={styles.filters} aria-label={d.filtersLabel}>
-      {FILTERS.filter((f) => !hide.includes(f.key)).map((f) => (
-        <Link key={f.key} href={href(f.key)} className={styles.chip} scroll={false}
-              aria-current={f.key === current ? "page" : undefined}>{d.filters[f.key]}</Link>
-      ))}
+      {lead && <Link href={lead.href} className={styles.chip} aria-current={FILTERS.some((f) => f.key === current) ? undefined : "page"}>{lead.label}</Link>}
+      {first.map(chip)}
+      {rest.length > 0 && (
+        <details className={styles.more} open={rest.some((f) => f.key === current)}>
+          <summary className={styles.chip}>{d.moreFilters}</summary>
+          <div className={styles.moreChips}>{rest.map(chip)}</div>
+        </details>
+      )}
     </nav>
   );
 }

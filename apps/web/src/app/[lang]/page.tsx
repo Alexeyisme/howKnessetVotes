@@ -79,7 +79,7 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
           <VoteCards short>
             {split.map((v, i) => <VoteCard key={v.id} vote={v} brief={repeatsKind(split, i)} compact />)}
           </VoteCards>
-          <p className="small" style={{ marginTop: 8 }}><Link href="/votes?view=opposed">{t.d.votes.filters.opposed} →</Link></p>
+          <p className="small" style={{ marginTop: 8 }}><Link href="/votes">{t.d.votes.now.all(split[0].term)} →</Link></p>
         </section>
       )}
 

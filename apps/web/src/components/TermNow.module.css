@@ -1,0 +1,47 @@
+/* minmax(0, …): the wide table scrolls inside its box instead of stretching the page on a phone */
+.now { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.h { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+
+/* factions by votes: one small square per vote, the faction names stay in view while the votes scroll */
+.table { width: auto; border-collapse: separate; border-spacing: 0; font-size: 0.875rem; }
+.table th, .table td { padding: 3px; border-bottom: 0; text-align: center; vertical-align: middle; }
+.table thead th { font-weight: 600; color: var(--ink-2); padding-bottom: 6px; }
+.table th:first-child { position: sticky; inset-inline-start: 0; z-index: 1; background: var(--surface); text-align: start; white-space: nowrap;
+  padding-inline-end: 10px; font-weight: 500; }
+.table tbody th a { color: var(--ink); }
+.table tr[data-break] > * { padding-top: 12px; }
+/* position: the screen-reader text inside stays in the cell, and so inside the scrolling box (else it widens the page) */
+.cell { position: relative; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; font-size: 0.8125rem; font-weight: 700; line-height: 1;
+  color: #fff; }
+a.cell:hover { text-decoration: none; outline: 2px solid var(--ink); outline-offset: 1px; }
+.for { background: var(--vote-for); }
+.against { background: var(--vote-against); }
+.abstain { background: var(--vote-abstain); color: var(--ink); }
+.mixed { background: var(--note-bg); color: var(--ink); border: 1px solid var(--border); }
+.none { background: transparent; color: var(--muted); border: 1px dashed var(--muted); }
+.no_record { background: transparent; border: 1px solid var(--hairline); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8125rem; color: var(--ink-2); margin-bottom: 12px; }
+.legend li { display: flex; align-items: center; gap: 6px; }
+.legend .cell { width: 18px; height: 18px; font-size: 0.6875rem; }
+
+/* the votes by day */
+.day + .day { margin-top: 18px; }
+.date { font-size: 0.9375rem; font-weight: 700; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+.entries { list-style: none; }
+.entry { display: grid; grid-template-columns: 4.6em 1fr; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--hairline); scroll-margin-top: 110px; }
+.entry:last-child { border-bottom: 0; }
+.no { color: var(--muted); white-space: nowrap; padding-top: 2px; }
+.body { display: grid; gap: 4px; min-width: 0; }
+.body > a { color: var(--ink); font-weight: 600; }
+.verdict[data-accepted="yes"] { color: var(--ink); }
+.verdict[data-accepted="no"] { color: var(--vote-against); }
+.sub { list-style: none; display: grid; gap: 8px; margin-top: 4px; padding-inline-start: 12px; border-inline-start: 2px solid var(--border); }
+.sub li { display: grid; gap: 2px; scroll-margin-top: 110px; }
+
+@media (max-width: 560px) {
+  .entry { grid-template-columns: 1fr; gap: 2px; }
+  .cell { width: 22px; height: 22px; }
+  /* a long faction name wraps, so six votes fit beside it instead of four */
+  .table th:first-child { white-space: normal; max-width: 7.2em; font-size: 0.8125rem; line-height: 1.2; padding-inline-end: 6px; }
+}

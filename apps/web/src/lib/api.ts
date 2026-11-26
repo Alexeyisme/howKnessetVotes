@@ -341,6 +341,15 @@ export async function currentTerm(): Promise<string> {
   return String((terms.find((x) => x.number > 0 && x.started_on <= today) ?? terms[0])?.number ?? "");
 }
 
+/** A new Knesset whose votes have no coalition yet (its government is still being formed): its number and first day,
+ *  else null. Read from the latest vote that has a roll call: with a government every such vote carries bloc counts. */
+export async function termBeforeGovernment(): Promise<{ term: number; started_on: string } | null> {
+  const latest = (await listVotes({ limit: "10" })).data.find((v) => v.faction_sides);
+  if (!latest || latest.blocs) return null;
+  const term = (await getTerms()).data.find((x) => x.number === latest.term);
+  return term ? { term: term.number, started_on: term.started_on } : null;
+}
+
 /** A term that has started but has no votes yet (by the latest data release): a new Knesset before its first vote.
  *  Its MKs may have records from earlier terms, so counting their records does not tell. */
 export async function termWithoutVotes(term: string): Promise<boolean> {
