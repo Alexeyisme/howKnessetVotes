@@ -3,7 +3,8 @@ import Link from "./Link";
 import { Sides } from "./Sides";
 import { Title } from "./Title";
 import type { VoteSummary } from "@/lib/api";
-import { missingRollCallText, verdict } from "@/lib/labels";
+import { missingRollCallText, partialTurnout, verdict } from "@/lib/labels";
+import { speakerRound } from "@/lib/speaker";
 import { voteKind, type VoteKind } from "@/lib/voteKinds";
 import { voteKindText } from "@/i18n/content/voteKinds";
 import { getT } from "@/i18n/server";
@@ -15,15 +16,19 @@ const PLENUM = 120;
 // same text, and their titles already say what they are (the vote page still explains them)
 const CARD_KINDS: VoteKind[] = ["speaker", "deputies", "arrangements", "arrangementsProposal", "continuity", "government"];
 
-/** One vote as a card: the outcome in words first, the Hebrew title second, then one bar for the whole plenum (so a
- *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), and on final votes the
+/** One vote as a card: the outcome in words first (a Speaker's election held as several votes has no outcome of its own: lib/voteKinds.ts), the Hebrew title second, then one bar for the whole plenum (so a
+ *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), when whole factions cast no vote how many did, and on final votes the
  *  start of the law's official summary and the two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
 export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode }) {
   const t = await getT();
   const rc = vote.roll_call;
   const cast = rc.for + rc.against + rc.abstain;
-  const out = verdict(vote, t);
+  const round = await speakerRound(vote);
+  const out = round ? null : verdict(vote, t);
+  const candidate = round?.find((r) => r.vote.id === vote.id)?.candidate;
+  const splitShown = vote.blocs?.contested || (!vote.blocs && vote.faction_sides?.opposed);
+  const partial = splitShown ? null : partialTurnout(vote);
   const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null, showMotion && vote.motion_type ? t.d.motion[vote.motion_type] : null]
     .filter(Boolean).join(" · ");
   const sides = vote.bills.find((b) => b.sides)?.sides;
@@ -42,12 +47,15 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
     <li className={styles.item}>
       <Link href={`/votes/${vote.id}`} className={styles.link}>
         <span className="small muted">{meta}</span>
-        {out ? (
+        {round ? (
+          <span className={styles.verdict} data-accepted="na">{t.d.vote.round.one(round.length)}</span>
+        ) : out ? (
           <span className={styles.verdict} data-accepted={out.accepted ? "yes" : "no"}>{out.text}</span>
         ) : (
           <span className="small muted">{rc.total_records > 0 ? t.d.rc.line(rc.for, rc.against, rc.abstain) : missingRollCallText(vote.method, t)}</span>
         )}
         <Title he={vote.title_he} t={vote} compact className={styles.title} />
+        {candidate && t.locale !== "he" && <span className="small">{t.d.vote.round.candidate} {t.person(candidate)}</span>}
         {described?.about && <span className={styles.about}><About about={described.about} bill={described.id} max={240} compact /></span>}
         {kindText && (
           <span className={styles.about}>
@@ -74,6 +82,8 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
         {!vote.blocs && vote.faction_sides?.opposed && (
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.factions(vote.faction_sides.for, vote.faction_sides.against)}</span>
         )}
+        {/* "44 for, 0 against" by one side alone is not agreement */}
+        {partial && <span className={`small num ${styles.blocs}`}>{t.d.blocs.voted(partial.voted, partial.total)}</span>}
         {note && <span className={`small ${styles.note}`}>{note}</span>}
         {sides && <Sides sides={sides} />}
         {sideCounts && <span className="small muted num">{sideCounts}</span>}

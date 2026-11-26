@@ -52,6 +52,15 @@ def test_checks():
     assert check("הקפאת עדכוני מס ומס יסף", "freeze on updates of tax and surtax", lang="en") is None
     assert check("הקפאת עדכוני מס ומס יסף", "замораживание налогов и налога на добавленную стоимость", lang="ru") == "term_missing:מס יסף"
     assert check("הקפאת עדכוני מס ומס יסף", "замораживание налога и дополнительного налога", lang="ru") is None
+    # one name for the Attorney General in every title, whatever the Hebrew prefix or gender
+    law = 'הצעת חוק היועץ המשפטי לממשלה (חוות דעת, ייצוג ופיקוח), התשפ"ו–2026'
+    assert check(law, "Законопроект о Генеральном прокуроре (заключение, представительство и надзор), 2026", lang="ru") == "term_missing:יועץ המשפטי לממשלה"
+    assert check(law, "Законопроект о юридическом советнике правительства (заключение, представительство и надзор), 2026", lang="ru") is None
+    assert check(law, "Government Legal Adviser Bill (Opinion, Representation and Oversight), 2026", lang="en") == "term_missing:יועץ המשפטי לממשלה"
+    assert check(law, "Attorney General Bill (Opinion, Representation and Oversight), 2026", lang="en") is None
+    assert check("פנייה ליועץ המשפטי לממשלה", "обращение к юридическому советнику правительства", lang="ru") is None
+    assert check("החלטת היועצת המשפטית לממשלה", "решение государственного советника", lang="ru") == "term_missing:יועצת המשפטית לממשלה"
+    assert check("החלטת היועצת המשפטית לממשלה", "قرار المستشارة القضائية للحكومة", lang="ar") is None
     # summaries: a numeric date keeps its day and year, the month becomes a word
     assert check("החל מיום 03.07.2026", "from 3 July 2026", "summary") is None
     assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None

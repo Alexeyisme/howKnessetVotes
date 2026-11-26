@@ -17,7 +17,7 @@ from fastapi import FastAPI, HTTPException, Query
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, Meta,
+from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, FactionWithoutRecords, Meta,
                             MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, attach_sides, counts, majority,
                             vote_summary)
 from hkv.api.entities import router
@@ -132,6 +132,13 @@ def create_app(database_url: str | None = None) -> FastAPI:
         unresolved = conn.execute(
             "SELECT count(*) AS n FROM ballot b JOIN vote v ON v.id = b.vote_id WHERE v.knesset_vote_id = %s AND b.faction_id IS NULL",
             (vote_id,)).fetchone()["n"]
+        # factions that sat in the Knesset that day and have no record here; a vote without a roll call lists none
+        silent = conn.execute(
+            """SELECT f.knesset_faction_id, f.name_he, count(*) AS members
+               FROM vote v JOIN faction_membership m ON m.valid @> v.occurred_on
+               JOIN faction f ON f.id = m.faction_id AND f.term_number = v.term_number
+               WHERE v.knesset_vote_id = %s AND NOT EXISTS (SELECT 1 FROM ballot b WHERE b.vote_id = v.id AND b.faction_id = f.id)
+               GROUP BY 1, 2 ORDER BY count(*) DESC, 2""", (vote_id,)).fetchall() if detail.roll_call.total_records else []
         # compare with the official totals only the records the legacy source says were counted
         counted = conn.execute(
             """SELECT count(*) FILTER (WHERE b.choice = 'for') AS f, count(*) FILTER (WHERE b.choice = 'against') AS a,
@@ -149,6 +156,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 by_faction=[FactionBreakdown(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(), counts=counts(f),
                                              majority=majority(counts(f)), ambiguous_records=f["ambiguous"],
                                              alignment=f["alignment"]) for f in factions],
+                factions_without_records=[FactionWithoutRecords(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(),
+                                                                members=f["members"]) for f in silent],
                 unresolved_faction_records=unresolved,
             ),
             "meta": Meta(filters={"id": vote_id}, note=COUNTS_NOTE),

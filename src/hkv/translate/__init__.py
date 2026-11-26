@@ -85,6 +85,8 @@ GLOSSARY = {
            ("מבצע שאגת הארי", "Operation Lion's Roar"),
            # as the vote page explains it (apps/web i18n/content/voteKinds.tsx)
            ("הוועדה המסדרת", "Arrangements Committee"),
+           # one name for the office everywhere (the search finds a law by it): 2026-11-26
+           ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה", "Attorney General"),
            # vote 42577 (2026-11-22): the title came out as "tax and Nmexes updates"
            ("מס יסף (the extra income tax on high incomes; not VAT)", "surtax")],
     "ru": [("הצעת חוק", "Законопроект"), ("חוק", "Закон"), ("חוק-יסוד / חוק יסוד", "Основной закон"), ("תיקון מס' N", "поправка № N"),
@@ -99,6 +101,10 @@ GLOSSARY = {
            ("מבצע שאגת הארי", "операция «Рык льва»"), ("בג\"ץ", "БАГАЦ (Высший суд справедливости)"),
            # as the vote page explains it (apps/web i18n/content/voteKinds.tsx); not «Комитет по регламенту»
            ("הוועדה המסדרת", "Организационная комиссия"), ("הכנסת / כנסת", "Кнессет (double с)"),
+           # 2026-11-26: one home page had «советник юстиции правительства», «Генеральный прокурор» and «юридический
+           # советник правительства» for the same office, and «временный комитет» next to «комиссия»
+           ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה (NOT «Генеральный прокурор», NOT «советник юстиции»)", "юридический советник правительства"),
+           ("ועדה / ועדת / הוועדה (a committee of the Knesset or of the state; NOT «комитет»)", "комиссия"),
            ("מס יסף (the extra income tax on high incomes; NOT НДС)", "дополнительный налог")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
@@ -110,6 +116,7 @@ GLOSSARY = {
            ("הסתייגות", "تحفظ"), ("הצעה לסדר היום", "اقتراح لجدول الأعمال"), ("מליאה", "الهيئة العامة"),
            ("ועדת הכנסת", "لجنة الكنيست"), ("ועדת הכספים", "لجنة المالية"), ("ועדת החוקה, חוק ומשפט", "لجنة الدستور والقانون والقضاء"),
            ("הוועדה המסדרת", "اللجنة المنظمة"), ("בג\"ץ", "المحكمة العليا"), ("בתי דין רבניים", "المحاكم الحاخامية"),
+           ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה", "المستشار القضائي للحكومة"),
            ("חרבות ברזל", "السيوف الحديدية"), ("ביטוח לאומי", "التأمين الوطني"), ("מועצה אזורית", "مجلس إقليمي"),
            ("חד\"ש", "الجبهة"), ("בל\"ד", "التجمع"), ("רע\"ם", "الموحدة"), ("תע\"ל", "العربية للتغيير"),
            ("הרשימה המשותפת", "القائمة المشتركة"), ("ש\"ס", "شاس"), ("הליכוד", "الليكود"), ("יש עתיד", "يش عتيد"),
@@ -291,7 +298,16 @@ SPELLING = {"ru": [(re.compile(r"Кнесет"), "Кнессет"), (re.compile(
 
 # Glossary terms the checks enforce: where the Hebrew has the term, the translation must contain one of these (lower
 # case, a stem where the word inflects). For terms a model has got wrong: "מס יסף" came out as "Nmexes" and as VAT.
-REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн",), "ar": ("إضافي",)})]
+# The Attorney General ("the government's legal adviser"): Russian titles had a dozen names for the office («Генеральный
+# прокурор», «государственный советник», «юрисконсульт»…), so a search for one found a fraction of the laws. The term
+# is matched without its first letter (ליועץ, היועץ) and in the feminine.
+_ATTORNEY_GENERAL = {"en": ("attorney general", "attorney-general"),
+                     "ru": ("юридический советник", "юридического советника", "юридическому советнику", "юридическим советник",
+                            "юридическом советнике", "юридические советники", "юридических советник", "юридическая советниц",
+                            "юридической советниц", "юридическую советницу"),
+                     "ar": ("مستشار القضائي", "مستشارة القضائية")}
+REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн",), "ar": ("إضافي",)}),
+            ("יועץ המשפטי לממשלה", _ATTORNEY_GENERAL), ("יועצת המשפטית לממשלה", _ATTORNEY_GENERAL)]
 
 
 # A number the translation rightly writes as a word: decades and ordinals read that way in Arabic ("التسعينيات",

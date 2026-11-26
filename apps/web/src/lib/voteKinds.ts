@@ -40,3 +40,27 @@ export const KIND_SOURCE: Record<VoteKind, string> = {
   agendaSummary: RULES,
   agenda: RULES,
 };
+
+// A Speaker's election is often several votes on one day under one title (2009, 2013, 2020, 2021, 2022, 2026), and
+// each has only votes "for": 52 for, 0 against is not "adopted" when another vote that day got 66. The source does not
+// say which vote elected the Speaker, so such a vote gets no verdict and the page lists the day's votes side by side.
+
+/** The votes of one election: the same Hebrew title on the same day, most votes "for" first. */
+export function sameElection<V extends { id: number; title_he: string; occurred_on: string; roll_call: { for: number } }>(vote: V, sameDay: V[]): V[] {
+  return sameDay.filter((v) => v.title_he === vote.title_he && v.occurred_on === vote.occurred_on)
+    .sort((a, b) => b.roll_call.for - a.roll_call.for || a.id - b.id);
+}
+
+const flat = (s: string) => s.replace(/[-־]/g, " ").replace(/\s+/g, " ").trim();
+
+/** The MK a vote's subject puts forward ("מועמדותו של חבר הכנסת אופיר כץ", "ההצעה לבחור את חבר הכנסת מתן כהנא"), found
+ *  by full Hebrew name. Null unless the subject speaks of a candidacy and names exactly one of `people`: a subject
+ *  may also name the MK who made the proposal. */
+export function candidateIn<P extends { name_he: string }>(subject: string | null | undefined, people: P[]): P | null {
+  if (!subject || !/מועמדות|לבחור את/.test(subject)) return null;
+  const s = flat(subject);
+  const named = people.filter((p) => flat(p.name_he).length > 3 && s.includes(flat(p.name_he)));
+  // "דוד ביטן" inside "דוד ביטן כהן" is one person, the longer name
+  const own = named.filter((p) => !named.some((q) => q !== p && flat(q.name_he) !== flat(p.name_he) && flat(q.name_he).includes(flat(p.name_he))));
+  return new Set(own.map((p) => flat(p.name_he))).size === 1 ? own[0] : null;
+}

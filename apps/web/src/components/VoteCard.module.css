@@ -7,6 +7,8 @@
 .verdict::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 7px; vertical-align: 1px; }
 .verdict[data-accepted="yes"]::before { background: var(--vote-for); }
 .verdict[data-accepted="no"]::before { background: var(--vote-against); }
+/* one vote of an election held as several: no outcome of its own */
+.verdict[data-accepted="na"]::before { background: var(--vote-abstain); }
 
 .title { display: block; color: var(--ink-2); font-size: 0.9375rem; text-align: right; line-height: 1.4; }
 .about { display: grid; gap: 2px; color: var(--ink); font-size: 0.9375rem; line-height: 1.45; }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { voteKind } from '../src/lib/voteKinds.ts';
+import { candidateIn, sameElection, voteKind } from '../src/lib/voteKinds.ts';
 
 const v = (title_he, question_he = 'לאשר את ההצעה', motion_type = 'other') => voteKind({ title_he, question_he, motion_type });
 
@@ -25,4 +25,23 @@ test('anything else gets no explanation rather than a guess', () => {
   assert.equal(v('הודעת הממשלה על פעילותה'), null);         // a government notice that needs no approval under §15 or §31
   assert.equal(v('הצעת ועדת הכנסת לתיקון סעיפים 34א\', 36א\' לתקנון הכנסת', 'לקבל את הצעת ועדת הכנסת', 'procedural'), null);
   assert.equal(v('הצעת חוק הממשלה (תיקון מס\' 3), התשס"ד-2004', 'הצבעה', 'adopt_bill'), null);
+});
+
+test('a Speaker\'s election held as several votes: the day\'s votes together, most votes first', () => {
+  const vote = (id, n, title_he = 'בחירת יושב ראש הכנסת ה-26', occurred_on = '2026-11-17') => ({ id, title_he, occurred_on, roll_call: { for: n } });
+  const katz = vote(46731, 52), kahana = vote(46730, 66);
+  assert.deepEqual(sameElection(katz, [katz, vote(1, 90, 'בחירת יושב ראש הכנסת ה-25'), kahana, vote(2, 9, undefined, '2026-11-18')]).map((v) => v.id), [46730, 46731]);
+  assert.deepEqual(sameElection(katz, [katz]).map((v) => v.id), [46731]);   // the only vote: an ordinary verdict
+});
+
+test('the candidate is the one MK a candidacy subject names', () => {
+  const mks = [{ name_he: 'אופיר כץ' }, { name_he: 'מתן כהנא' }, { name_he: 'איתמר בן גביר' }, { name_he: 'דוד ביטן' }, { name_he: 'דוד ביטן כהן' }];
+  assert.equal(candidateIn('מועמדותו של חבר הכנסת אופיר כץ', mks)?.name_he, 'אופיר כץ');
+  assert.equal(candidateIn('ההצעה לבחור את חבר הכנסת מתן כהנא', mks)?.name_he, 'מתן כהנא');
+  assert.equal(candidateIn('מועמדותו של חבר הכנסת איתמר בן-גביר', mks)?.name_he, 'איתמר בן גביר');   // a hyphen in the source
+  assert.equal(candidateIn('מועמדותו של חבר הכנסת דוד ביטן כהן', mks)?.name_he, 'דוד ביטן כהן');       // the longer name
+  assert.equal(candidateIn('הצעת חבר הכנסת אופיר כץ', mks), null);                                  // who proposed, not who stands
+  assert.equal(candidateIn('הצעת חבר הכנסת אופיר כץ לבחור את חבר הכנסת מתן כהנא', mks), null);         // two names: no guess
+  assert.equal(candidateIn('הצבעה', mks), null);
+  assert.equal(candidateIn(null, mks), null);
 });

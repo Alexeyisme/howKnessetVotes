@@ -102,6 +102,8 @@ class FactionSides(BaseModel):
     for_: int = Field(alias="for")
     against: int
     opposed: bool  # factions on both sides
+    voted: int | None = None   # factions with at least one for/against/abstain record
+    total: int | None = None   # factions of that Knesset with a member on the vote date; voted < total = whole factions did not vote
 
 
 class VoteSummary(TitleTranslations):
@@ -133,11 +135,21 @@ class FactionBreakdown(FactionNames):
     alignment: Literal["coalition", "opposition", "external_support", "unknown"] | None = None  # on the vote date
 
 
+class FactionWithoutRecords(FactionNames):
+    """A faction of the vote's Knesset that had members on the vote date and has no record in this vote: not for,
+    not against, not present. No record is not a choice, so it is listed apart from by_faction."""
+    _faction_key: ClassVar[str] = "faction_id"
+    faction_id: int
+    name_he: str
+    members: int  # its members on the vote date
+
+
 class VoteDetail(VoteSummary):
     official_totals: OfficialTotals | None
     totals_match: bool | None  # official totals vs roll-call records counted by the source
     excluded_from_official_total: int  # records the legacy source marks as not in the official totals
     by_faction: list[FactionBreakdown]
+    factions_without_records: list[FactionWithoutRecords] = []  # empty when the vote has no roll call at all
     unresolved_faction_records: int
 
 
@@ -207,7 +219,7 @@ VOTE_SELECT = f"""
                          WHERE bt.bill_id = b.id AND bt.review_state <> 'rejected' ORDER BY t.sort)) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
            c.*, vb.coalition_for, vb.coalition_against, vb.coalition_abstain, vb.opposition_for, vb.opposition_against,
-           vb.opposition_abstain, vb.contested, vf.factions_for, vf.factions_against, vf.opposed
+           vb.opposition_abstain, vb.contested, vf.factions_for, vf.factions_against, vf.opposed, vf.factions_voted, vf.factions_total
     FROM vote v
     LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
     LEFT JOIN vote_bloc vb ON vb.vote_id = v.id
@@ -236,7 +248,8 @@ def vote_summary(r: dict) -> VoteSummary:
                        title_he=r["title_he"], subject_he=r["subject_he"], question_he=r["for_option_he"],
                        motion_type=r["motion_type"], stage=r["stage"], method=r["method"], status=r["status"],
                        bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), blocs=blocs(r),
-                       faction_sides=None if r.get("opposed") is None else FactionSides(for_=r["factions_for"], against=r["factions_against"], opposed=r["opposed"]),
+                       faction_sides=None if r.get("opposed") is None else FactionSides(for_=r["factions_for"], against=r["factions_against"], opposed=r["opposed"],
+                                                                                             voted=r.get("factions_voted"), total=r.get("factions_total")),
                        source_url=VOTE_CARD.format(r["id"]))
 
 

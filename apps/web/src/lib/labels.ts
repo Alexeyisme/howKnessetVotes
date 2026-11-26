@@ -30,6 +30,18 @@ export function missingRollCallText(method: string, t: T): string {
   return NO_ROLL_CALL.has(method) ? t.d.rc.noList(t.d.method[method] ?? method) : t.d.rc.notLoaded;
 }
 
+// Below this many votes cast the vote page explains that the plenum has no quorum (a common "how can 11 votes pass
+// a law?"), and the card's bar already reads as a low turnout.
+export const FEW_VOTES = 40;
+
+/** Whole factions cast no vote in a vote that otherwise reads as agreement ("44 for, 0 against" with 5 of 11
+ *  factions voting): how many voted of how many there were. Null for a low-turnout vote, where it is the rule. */
+export function partialTurnout(v: Pick<VoteSummary, "roll_call" | "faction_sides">): { voted: number; total: number } | null {
+  const fs = v.faction_sides, rc = v.roll_call;
+  if (fs?.voted == null || fs.total == null || fs.voted >= fs.total) return null;
+  return rc.for + rc.against + rc.abstain >= FEW_VOTES ? { voted: fs.voted, total: fs.total } : null;
+}
+
 type VerdictInput = Pick<VoteSummary, "motion_type" | "stage" | "roll_call"> & { official_totals?: { is_accepted: boolean | null } | null };
 
 /** One-line outcome in plain words. Official result when published (votes up to 2021-07), otherwise derived from the

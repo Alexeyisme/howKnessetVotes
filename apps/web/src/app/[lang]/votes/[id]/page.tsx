@@ -6,14 +6,12 @@ import { Sides } from "@/components/Sides";
 import { Summary, Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
 import { getBallots, getBill, getVote, NotFound, type Ballot, type BillDetail, type Counts, type VoteDetail } from "@/lib/api";
-import { bidiSafe, fold, missingRollCallText, verdict } from "@/lib/labels";
+import { bidiSafe, FEW_VOTES, fold, missingRollCallText, verdict } from "@/lib/labels";
+import { speakerRound } from "@/lib/speaker";
 import { KIND_SOURCE, voteKind } from "@/lib/voteKinds";
 import { voteKindText } from "@/i18n/content/voteKinds";
 import { getT, type T } from "@/i18n/server";
 import styles from "./vote.module.css";
-
-// Below this many votes cast, the page explains that the plenum has no quorum (a common "how can 11 votes pass a law?").
-const FEW_VOTES = 40;
 
 async function load(idParam: string) {
   const id = Number(idParam);
@@ -164,6 +162,11 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
   const rc = vote.roll_call;
   const hasRollCall = rc.total_records > 0;
   const outcome = verdict(vote, t);
+  // a Speaker's election held as several votes: this one has no outcome of its own, the day's votes are shown together
+  const round = await speakerRound(vote);
+  const candidate = round?.find((r) => r.vote.id === vote.id)?.candidate;
+  const silent = vote.factions_without_records ?? [];
+  const subjectsDiffer = !!round && new Set(round.map((r) => r.vote.subject_he ?? "")).size === round.length;
   const stageHint = vote.stage ? t.d.stageHint[vote.stage] : undefined;
   // votes not on a bill: what this kind of vote decides, from the law or the Rules of Procedure it links to
   const kind = vote.bills.length === 0 ? voteKind(vote) : null;
@@ -184,7 +187,34 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
         </div>
         <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
-        {outcome && (
+        {candidate && t.locale !== "he" && (
+          <p style={{ marginTop: 6 }}>{d.round.candidate} <Link href={`/members/${candidate.person_id}`}>{t.person(candidate)}</Link></p>
+        )}
+        {round && (
+          <div className={styles.verdict}>
+            <p><strong>{d.round.one(round.length)}</strong><span className="num">{d.resultLine(rc.for, rc.against, rc.abstain)}</span></p>
+            <PlenumBar c={rc} label={t.d.rc.cast120(cast)} />
+            <p className="small muted">{t.d.rc.cast120(cast)}{outcome ? (outcome.derived ? d.derived : d.official) : ""}</p>
+            <p className="small" style={{ marginTop: 4 }}>{d.round.lead(round.length)}</p>
+            <ul className={styles.round}>
+              {round.map((r) => {
+                // the candidate's name; else the source's subject when it tells the votes apart ("הצבעה" does not)
+                const label = r.candidate ? t.person(r.candidate)
+                  : r.vote.subject_he && subjectsDiffer ? <span className="he" lang="he" dir="rtl">{bidiSafe(r.vote.subject_he)}</span> : d.round.voteNo(r.vote.id);
+                const c = r.vote.roll_call;
+                return (
+                  <li key={r.vote.id}>
+                    {r.vote.id === vote.id ? <strong>{label}</strong> : <Link href={`/votes/${r.vote.id}`}>{label}</Link>}
+                    {" — "}<span className="num">{t.d.rc.line(c.for, c.against, c.abstain)}</span>
+                    {r.vote.id === vote.id && <span className="muted"> ({d.round.current})</span>}
+                  </li>
+                );
+              })}
+            </ul>
+            {rc.present_not_voting > 0 && <p className="small muted">{d.round.present(rc.present_not_voting)}</p>}
+          </div>
+        )}
+        {!round && outcome && (
           <div className={styles.verdict} data-accepted={outcome.accepted ? "yes" : "no"}>
             <p><strong>{outcome.text}</strong><span className="num">{d.resultLine(rc.for, rc.against, rc.abstain)}</span></p>
             {/* the whole plenum as the track: 5 for, 0 against reads as a low-turnout vote, not as a landslide */}
@@ -192,7 +222,7 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
             <p className="small muted">{t.d.rc.cast120(cast)}{outcome.derived ? d.derived : d.official}</p>
           </div>
         )}
-        {outcome && cast > 0 && cast < FEW_VOTES && (
+        {!round && outcome && cast > 0 && cast < FEW_VOTES && (
           <p className="small muted" style={{ marginTop: 8 }}>{d.quorum(cast)} <Link href="/about/glossary#quorum">{t.d.common.glossaryLink}</Link></p>
         )}
       </header>
@@ -243,6 +273,14 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           )}
           <Legend />
           <FactionBreakdown rows={vote.by_faction} ballots={ballots} />
+          {/* factions the table cannot show: they sat in the Knesset that day and have no record in this vote */}
+          {silent.length > 0 && (
+            <p className="note" style={{ marginTop: 10 }}>
+              {t.d.breakdown.noRecords(silent.length)}{" "}
+              {silent.map((f, n) => <span key={f.faction_id}>{n > 0 && ", "}<Link href={`/factions/${f.faction_id}`}>{t.faction(f)}</Link></span>)}.{" "}
+              {t.d.breakdown.noRecordsNote}
+            </p>
+          )}
           {vote.unresolved_faction_records > 0 && (
             <p className="note" style={{ marginTop: 10 }}>{d.unresolved(vote.unresolved_faction_records)}</p>
           )}

@@ -2,6 +2,7 @@ import { ImageResponse } from "next/og";
 import { getVote, NotFound } from "@/lib/api";
 import { Frame, og, OG_SIZE, OG_TYPE, ogFonts, ogT, PlenumBar, Row, T, visual } from "@/lib/og";
 import { verdict } from "@/lib/labels";
+import { speakerRound } from "@/lib/speaker";
 
 export const alt = "How the Knesset voted";
 export const size = OG_SIZE;
@@ -18,7 +19,9 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   }
   const rc = vote.roll_call;
   const cast = rc.for + rc.against + rc.abstain;
-  const out = verdict(vote, t);
+  // one vote of a Speaker's election held as several has no outcome of its own (lib/voteKinds.ts)
+  const round = await speakerRound(vote);
+  const out = round ? { text: t.d.vote.round.one(round.length), accepted: null } : verdict(vote, t);
   const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null].filter(Boolean).join(" · ");
 
   return new ImageResponse(
@@ -27,7 +30,7 @@ export default async function Image({ params }: { params: Promise<{ lang: string
         <div style={{ display: "flex", fontSize: 28, color: og.MUTED }}><T locale={L}>{meta}</T></div>
         {out && (
           <Row locale={L} style={{ alignItems: "center", gap: 18, fontSize: 60, fontWeight: 700, lineHeight: 1.1 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 13, background: out.accepted ? "#2a78d6" : "#e34948", flexShrink: 0 }} />
+            <div style={{ width: 26, height: 26, borderRadius: 13, background: out.accepted == null ? "#b5b3aa" : out.accepted ? "#2a78d6" : "#e34948", flexShrink: 0 }} />
             <span><T locale={L}>{out.text}</T></span>
           </Row>
         )}

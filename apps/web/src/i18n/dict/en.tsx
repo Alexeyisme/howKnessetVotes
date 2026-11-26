@@ -159,6 +159,14 @@ export const en: Dict = {
     question: "What was put to the vote",
     kindSource: "Source:",
     kindLabel: "What this vote decides",
+    round: {
+      one: (n) => `One of ${n} votes in the Speaker's election`,
+      candidate: "Candidate:",
+      lead: (n) => `Votes in the Speaker's election that day: ${n}. One of them alone does not show the outcome; compare:`,
+      voteNo: (id) => `vote no. ${id}`,
+      current: "this vote",
+      present: (n) => `Present but not voting in this vote: ${n}.`,
+    },
     bill: "Bill:",
     aboutBill: "About the law and the debate",
     debateMore: "All arguments and speakers are on the bill page",
@@ -191,6 +199,8 @@ export const en: Dict = {
     ambiguous: (n) => ` · ${n} ambiguous`,
     ambiguousTitle: "Voted on the day of a party switch: membership is ambiguous",
     factionPage: "Party page →",
+    noRecords: (n) => `${n} ${n === 1 ? "faction has" : "factions have"} no record at all in this roll call:`,
+    noRecordsNote: "No record is not “against”, “abstained” or “absent”: the source says nothing about these members.",
   },
   ballots: {
     member: "Member", factionThen: "Party at the time", vote: "Vote", code: "Source code",
@@ -329,6 +339,7 @@ export const en: Dict = {
     note: "A faction is in the coalition when one of its members holds a government post on the vote date (official Knesset data).",
     short: (c, o) => `Coalition ${c.for}:${c.against} · Opposition ${o.for}:${o.against}`,
     factions: (f, a) => `Factions: ${f} for, ${a} against`,
+    voted: (n, total) => `Members of ${n} of ${total} factions voted`,
   },
   sides: {
     for: "Supporters said", against: "Opponents said",

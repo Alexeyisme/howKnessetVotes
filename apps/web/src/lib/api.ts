@@ -27,7 +27,11 @@ export interface BlocCounts { for: number; against: number; abstain: number }
 /** cast votes by coalition / opposition members on the vote date; contested = the two majorities differed */
 export interface Blocs { coalition: BlocCounts; opposition: BlocCounts; contested: boolean }
 /** factions whose majority (of its members who voted) voted for / against; opposed = factions on both sides. Needs no coalition. */
-export interface FactionSides { for: number; against: number; opposed: boolean }
+export interface FactionSides {
+  for: number; against: number; opposed: boolean;
+  /** factions with a cast vote / factions the Knesset had that day: voted < total = whole factions did not vote */
+  voted?: number | null; total?: number | null;
+}
 
 /** R4: machine or editor translation of a Hebrew title; `title` is in the ?lang= language (null when none) */
 export interface Titled { title?: string | null; title_origin?: "machine" | "editor" | null; title_en?: string | null; title_ru?: string | null; title_ar?: string | null }
@@ -72,6 +76,8 @@ export interface VoteDetail extends VoteSummary {
   totals_match: boolean | null;
   excluded_from_official_total: number;
   by_faction: FactionBreakdown[];
+  /** factions that had members on the vote date and have no record in this vote (no record is not a choice) */
+  factions_without_records?: (FactionNames & { faction_id: number; members: number })[];
   unresolved_faction_records: number;
 }
 

@@ -112,6 +112,16 @@ def test_factions_on_opposite_sides_need_no_coalition(db):
             sides = v["faction_sides"]
             assert (sides["for"], sides["against"]) == (majorities.count("for"), majorities.count("against"))
             assert sides["opposed"] == (sides["for"] > 0 and sides["against"] > 0)
+            # 0021: how many factions cast a vote, of the factions the Knesset had that day; those with no record at
+            # all are named on the vote page, apart from the per-faction table
+            detail = c.get(f"/api/v1/votes/{v['id']}").json()["data"]
+            with_cast = [f for f in detail["by_faction"] if f["counts"]["for"] + f["counts"]["against"] + f["counts"]["abstain"]]
+            silent = detail["factions_without_records"]
+            assert sides["voted"] == len(with_cast) <= sides["total"]
+            assert sides["total"] == len(detail["by_faction"]) + len(silent)
+            assert not {f["faction_id"] for f in silent} & {f["faction_id"] for f in detail["by_faction"]}
+            assert all(f["members"] > 0 and f["name_he"] for f in silent)
+        assert any(v["faction_sides"]["voted"] < v["faction_sides"]["total"] for v in cast)   # the fixture has such votes
         opposed = c.get("/api/v1/votes", params={"factions_opposed": "true", "min_cast": 3}).json()
         assert opposed["meta"]["filters"]["factions_opposed"] is True and opposed["data"]
         assert all(v["faction_sides"]["opposed"] for v in opposed["data"])
