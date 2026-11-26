@@ -5,10 +5,11 @@ import type { Titled } from "@/lib/api";
 import { getT } from "@/i18n/server";
 import styles from "./Title.module.css";
 
-/** R4: a law or vote title. The Hebrew original first; under it the translation in the UI language, marked
- *  "AI translation" (with "suggest a correction") until an editor has reviewed it. In the Hebrew UI, or when
- *  there is no translation yet, only the Hebrew line shows. `compact` keeps the marker to a small tag for lists, in
- *  the same words. */
+/** R4: a law or vote title. The translation in the UI language first, marked "AI translation" (with "suggest a
+ *  correction") until an editor has reviewed it; under it, smaller, the Hebrew original, which stays on every page
+ *  as the official text. The order was the other way round until 2026-11-26: a reader of the Russian or English site
+ *  met a line they could not read before the one they could. In the Hebrew UI, or when there is no translation yet,
+ *  only the Hebrew line shows. `compact` keeps the marker to a small tag for lists, in the same words. */
 export async function Title({ he, t: tr, as = "span", compact = false, className = "", page }:
   { he: string; t?: Titled | null; as?: "span" | "h1" | "p"; compact?: boolean; className?: string; page?: string }) {
   const t = await getT();
@@ -19,8 +20,7 @@ export async function Title({ he, t: tr, as = "span", compact = false, className
   const sha = createHash("sha256").update(he, "utf8").digest("hex");
   const suggest = `/suggest?${new URLSearchParams({ sha, lang: t.locale, text, he, ...(page ? { page } : {}) })}`;
   return (
-    <Tag className={`${styles.title} ${className}`}>
-      <He className={styles.he}>{he}</He>
+    <Tag className={`${styles.title} ${compact ? "" : styles.full} ${className}`}>
       <span className={styles.tr} dir="auto">
         {text}
         {machine && (
@@ -29,6 +29,7 @@ export async function Title({ he, t: tr, as = "span", compact = false, className
             : <span className={styles.marker}> · {t.d.common.machine} · <Link href={suggest} prefetch={false} rel="nofollow">{t.d.common.suggest}</Link></span>
         )}
       </span>
+      <He className={styles.he}>{he}</He>
     </Tag>
   );
 }

@@ -3,6 +3,7 @@ import { getVote, NotFound } from "@/lib/api";
 import { Frame, og, OG_SIZE, OG_TYPE, ogFonts, ogT, PlenumBar, Row, T, visual } from "@/lib/og";
 import { verdict } from "@/lib/labels";
 import { speakerRound } from "@/lib/speaker";
+import { DIR } from "@/i18n/config";
 
 export const alt = "How the Knesset voted";
 export const size = OG_SIZE;
@@ -22,7 +23,10 @@ export default async function Image({ params }: { params: Promise<{ lang: string
   // one vote of a Speaker's election held as several has no outcome of its own (lib/voteKinds.ts)
   const round = await speakerRound(vote);
   const out = round ? { text: t.d.vote.round.one(round.length), accepted: null } : verdict(vote, t);
-  const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null].filter(Boolean).join(" · ");
+  const meta = [t.date(vote.occurred_on), vote.stage && vote.stage !== "not_applicable" ? t.d.stage[vote.stage] : null].filter(Boolean).join(" · ");
+  // the title in the page's language where there is a translation, like the page itself; else the Hebrew original
+  const translated = L === "he" ? null : vote[`title_${L}`];
+  const rtl = DIR[L] === "rtl";
 
   return new ImageResponse(
     (
@@ -34,10 +38,17 @@ export default async function Image({ params }: { params: Promise<{ lang: string
             <span><T locale={L}>{out.text}</T></span>
           </Row>
         )}
-        {/* the Hebrew title, in visual order, right-aligned, clipped to two lines' height */}
-        <div style={{ display: "flex", width: "100%", justifyContent: "flex-end", fontSize: 40, lineHeight: 1.25, color: og.INK2, maxHeight: 100, overflow: "hidden" }}>
-          <span style={{ textAlign: "right" }}>{visual(vote.title_he, "rtl")}</span>
-        </div>
+        {/* the title, clipped to two lines' height: translated, on the side the language reads from; or the Hebrew
+            original in visual order, right-aligned */}
+        {translated ? (
+          <div style={{ display: "flex", width: "100%", justifyContent: rtl ? "flex-end" : "flex-start", fontSize: 40, lineHeight: 1.25, color: og.INK2, maxHeight: 100, overflow: "hidden" }}>
+            <span style={{ textAlign: rtl ? "right" : "left" }}><T locale={L}>{translated}</T></span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", width: "100%", justifyContent: "flex-end", fontSize: 40, lineHeight: 1.25, color: og.INK2, maxHeight: 100, overflow: "hidden" }}>
+            <span style={{ textAlign: "right" }}>{visual(vote.title_he, "rtl")}</span>
+          </div>
+        )}
         {cast > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: "auto", width: "100%" }}>
             <PlenumBar c={rc} />

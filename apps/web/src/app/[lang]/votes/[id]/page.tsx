@@ -191,8 +191,9 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           {vote.status !== "valid" && <span className="badge">{d.status(vote.status)}</span>}
         </div>
         <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
-        {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
+        {/* like the title: the UI language first, the Hebrew original under it */}
         {subjectTr && <p className={styles.subjectTr}>{subjectTr}</p>}
+        {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl" data-second={subjectTr ? "" : undefined}>{bidiSafe(vote.subject_he)}</p>}
         {candidate && t.locale !== "he" && (
           <p style={{ marginTop: 6 }}>{d.round.candidate} <Link href={`/members/${candidate.person_id}`}>{t.person(candidate)}</Link></p>
         )}
@@ -235,10 +236,10 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
 
       <section className="card" aria-labelledby="q">
         <h2 id="q" className="section-title">{d.question}</h2>
-        {vote.question_he && (
-          <p className={`${styles.question} he`} lang="he" dir="rtl">«{vote.question_he}»</p>
-        )}
         {questionTr && <p className={styles.questionTr}>{questionTr}</p>}
+        {vote.question_he && (
+          <p className={`${styles.question} he`} lang="he" dir="rtl" data-second={questionTr ? "" : undefined}>«{vote.question_he}»</p>
+        )}
         {hint && <p className="note" style={{ marginTop: 10 }}>{hint}</p>}
         {kind && kindText && (
           <div className="note" style={{ marginTop: 10 }}>
