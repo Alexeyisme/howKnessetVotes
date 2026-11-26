@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { candidateIn, sameElection, voteKind } from '../src/lib/voteKinds.ts';
+import { candidateIn, repeatsKind, sameElection, voteKind } from '../src/lib/voteKinds.ts';
 
 const v = (title_he, question_he = 'לאשר את ההצעה', motion_type = 'other') => voteKind({ title_he, question_he, motion_type });
 
@@ -44,4 +44,11 @@ test('the candidate is the one MK a candidacy subject names', () => {
   assert.equal(candidateIn('הצעת חבר הכנסת אופיר כץ לבחור את חבר הכנסת מתן כהנא', mks), null);         // two names: no guess
   assert.equal(candidateIn('הצבעה', mks), null);
   assert.equal(candidateIn(null, mks), null);
+});
+
+test('a list explains a kind of vote once: the cards that follow of the same kind are brief', () => {
+  const proposal = (what) => ({ title_he: `הצעת הוועדה המסדרת בעניין הקמת הוועדה המיוחדת ${what}`, question_he: 'לאשר את ההצעה', motion_type: 'other', bills: [] });
+  const list = [proposal('לשוויון'), proposal('לנגב'), { title_he: 'בחירת יושב ראש הכנסת ה-26', bills: [] }, proposal('לפשיעה'),
+    { title_he: 'הצעת חוק', bills: [{}] }, { title_he: 'הצעת חוק אחרת', bills: [{}] }];
+  assert.deepEqual(list.map((_, i) => repeatsKind(list, i)), [false, true, false, false, false, false]);
 });

@@ -2,17 +2,24 @@
 
 from __future__ import annotations
 
+import psycopg
 import pytest
 from fastapi.testclient import TestClient
 
 from hkv.api.app import create_app
+from hkv.api.common import mentioned_bills
 from tests.ingest.test_loader import BEN_GVIR, SLICE, ingest
 
 
 @pytest.fixture(scope="module")
-def client(new_database):
+def url(new_database):
     url = new_database()
     ingest(url, SLICE)
+    return url
+
+
+@pytest.fixture(scope="module")
+def client(url):
     with TestClient(create_app(url)) as c:
         yield c
 
@@ -51,3 +58,19 @@ def test_ballots(client):
     rows = client.get("/api/v1/votes/46699/ballots").json()["data"]
     assert len(rows) == 5 and all(r["faction_id"] for r in rows)
     assert client.get("/api/v1/votes/1/ballots").status_code == 404
+
+
+def test_bills_named_in_a_title(client, url):
+    """A vote not on a bill whose title quotes a voted bill's name (a committee set up to discuss it, a decision to
+    split it): the bill is found by its name without "הצעת" and the year. A title that names no bill finds none, and
+    a vote on a bill lists its bills, not mentions."""
+    bill = client.get("/api/v1/bills/2229019").json()["data"]
+    quoted = bill["title_he"].split(", התש")[0].removeprefix("הצעת ")   # the source names a passed bill "חוק …"
+    assert quoted.startswith("חוק") and len(quoted) > 25
+    with psycopg.connect(url, row_factory=psycopg.rows.dict_row) as conn:
+        found = mentioned_bills(conn, f"הצעת הוועדה המסדרת בעניין הקמת הוועדה המיוחדת לדיון בהצעת {quoted} (תיקון – ביטול החוק), התשפ\"ז-2026")
+        assert [b.id for b in found] == [2229019]
+        assert mentioned_bills(conn, "בחירת יושב ראש הכנסת ה-26") == []
+        assert mentioned_bills(conn, quoted[5:25]) == []           # a part of the name is not the name
+    assert client.get("/api/v1/votes/37689").json()["data"]["mentioned_bills"] == []
+    assert client.get("/api/v1/votes/46699").json()["data"]["mentioned_bills"] == []

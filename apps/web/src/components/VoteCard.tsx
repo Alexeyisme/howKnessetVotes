@@ -2,11 +2,12 @@ import { About, lead } from "./About";
 import Link from "./Link";
 import { Sides } from "./Sides";
 import { Title } from "./Title";
-import type { VoteSummary } from "@/lib/api";
-import { missingRollCallText, partialTurnout, verdict } from "@/lib/labels";
+import type { FactionNames, VoteSummary } from "@/lib/api";
+import { bidiSafe, missingRollCallText, partialTurnout, verdict } from "@/lib/labels";
 import { speakerRound } from "@/lib/speaker";
 import { voteKind, type VoteKind } from "@/lib/voteKinds";
 import { voteKindText } from "@/i18n/content/voteKinds";
+import { isNumberedSubject, subjectText } from "@/i18n/content/votePhrases";
 import { getT } from "@/i18n/server";
 import styles from "./VoteCard.module.css";
 
@@ -20,7 +21,8 @@ const CARD_KINDS: VoteKind[] = ["speaker", "deputies", "arrangements", "arrangem
  *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), when whole factions cast no vote how many did, and on final votes the
  *  start of the law's official summary and the two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
-export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode }) {
+export async function VoteCard({ vote, showMotion = false, note, brief = false }:
+  { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode; /** the card above already explained this kind of vote */ brief?: boolean }) {
   const t = await getT();
   const rc = vote.roll_call;
   const cast = rc.for + rc.against + rc.abstain;
@@ -29,13 +31,20 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
   const candidate = round?.find((r) => r.vote.id === vote.id)?.candidate;
   const splitShown = vote.blocs?.contested || (!vote.blocs && vote.faction_sides?.opposed);
   const partial = splitShown ? null : partialTurnout(vote);
-  const meta = [t.date(vote.occurred_on), vote.stage ? t.d.stage[vote.stage] : null, showMotion && vote.motion_type ? t.d.motion[vote.motion_type] : null]
+  // who was on each side, by name; the bare numbers where the server has not rebuilt the lists yet
+  const named = !!vote.faction_sides?.for_factions?.length && !!vote.faction_sides.against_factions?.length;
+  const names = (fs: FactionNames[]) => fs.map((f) => t.faction(f)).join(", ");
+  // "outside the readings" and "other decision" say nothing, so they are left out
+  const meta = [t.date(vote.occurred_on), vote.stage && vote.stage !== "not_applicable" ? t.d.stage[vote.stage] : null,
+    showMotion && vote.motion_type && vote.motion_type !== "other" ? t.d.motion[vote.motion_type] : null]
     .filter(Boolean).join(" · ");
+  // which reservation or section of the bill: all that tells apart the votes on one bill in a list
+  const part = isNumberedSubject(vote.subject_he) ? subjectText(vote.subject_he, t.locale) ?? bidiSafe(vote.subject_he!) : null;
   const sides = vote.bills.find((b) => b.sides)?.sides;
   const described = vote.bills.find((b) => b.about);
   // a vote not on a bill: the start of what this kind of vote decides, as a bill's card shows its description
   const kind = vote.bills.length === 0 ? voteKind(vote) : null;
-  const kindText = kind && CARD_KINDS.includes(kind) ? voteKindText(t.locale, kind) : null;
+  const kindText = kind && !brief && CARD_KINDS.includes(kind) ? voteKindText(t.locale, kind) : null;
   const sideCounts = sides ? t.d.sides.counts(sides.speakers, sides.reservations) : "";
   const segments = [
     { key: "for", n: rc.for, cls: styles.for, label: t.d.breakdown.for },
@@ -56,6 +65,7 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
         )}
         <Title he={vote.title_he} t={vote} compact className={styles.title} />
         {candidate && t.locale !== "he" && <span className="small">{t.d.vote.round.candidate} {t.person(candidate)}</span>}
+        {part && <span className={`small ${styles.part}`} dir="auto">{part}</span>}
         {described?.about && <span className={styles.about}><About about={described.about} bill={described.id} max={240} compact /></span>}
         {kindText && (
           <span className={styles.about}>
@@ -79,9 +89,14 @@ export async function VoteCard({ vote, showMotion = false, note }: { vote: VoteS
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.short(vote.blocs.coalition, vote.blocs.opposition)}</span>
         )}
         {/* no government on the vote date (a new Knesset before its government): how the factions divided instead */}
-        {!vote.blocs && vote.faction_sides?.opposed && (
+        {!vote.blocs && vote.faction_sides?.opposed && (named ? (
+          <>
+            <span className={`small ${styles.blocs}`}>{t.d.rc.for}: <span className={styles.sideNames}>{names(vote.faction_sides.for_factions!)}</span></span>
+            <span className={`small ${styles.blocs}`}>{t.d.rc.against}: <span className={styles.sideNames}>{names(vote.faction_sides.against_factions!)}</span></span>
+          </>
+        ) : (
           <span className={`small num ${styles.blocs}`}>{t.d.blocs.factions(vote.faction_sides.for, vote.faction_sides.against)}</span>
-        )}
+        ))}
         {/* "44 for, 0 against" by one side alone is not agreement */}
         {partial && <span className={`small num ${styles.blocs}`}>{t.d.blocs.voted(partial.voted, partial.total)}</span>}
         {note && <span className={`small ${styles.note}`}>{note}</span>}

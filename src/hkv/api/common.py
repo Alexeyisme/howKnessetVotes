@@ -95,6 +95,11 @@ class Blocs(BaseModel):
     contested: bool  # both blocs had a strict majority, and they differed
 
 
+class SideFaction(FactionNames):
+    id: int
+    name_he: str
+
+
 class FactionSides(BaseModel):
     """How many factions' majorities voted for and against (a strict majority of the faction's members who voted).
     Needs no government, unlike Blocs: it shows which votes were fought over while a new government is formed."""
@@ -104,6 +109,8 @@ class FactionSides(BaseModel):
     opposed: bool  # factions on both sides
     voted: int | None = None   # factions with at least one for/against/abstain record
     total: int | None = None   # factions of that Knesset with a member on the vote date; voted < total = whole factions did not vote
+    for_factions: list[SideFaction] = []       # who they were, the faction with the most votes cast first
+    against_factions: list[SideFaction] = []
 
 
 class VoteSummary(TitleTranslations):
@@ -150,6 +157,7 @@ class VoteDetail(VoteSummary):
     excluded_from_official_total: int  # records the legacy source marks as not in the official totals
     by_faction: list[FactionBreakdown]
     factions_without_records: list[FactionWithoutRecords] = []  # empty when the vote has no roll call at all
+    mentioned_bills: list[BillRef] = []  # a vote not on a bill whose title names a voted bill (mentioned_bills())
     unresolved_faction_records: int
 
 
@@ -210,6 +218,12 @@ COUNT_COLUMNS = """count(*) FILTER (WHERE b.choice = 'for') AS n_for,
                    count(*) FILTER (WHERE b.participation NOT IN ('cast', 'present_not_voting')) AS n_other,
                    count(*) AS n_total"""
 
+def _side(column: str) -> str:
+    """The factions of one side as [{id, name_he}], in the stored order."""
+    return f"""(SELECT json_agg(json_build_object('id', f.knesset_faction_id, 'name_he', btrim(f.name_he)) ORDER BY u.ord)
+                FROM unnest(vf.{column}) WITH ORDINALITY u(kid, ord) JOIN faction f ON f.knesset_faction_id = u.kid) AS {column}"""
+
+
 VOTE_SELECT = f"""
     SELECT v.knesset_vote_id AS id, v.occurred_on, v.occurred_at, v.term_number, v.title_he, v.subject_he,
            coalesce(v.for_option_he, v.legacy_item_he) AS for_option_he,
@@ -219,7 +233,8 @@ VOTE_SELECT = f"""
                          WHERE bt.bill_id = b.id AND bt.review_state <> 'rejected' ORDER BY t.sort)) ORDER BY b.knesset_bill_id)
                      FROM vote_subject s JOIN bill b ON b.id = s.bill_id WHERE s.vote_id = v.id), '[]') AS bills,
            c.*, vb.coalition_for, vb.coalition_against, vb.coalition_abstain, vb.opposition_for, vb.opposition_against,
-           vb.opposition_abstain, vb.contested, vf.factions_for, vf.factions_against, vf.opposed, vf.factions_voted, vf.factions_total
+           vb.opposition_abstain, vb.contested, vf.factions_for, vf.factions_against, vf.opposed, vf.factions_voted, vf.factions_total,
+           {_side('for_factions')}, {_side('against_factions')}
     FROM vote v
     LEFT JOIN vote_option_kind k ON k.knesset_option_id = v.for_option_id
     LEFT JOIN vote_bloc vb ON vb.vote_id = v.id
@@ -249,7 +264,8 @@ def vote_summary(r: dict) -> VoteSummary:
                        motion_type=r["motion_type"], stage=r["stage"], method=r["method"], status=r["status"],
                        bills=[BillRef(**b) for b in r["bills"]], roll_call=counts(r), blocs=blocs(r),
                        faction_sides=None if r.get("opposed") is None else FactionSides(for_=r["factions_for"], against=r["factions_against"], opposed=r["opposed"],
-                                                                                             voted=r.get("factions_voted"), total=r.get("factions_total")),
+                                                                                             voted=r.get("factions_voted"), total=r.get("factions_total"),
+                                                                                             for_factions=r.get("for_factions") or [], against_factions=r.get("against_factions") or []),
                        source_url=VOTE_CARD.format(r["id"]))
 
 
@@ -259,6 +275,29 @@ def blocs(r: dict) -> Blocs | None:
     return Blocs(coalition=BlocCounts(for_=r["coalition_for"], against=r["coalition_against"], abstain=r["coalition_abstain"]),
                  opposition=BlocCounts(for_=r["opposition_for"], against=r["opposition_against"], abstain=r["opposition_abstain"]),
                  contested=r["contested"])
+
+
+# A bill's name as another title would quote it: without the leading "הצעת" and the year ("חוק היועץ המשפטי לממשלה
+# (חוות דעת, ייצוג ופיקוח)"). Shorter names ("חוק הכנסת") are part of too many titles to mean the bill.
+_BILL_NAME = """btrim(regexp_replace(regexp_replace(b.title_he, '^\\s*הצעת\\s+', ''), ',?\\s*ה?תש[א-ת"״]+.*$', ''))"""
+MIN_BILL_NAME = 20
+
+
+def mentioned_bills(conn, title_he: str) -> list[BillRef]:
+    """Voted bills whose name a vote's title contains: a committee set up to discuss a bill, a decision to split one,
+    a vote the source did not link to its bill. Text containment only, so the page says "named in the title", not
+    "the vote's bill". A name inside a longer matched name ("חוק X" in "חוק X (תיקון מס' 5)") is dropped; at most
+    three, the longest name and then the latest vote first."""
+    rows = conn.execute(
+        f"""SELECT x.id, x.title_he, x.name FROM (
+                SELECT b.id AS bill, b.knesset_bill_id AS id, b.title_he, {_BILL_NAME} AS name FROM bill b
+                WHERE EXISTS (SELECT 1 FROM vote_subject s WHERE s.bill_id = b.id)) x
+            WHERE length(x.name) >= %s AND position(x.name in %s) > 0
+            ORDER BY length(x.name) DESC,
+                     (SELECT max(v.occurred_on) FROM vote_subject s JOIN vote v ON v.id = s.vote_id WHERE s.bill_id = x.bill) DESC, x.id DESC
+            LIMIT 12""", (MIN_BILL_NAME, title_he)).fetchall()
+    kept = [r for r in rows if not any(r["name"] != o["name"] and r["name"] in o["name"] for o in rows)]
+    return [BillRef(id=r["id"], title_he=r["title_he"]) for r in kept[:3]]
 
 
 def debate_sides(conn, bill_ids: list[int]) -> dict[int, DebateSides]:

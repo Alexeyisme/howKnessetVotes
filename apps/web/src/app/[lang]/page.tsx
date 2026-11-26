@@ -4,6 +4,7 @@ import { NewTermNotice } from "@/components/NewTermNotice";
 import { SearchBox } from "@/components/SearchBox";
 import { VoteCard, VoteCards } from "@/components/VoteCard";
 import { getStatus, listTopics, listVotes, type VoteSummary } from "@/lib/api";
+import { repeatsKind } from "@/lib/voteKinds";
 import { getT } from "@/i18n/server";
 import styles from "./home.module.css";
 
@@ -67,7 +68,7 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
           <h2 className="section-title">{d.splitTitle(split[0].term)}</h2>
           <p className="small muted" style={{ marginBottom: 8 }}>{d.splitLead}</p>
           <VoteCards>
-            {split.map((v) => <VoteCard key={v.id} vote={v} />)}
+            {split.map((v, i) => <VoteCard key={v.id} vote={v} brief={repeatsKind(split, i)} />)}
           </VoteCards>
           <p className="small" style={{ marginTop: 8 }}><Link href="/votes?view=opposed">{t.d.votes.filters.opposed} →</Link></p>
         </section>

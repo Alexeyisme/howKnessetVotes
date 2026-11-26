@@ -158,6 +158,7 @@ export const en: Dict = {
     quorum: (cast) => `${cast} of 120 members voted. The plenum has no quorum: a decision passes by a simple majority of those voting. A special majority (61 votes) is needed only for no-confidence motions and some provisions of Basic Laws.`,
     question: "What was put to the vote",
     kindSource: "Source:",
+    mentioned: "The title names a bill that was voted on:",
     kindLabel: "What this vote decides",
     round: {
       one: (n) => `One of ${n} votes in the Speaker's election`,
@@ -199,6 +200,10 @@ export const en: Dict = {
     ambiguous: (n) => ` · ${n} ambiguous`,
     ambiguousTitle: "Voted on the day of a party switch: membership is ambiguous",
     factionPage: "Party page →",
+    group: (side, n) => {
+      const f = `${n} ${n === 1 ? "faction" : "factions"}`;
+      return side === "for" ? `Majority for — ${f}` : side === "against" ? `Majority against — ${f}` : `Others — ${f}`;
+    },
     noRecords: (n) => `${n} ${n === 1 ? "faction has" : "factions have"} no record at all in this roll call:`,
     noRecordsNote: "No record is not “against”, “abstained” or “absent”: the source says nothing about these members.",
   },

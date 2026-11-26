@@ -18,7 +18,7 @@ from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
 from hkv.api.common import (COUNT_COLUMNS, COUNTS_NOTE, DEFAULT_DB, VOTE_SELECT, Ballot, BallotList, Conn, FactionBreakdown, FactionWithoutRecords, Meta,
-                            MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, attach_sides, counts, majority,
+                            MotionType, OfficialTotals, Stage, VoteDetail, VoteDetailResponse, VoteList, attach_sides, counts, majority, mentioned_bills,
                             vote_summary)
 from hkv.api.entities import router
 from hkv.api.names import with_names
@@ -159,6 +159,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 factions_without_records=[FactionWithoutRecords(faction_id=f["knesset_faction_id"], name_he=f["name_he"].strip(),
                                                                 members=f["members"]) for f in silent],
                 unresolved_faction_records=unresolved,
+                mentioned_bills=[] if detail.bills else mentioned_bills(conn, detail.title_he),
             ),
             "meta": Meta(filters={"id": vote_id}, note=COUNTS_NOTE),
         }

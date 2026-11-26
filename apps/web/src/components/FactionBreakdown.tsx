@@ -33,9 +33,18 @@ export async function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots
     byFaction.set(b.faction_id, [...(byFaction.get(b.faction_id) ?? []), b]);
   }
 
+  // who stood where at a glance: the factions whose majority was for, then against, then the rest; a group with no
+  // faction is not shown, and neither are the headings when every faction is in one group
+  const groups = (["for", "against", "other"] as const)
+    .map((side) => ({ side, rows: rows.filter((r) => (r.majority === "for" || r.majority === "against" ? r.majority : "other") === side) }))
+    .filter((g) => g.rows.length > 0);
+
   return (
     <div className={styles.list}>
-      {rows.map((r) => {
+      {groups.map((g) => (
+      <section key={g.side} className={styles.group}>
+      {groups.length > 1 && <h3 className={styles.groupTitle} data-side={g.side}>{d.group(g.side, g.rows.length)}</h3>}
+      {g.rows.map((r) => {
         const members = byFaction.get(r.faction_id) ?? [];
         const name = t.faction(r);
         return (
@@ -74,6 +83,8 @@ export async function FactionBreakdown({ rows, ballots }: { rows: Row[]; ballots
           </details>
         );
       })}
+      </section>
+      ))}
     </div>
   );
 }

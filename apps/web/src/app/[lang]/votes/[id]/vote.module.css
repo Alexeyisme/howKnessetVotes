@@ -3,6 +3,9 @@
 .title { font-size: 1.6rem; line-height: 1.35; font-weight: 700; text-align: right; }
 .subject { color: var(--ink-2); margin-top: 6px; text-align: right; }
 .question { font-size: 1.15rem; text-align: right; }
+/* the same in the UI language (i18n/content/votePhrases.ts) */
+.subjectTr { color: var(--ink-2); margin-top: 2px; }
+.questionTr { font-size: 1.05rem; margin-top: 4px; }
 
 .tally { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .tile { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }

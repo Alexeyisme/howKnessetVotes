@@ -172,7 +172,8 @@ def refresh_blocs(conn: psycopg.Connection) -> int:
     """Rebuild vote_bloc: cast votes by coalition and opposition members per vote, and whether the blocs' strict
     majorities differed (a contested vote). Also vote_factions, which needs no coalition: how many factions' majorities
     voted for and how many against (migration 0020), how many factions cast a vote at all and how many factions the
-    Knesset had that day (0021): a vote with no one against is not agreement when whole factions did not vote."""
+    Knesset had that day (0021): a vote with no one against is not agreement when whole factions did not vote; and
+    which factions were on each side (0022), the one with the most votes cast first."""
     conn.execute("DELETE FROM vote_factions")
     conn.execute("""
         WITH total AS (
@@ -181,12 +182,14 @@ def refresh_blocs(conn: psycopg.Connection) -> int:
             JOIN faction_membership m ON m.valid @> d.occurred_on
             JOIN faction f ON f.id = m.faction_id AND f.term_number = d.term_number
             GROUP BY 1, 2)
-        INSERT INTO vote_factions (vote_id, factions_for, factions_against, factions_voted, factions_total)
+        INSERT INTO vote_factions (vote_id, factions_for, factions_against, factions_voted, factions_total, for_factions, against_factions)
         SELECT x.vote_id, count(*) FILTER (WHERE f * 2 > f + a + ab), count(*) FILTER (WHERE a * 2 > f + a + ab), count(*),
-               (SELECT t.n FROM total t WHERE t.occurred_on = v.occurred_on AND t.term_number = v.term_number)
-        FROM (SELECT vote_id, faction_id, count(*) FILTER (WHERE choice = 'for') AS f,
-                     count(*) FILTER (WHERE choice = 'against') AS a, count(*) FILTER (WHERE choice = 'abstain') AS ab
-              FROM ballot WHERE choice IS NOT NULL AND faction_id IS NOT NULL GROUP BY vote_id, faction_id) x
+               (SELECT t.n FROM total t WHERE t.occurred_on = v.occurred_on AND t.term_number = v.term_number),
+               array_agg(x.kid ORDER BY f + a + ab DESC, x.kid) FILTER (WHERE f * 2 > f + a + ab),
+               array_agg(x.kid ORDER BY f + a + ab DESC, x.kid) FILTER (WHERE a * 2 > f + a + ab)
+        FROM (SELECT b.vote_id, fa.knesset_faction_id AS kid, count(*) FILTER (WHERE b.choice = 'for') AS f,
+                     count(*) FILTER (WHERE b.choice = 'against') AS a, count(*) FILTER (WHERE b.choice = 'abstain') AS ab
+              FROM ballot b JOIN faction fa ON fa.id = b.faction_id WHERE b.choice IS NOT NULL GROUP BY b.vote_id, fa.knesset_faction_id) x
         JOIN vote v ON v.id = x.vote_id
         GROUP BY x.vote_id, v.occurred_on, v.term_number""")
     conn.execute("DELETE FROM vote_bloc")

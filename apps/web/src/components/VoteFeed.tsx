@@ -2,6 +2,7 @@ import Link from "./Link";
 import { VoteCard, VoteCards } from "./VoteCard";
 import { getFactionVotes, listVotes, type FactionVote, type VoteSummary } from "@/lib/api";
 import { MAIN_MOTIONS } from "@/lib/labels";
+import { repeatsKind } from "@/lib/voteKinds";
 import { getT } from "@/i18n/server";
 import styles from "./VoteFeed.module.css";
 
@@ -57,8 +58,8 @@ export async function VoteFeed({ base, sp, filter = {}, defaultView = "main", fa
       {/* "bills, all readings" only repeats the reading chips where it is not the default (topic and party pages) */}
       <ViewChips current={view.key} href={href} hide={defaultView === "main" ? [] : ["main"]} />
       <VoteCards>
-        {res.rows.map(({ vote, party }) => (
-          <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"}
+        {res.rows.map(({ vote, party }, i) => (
+          <VoteCard key={vote.id} vote={vote} showMotion={view.key === "all"} brief={repeatsKind(res.rows.map((r) => r.vote), i)}
                     note={party && <><strong>{faction!.name}: {t.d.majority[party.majority]}</strong>{" "}
                       <span className="num muted">({t.d.rc.line(party.faction_counts.for, party.faction_counts.against, party.faction_counts.abstain)})</span></>} />
         ))}

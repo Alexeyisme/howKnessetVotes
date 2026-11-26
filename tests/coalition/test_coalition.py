@@ -118,6 +118,12 @@ def test_factions_on_opposite_sides_need_no_coalition(db):
             with_cast = [f for f in detail["by_faction"] if f["counts"]["for"] + f["counts"]["against"] + f["counts"]["abstain"]]
             silent = detail["factions_without_records"]
             assert sides["voted"] == len(with_cast) <= sides["total"]
+            # 0022: who was on each side, as the per-faction table says, the largest first
+            for side in ("for", "against"):
+                table = sorted((f for f in detail["by_faction"] if f["majority"] == side),
+                               key=lambda f: (-(f["counts"]["for"] + f["counts"]["against"] + f["counts"]["abstain"]), f["faction_id"]))
+                assert [f["id"] for f in sides[f"{side}_factions"]] == [f["faction_id"] for f in table]
+                assert all(f["name_he"] for f in sides[f"{side}_factions"])
             assert sides["total"] == len(detail["by_faction"]) + len(silent)
             assert not {f["faction_id"] for f in silent} & {f["faction_id"] for f in detail["by_faction"]}
             assert all(f["members"] > 0 and f["name_he"] for f in silent)

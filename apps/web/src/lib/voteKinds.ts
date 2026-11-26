@@ -64,3 +64,10 @@ export function candidateIn<P extends { name_he: string }>(subject: string | nul
   const own = named.filter((p) => !named.some((q) => q !== p && flat(q.name_he) !== flat(p.name_he) && flat(q.name_he).includes(flat(p.name_he))));
   return new Set(own.map((p) => flat(p.name_he))).size === 1 ? own[0] : null;
 }
+
+/** In a list: the vote is of the same kind as the one before it, so its card need not explain the kind again (five
+ *  proposals of the Arrangements Committee in a row said the same thing five times). */
+export function repeatsKind(votes: (Vote & { bills: unknown[] })[], i: number): boolean {
+  const kind = (v: Vote & { bills: unknown[] }) => (v.bills.length === 0 ? voteKind(v) : null);
+  return i > 0 && kind(votes[i]) !== null && kind(votes[i]) === kind(votes[i - 1]);
+}

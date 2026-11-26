@@ -10,6 +10,7 @@ import { bidiSafe, FEW_VOTES, fold, missingRollCallText, verdict } from "@/lib/l
 import { speakerRound } from "@/lib/speaker";
 import { KIND_SOURCE, voteKind } from "@/lib/voteKinds";
 import { voteKindText } from "@/i18n/content/voteKinds";
+import { phrase, subjectText } from "@/i18n/content/votePhrases";
 import { getT, type T } from "@/i18n/server";
 import styles from "./vote.module.css";
 
@@ -166,6 +167,8 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
   const round = await speakerRound(vote);
   const candidate = round?.find((r) => r.vote.id === vote.id)?.candidate;
   const silent = vote.factions_without_records ?? [];
+  // the question and a numbered subject in the UI language (a closed list and patterns, i18n/content/votePhrases.ts)
+  const subjectTr = subjectText(vote.subject_he, t.locale), questionTr = phrase(vote.question_he, t.locale);
   const subjectsDiffer = !!round && new Set(round.map((r) => r.vote.subject_he ?? "")).size === round.length;
   const stageHint = vote.stage ? t.d.stageHint[vote.stage] : undefined;
   // votes not on a bill: what this kind of vote decides, from the law or the Rules of Procedure it links to
@@ -180,13 +183,16 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
       <header className={styles.head}>
         <p className="small muted">{d.meta(`${t.date(vote.occurred_on)}${time ? `, ${time}` : ""}`, vote.term, vote.id)}</p>
         <div className={styles.badges}>
-          {vote.stage && <span className="badge">{t.d.stage[vote.stage]}</span>}
-          {vote.motion_type && <span className="badge">{t.d.motion[vote.motion_type]}</span>}
+          {/* "outside the readings" and "other decision" say nothing: the kind of vote does, where it is known */}
+          {vote.stage && vote.stage !== "not_applicable" && <span className="badge">{t.d.stage[vote.stage]}</span>}
+          {vote.motion_type && vote.motion_type !== "other" && <span className="badge">{t.d.motion[vote.motion_type]}</span>}
+          {kindText && <span className="badge">{kindText.title}</span>}
           <span className="badge">{t.d.methodBadge(t.d.method[vote.method] ?? vote.method)}</span>
           {vote.status !== "valid" && <span className="badge">{d.status(vote.status)}</span>}
         </div>
         <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl">{bidiSafe(vote.subject_he)}</p>}
+        {subjectTr && <p className={styles.subjectTr}>{subjectTr}</p>}
         {candidate && t.locale !== "he" && (
           <p style={{ marginTop: 6 }}>{d.round.candidate} <Link href={`/members/${candidate.person_id}`}>{t.person(candidate)}</Link></p>
         )}
@@ -232,6 +238,7 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
         {vote.question_he && (
           <p className={`${styles.question} he`} lang="he" dir="rtl">«{vote.question_he}»</p>
         )}
+        {questionTr && <p className={styles.questionTr}>{questionTr}</p>}
         {hint && <p className="note" style={{ marginTop: 10 }}>{hint}</p>}
         {kind && kindText && (
           <div className="note" style={{ marginTop: 10 }}>
@@ -242,6 +249,15 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           </div>
         )}
         {stageHint && <p className="small muted" style={{ marginTop: 10 }}><strong>{t.d.stage[vote.stage!]}:</strong> {stageHint} <Link href="/about/glossary">{t.d.common.glossaryLink}</Link></p>}
+        {/* a vote not on a bill whose title quotes a voted bill's name: the way to that bill and its votes */}
+        {(vote.mentioned_bills?.length ?? 0) > 0 && (
+          <p className="small" style={{ marginTop: 10 }}>
+            {d.mentioned}{" "}
+            {vote.mentioned_bills!.map((b) => (
+              <Link key={b.id} href={`/bills/${b.id}`}><Title he={b.title_he} t={b} compact /></Link>
+            ))}
+          </p>
+        )}
         {vote.bills.length > 0 && (
           <p className="small" style={{ marginTop: 10 }}>
             {d.bill}{" "}

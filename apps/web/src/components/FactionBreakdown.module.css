@@ -1,5 +1,9 @@
 .list { display: flex; flex-direction: column; }
 
+.group + .group { margin-top: 14px; }
+.groupTitle { font-size: 0.9375rem; font-weight: 700; padding: 4px; border-bottom: 2px solid var(--vote-abstain); }
+.groupTitle[data-side="for"] { border-color: var(--vote-for); }
+.groupTitle[data-side="against"] { border-color: var(--vote-against); }
 .row { border-bottom: 1px solid var(--hairline); }
 .row:last-child { border-bottom: 0; }
 

@@ -31,6 +31,8 @@ export interface FactionSides {
   for: number; against: number; opposed: boolean;
   /** factions with a cast vote / factions the Knesset had that day: voted < total = whole factions did not vote */
   voted?: number | null; total?: number | null;
+  /** who they were, the faction with the most votes cast first (empty until the server has rebuilt them) */
+  for_factions?: (FactionNames & { id: number })[]; against_factions?: (FactionNames & { id: number })[];
 }
 
 /** R4: machine or editor translation of a Hebrew title; `title` is in the ?lang= language (null when none) */
@@ -78,6 +80,8 @@ export interface VoteDetail extends VoteSummary {
   by_faction: FactionBreakdown[];
   /** factions that had members on the vote date and have no record in this vote (no record is not a choice) */
   factions_without_records?: (FactionNames & { faction_id: number; members: number })[];
+  /** a vote not on a bill: voted bills whose name its title contains (text containment, so "named in the title") */
+  mentioned_bills?: (Titled & { id: number; title_he: string })[];
   unresolved_faction_records: number;
 }
 
