@@ -87,6 +87,9 @@ GLOSSARY = {
            ("הוועדה המסדרת", "Arrangements Committee"),
            # one name for the office everywhere (the search finds a law by it): 2026-11-26
            ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה", "Attorney General"),
+           # three offices, three names: four bills on התובע הכללי were "Bill on the Attorney General"
+           ("פרקליט המדינה (NOT Attorney General, NOT State Prosecutor)", "State Attorney"),
+           ("התובע הכללי (a proposed office apart from the Attorney General)", "Prosecutor General"),
            # vote 42577 (2026-11-22): the title came out as "tax and Nmexes updates"
            ("מס יסף (the extra income tax on high incomes; not VAT)", "surtax")],
     "ru": [("הצעת חוק", "Законопроект"), ("חוק", "Закон"), ("חוק-יסוד / חוק יסוד", "Основной закон"), ("תיקון מס' N", "поправка № N"),
@@ -105,6 +108,9 @@ GLOSSARY = {
            # советник правительства» for the same office, and «временный комитет» next to «комиссия»
            ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה (NOT «Генеральный прокурор», NOT «советник юстиции»)", "юридический советник правительства"),
            ("ועדה / ועדת / הוועדה (a committee of the Knesset or of the state; NOT «комитет»)", "комиссия"),
+           # three offices, three names: פרקליט המדינה had come out as «генеральный прокурор», which is התובע הכללי
+           ("פרקליט המדינה (NOT «генеральный прокурор»)", "государственный прокурор"),
+           ("התובע הכללי (a proposed office apart from the юридический советник правительства)", "генеральный прокурор"),
            ("מס יסף (the extra income tax on high incomes; NOT НДС)", "дополнительный налог")],
     "ar": [("הצעת חוק", "اقتراح قانون"), ("חוק", "قانون"), ("חוק-יסוד / חוק יסוד", "قانون أساس"), ("תיקון מס' N", "تعديل رقم N"),
            ("הוראת שעה", "حكم مؤقت"), ("תיקוני חקיקה", "تعديلات تشريعية"), ("פקודת", "مرسوم"),
@@ -117,6 +123,7 @@ GLOSSARY = {
            ("ועדת הכנסת", "لجنة الكنيست"), ("ועדת הכספים", "لجنة المالية"), ("ועדת החוקה, חוק ומשפט", "لجنة الدستور والقانون والقضاء"),
            ("הוועדה המסדרת", "اللجنة المنظمة"), ("בג\"ץ", "المحكمة العليا"), ("בתי דין רבניים", "المحاكم الحاخامية"),
            ("היועץ המשפטי לממשלה / היועצת המשפטית לממשלה", "المستشار القضائي للحكومة"),
+           ("פרקליט המדינה", "المدعي العام للدولة"),
            ("חרבות ברזל", "السيوف الحديدية"), ("ביטוח לאומי", "التأمين الوطني"), ("מועצה אזורית", "مجلس إقليمي"),
            ("חד\"ש", "الجبهة"), ("בל\"ד", "التجمع"), ("רע\"ם", "الموحدة"), ("תע\"ל", "العربية للتغيير"),
            ("הרשימה המשותפת", "القائمة المشتركة"), ("ש\"ס", "شاس"), ("הליכוד", "الليكود"), ("יש עתיד", "يش عتيد"),
@@ -306,8 +313,17 @@ _ATTORNEY_GENERAL = {"en": ("attorney general", "attorney-general"),
                             "юридическом советнике", "юридические советники", "юридических советник", "юридическая советниц",
                             "юридической советниц", "юридическую советницу"),
                      "ar": ("مستشار القضائي", "مستشارة القضائية")}
+# The State Attorney and the proposed Prosecutor General are two more offices, and each had taken the other's or the
+# Attorney General's name ("Bill on the Attorney General" for הצעת חוק התובע הכללי). Arabic is not enforced: its
+# titles were consistent, and the term for התובע הכללי is not settled.
 REQUIRED = [("מס יסף", {"en": ("surtax",), "ru": ("дополнительн",), "ar": ("إضافي",)}),
-            ("יועץ המשפטי לממשלה", _ATTORNEY_GENERAL), ("יועצת המשפטית לממשלה", _ATTORNEY_GENERAL)]
+            ("יועץ המשפטי לממשלה", _ATTORNEY_GENERAL), ("יועצת המשפטית לממשלה", _ATTORNEY_GENERAL),
+            ("פרקליט המדינה", {"en": ("state attorney",),
+                               "ru": ("государственный прокурор", "государственного прокурора", "государственному прокурору",
+                                      "государственным прокурор", "государственном прокуроре")}),
+            ("תובע הכללי", {"en": ("prosecutor general", "prosecutor-general"),
+                            "ru": ("генеральный прокурор", "генерального прокурора", "генеральному прокурору",
+                                   "генеральным прокурор", "генеральном прокуроре")})]
 
 
 # A number the translation rightly writes as a word: decades and ordinals read that way in Arabic ("التسعينيات",

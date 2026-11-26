@@ -61,6 +61,16 @@ def test_checks():
     assert check("פנייה ליועץ המשפטי לממשלה", "обращение к юридическому советнику правительства", lang="ru") is None
     assert check("החלטת היועצת המשפטית לממשלה", "решение государственного советника", lang="ru") == "term_missing:יועצת המשפטית לממשלה"
     assert check("החלטת היועצת המשפטית לממשלה", "قرار المستشارة القضائية للحكومة", lang="ar") is None
+    # the State Attorney and the proposed Prosecutor General are other offices, each with its own name
+    both = "מינוי היועץ המשפטי לממשלה או פרקליט המדינה כשופטים"
+    assert check(both, "назначение юридического советника правительства или генерального прокурора судьями", lang="ru") == "term_missing:פרקליט המדינה"
+    assert check(both, "назначение юридического советника правительства или государственного прокурора судьями", lang="ru") is None
+    assert check(both, "appointment of the Attorney General or the State Prosecutor as judges", lang="en") == "term_missing:פרקליט המדינה"
+    assert check(both, "appointment of the Attorney General or the State Attorney as judges", lang="en") is None
+    assert check("הצעת חוק התובע הכללי", "Bill on the Attorney General", lang="en") == "term_missing:תובע הכללי"
+    assert check("הצעת חוק התובע הכללי", "Prosecutor General Bill", lang="en") is None
+    assert check("הצעת חוק התובע הכללי", "Законопроект о Генеральном прокуроре", lang="ru") is None
+    assert check("הצעת חוק התובע הכללי", "اقتراح قانون المدعي العام", lang="ar") is None   # Arabic is not enforced
     # summaries: a numeric date keeps its day and year, the month becomes a word
     assert check("החל מיום 03.07.2026", "from 3 July 2026", "summary") is None
     assert check("שהחלה ב1.9.2025", "that began on 1 September 2025", "summary") is None
