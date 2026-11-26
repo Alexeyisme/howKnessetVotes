@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "@/components/Link";
 import { BallotTable, type BallotRow } from "@/components/BallotTable";
+import { Clamp } from "@/components/Clamp";
+import { ShareButton } from "@/components/ShareButton";
 import { Sides } from "@/components/Sides";
 import { Summary, Title, titleText } from "@/components/Title";
 import { FactionBreakdown, Legend } from "@/components/FactionBreakdown";
-import { getBallots, getBill, getVote, NotFound, type Ballot, type BillDetail, type Counts, type VoteDetail } from "@/lib/api";
+import { getBallots, getBill, getVote, NotFound, type Ballot, type BillDetail, type Counts, type FactionNames, type VoteDetail } from "@/lib/api";
 import { bidiSafe, FEW_VOTES, fold, missingRollCallText, verdict } from "@/lib/labels";
 import { speakerRound } from "@/lib/speaker";
 import { KIND_SOURCE, voteKind } from "@/lib/voteKinds";
@@ -167,6 +169,11 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
   const round = await speakerRound(vote);
   const candidate = round?.find((r) => r.vote.id === vote.id)?.candidate;
   const silent = vote.factions_without_records ?? [];
+  // on a phone a long title folds to four lines (components/Clamp), so the outcome stays on the first screen
+  const longTitle = titleText(vote.title_he, vote, t.locale).length > 110;
+  const fs = vote.faction_sides;
+  const sidesNamed = !!fs?.opposed && !!fs.for_factions?.length && !!fs.against_factions?.length;
+  const sideNames = (xs: FactionNames[]) => xs.map((f) => t.faction(f)).join(", ");
   // the question and a numbered subject in the UI language (a closed list and patterns, i18n/content/votePhrases.ts)
   const subjectTr = subjectText(vote.subject_he, t.locale), questionTr = phrase(vote.question_he, t.locale);
   const subjectsDiffer = !!round && new Set(round.map((r) => r.vote.subject_he ?? "")).size === round.length;
@@ -190,7 +197,9 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
           <span className="badge">{t.d.methodBadge(t.d.method[vote.method] ?? vote.method)}</span>
           {vote.status !== "valid" && <span className="badge">{d.status(vote.status)}</span>}
         </div>
-        <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />
+        {longTitle
+          ? <Clamp more={d.fullTitle} less={d.lessTitle}><Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} /></Clamp>
+          : <Title as="h1" he={vote.title_he} t={vote} className={styles.title} page={`/votes/${vote.id}`} />}
         {/* like the title: the UI language first, the Hebrew original under it */}
         {subjectTr && <p className={styles.subjectTr}>{subjectTr}</p>}
         {vote.subject_he && <p className={`${styles.subject} he`} lang="he" dir="rtl" data-second={subjectTr ? "" : undefined}>{bidiSafe(vote.subject_he)}</p>}
@@ -227,11 +236,26 @@ export default async function VotePage({ params }: PageProps<"/[lang]/votes/[id]
             {/* the whole plenum as the track: 5 for, 0 against reads as a low-turnout vote, not as a landslide */}
             <PlenumBar c={rc} label={t.d.rc.cast120(cast)} />
             <p className="small muted">{t.d.rc.cast120(cast)}{outcome.derived ? d.derived : d.official}</p>
+            {/* who stood where, with the outcome: the table below has the detail */}
+            {vote.blocs?.contested && <p className={`small num ${styles.who}`}><strong>{t.d.blocs.short(vote.blocs.coalition, vote.blocs.opposition)}</strong></p>}
+            {sidesNamed && (
+              <>
+                <p className={`small ${styles.who}`}><strong>{t.d.rc.for}:</strong> {sideNames(vote.faction_sides!.for_factions!)}</p>
+                <p className={`small ${styles.who}`}><strong>{t.d.rc.against}:</strong> {sideNames(vote.faction_sides!.against_factions!)}</p>
+              </>
+            )}
           </div>
         )}
         {!round && outcome && cast > 0 && cast < FEW_VOTES && (
           <p className="small muted" style={{ marginTop: 8 }}>{d.quorum(cast)} <Link href="/about/glossary#quorum">{t.d.common.glossaryLink}</Link></p>
         )}
+        {/* a visitor who came by a link to this one vote: where to go from here */}
+        <nav className={styles.next} aria-label={d.next.label}>
+          {vote.bills.length === 1 && <Link href={`/bills/${vote.bills[0].id}`}>{d.next.bill}</Link>}
+          <Link href={`/votes?on=${vote.occurred_on}`}>{d.next.day(t.date(vote.occurred_on))}</Link>
+          <Link href="/match">{t.d.nav.match}</Link>
+          <ShareButton label={d.next.share} copied={d.next.copied} title={titleText(vote.title_he, vote, t.locale)} />
+        </nav>
       </header>
 
       <section className="card" aria-labelledby="q">

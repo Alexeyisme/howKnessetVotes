@@ -25,3 +25,10 @@
 .sideNames { font-weight: 400; color: var(--ink); }
 .part { font-weight: 600; }
 .note { color: var(--ink); }
+
+/* a phone: the home page's cards keep the outcome, the title and the tally; the description and the debate are one
+   tap away on the vote page (a full card was a screen each, eleven screens in all) */
+@media (max-width: 560px) {
+  .item[data-compact] .more { display: none !important; }
+  .list[data-short] > li:nth-child(n + 4) { display: none; }
+}

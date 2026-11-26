@@ -79,8 +79,9 @@ export function MatchQuiz({ votes, parties, initial, initialStep, locale, labels
       <p className="small muted" aria-live="polite">{labels.progress[index]} · {current.date}</p>
       <progress className={styles.progress} max={votes.length} value={index} aria-label={labels.progress[index]} />
       <h2 ref={heading} tabIndex={-1} className={styles.question}>{labels.question}</h2>
-      <p className={`he ${styles.title}`} lang="he" dir="rtl">{current.title_he}</p>
-      {current.title && <p className={styles.translation} dir="auto">{current.title}</p>}
+      {/* like every title on the site: the translation leads, the Hebrew original follows (components/Title) */}
+      {current.title && <p className={styles.title} dir="auto">{current.title}</p>}
+      <p className={`he ${current.title ? styles.original : `${styles.title} ${styles.titleHe}`}`} lang="he" dir="rtl">{current.title_he}</p>
       {current.about && <div className={styles.about}>{current.about}</div>}
       {/* both sides' main argument, so the answer can rest on more than the title */}
       {current.sides && (
@@ -156,8 +157,9 @@ export function MatchQuiz({ votes, parties, initial, initialStep, locale, labels
       <h3>{labels.yours}</h3>
       <ol className={styles.answers}>
         {votes.map((v, i) => <li key={v.id}>
-          <a href={`/${locale}/votes/${v.id}`} className="he" lang="he" dir="rtl">{v.title_he}</a>
-          {v.title && <span className={`${styles.answerTr} small`} dir="auto">{v.title}</span>}
+          {v.title
+            ? <><a href={`/${locale}/votes/${v.id}`} dir="auto">{v.title}</a><span className={`he ${styles.answerTr} small`} lang="he" dir="rtl">{v.title_he}</span></>
+            : <a href={`/${locale}/votes/${v.id}`} className="he" lang="he" dir="rtl">{v.title_he}</a>}
           <p className="small muted">{labels.yours}: {mine(i)} · {labels.passed}: {v.outcome} ({v.line})</p>
           <button type="button" onClick={() => { setIndex(i); setEditing(true); }}>{labels.edit} · {labels.progress[i]}</button>
         </li>)}

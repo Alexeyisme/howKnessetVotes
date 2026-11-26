@@ -28,6 +28,12 @@
 .verdict { margin-top: 14px; padding: 10px 14px; border: 1px solid var(--border); border-inline-start: 4px solid var(--ink); border-radius: 8px;
   font-size: 1.05rem; display: grid; gap: 6px; }
 .verdict strong { font-size: 1.15rem; }
+.who strong { font-size: inherit; }
+/* where to go from this vote: a row of links and the share button */
+.next { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.next a, .next button { font: inherit; font-size: 0.875rem; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.next a:hover, .next button:hover { border-color: var(--accent); text-decoration: none; }
 /* the votes of one election side by side (a Speaker's election held as several votes) */
 .round { list-style: none; padding: 0; margin: 0; display: grid; gap: 4px; font-size: 1rem; }
 

@@ -1,0 +1,11 @@
+.toggle { display: none; }
+
+@media (max-width: 560px) {
+  /* the translation (first line of a title) or, alone, the Hebrew title itself */
+  .clamp:not([data-open]) h1 > span:first-child, .clamp:not([data-open]) h1:not(:has(> span)) {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 4; line-clamp: 4; overflow: hidden;
+  }
+  .clamp:not([data-open]) h1 > span + span { display: none; }
+  .toggle { display: inline-block; margin-top: 6px; padding: 0; border: 0; background: none; font: inherit; font-size: 0.875rem;
+    color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+}

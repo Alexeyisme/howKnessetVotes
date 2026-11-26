@@ -12,6 +12,7 @@ export const he: Dict = {
     label: "מדורים", votes: "הצבעות", topics: "נושאים", bills: "הצעות חוק", members: "חברי כנסת", factions: "מפלגות",
     searchLabel: "חיפוש", searchPh: "חיפוש: נושא, חוק, חבר כנסת", language: "שפה",
     match: "מי מצביע כמוני",
+    more: "עוד", matchShort: "שאלון",
     compare: "השוואה",
   },
   footer: {
@@ -136,6 +137,7 @@ export const he: Dict = {
   votes: {
     title: "הצבעות במליאה",
     filtersLabel: "אילו הצבעות להציג",
+    onDay: (date) => `הצבעות ב-${date}`,
     filters: { main: "הצעות חוק (כל הקריאות)", contested: "שנויות במחלוקת", opposed: "הסיעות נחלקו", final: "סופיות (קריאה שלישית)", first: "קריאה ראשונה", preliminary: "טרומית", all: "כל ההצבעות" },
     lead: {
       main: "הצבעות על הצעות חוק בשלמותן בכל הקריאות והצעות אי-אמון. הסתייגויות, סעיפים והחלטות פרוצדורליות — תחת ״כל ההצבעות״.",
@@ -155,6 +157,8 @@ export const he: Dict = {
     question: "מה הועמד להצבעה",
     kindSource: "מקור:",
     mentioned: "בכותרת נזכרת הצעת חוק שהוצבעה:",
+    fullTitle: "להצגת השם המלא", lessTitle: "לצמצום",
+    next: { label: "מה הלאה", bill: "כל ההצבעות על הצעת החוק", day: (date) => `כל ההצבעות ב-${date}`, share: "שיתוף", copied: "הקישור הועתק" },
     kindLabel: "על מה מכריעה ההצבעה",
     round: {
       one: (n) => `אחת מ-${n} הצבעות בבחירת יושב ראש הכנסת`,

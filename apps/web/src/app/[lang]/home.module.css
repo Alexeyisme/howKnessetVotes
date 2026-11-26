@@ -11,4 +11,11 @@
   background: var(--surface); color: var(--ink); }
 .tile:hover { text-decoration: none; border-color: var(--accent); }
 
-@media (max-width: 560px) { .hero h1 { font-size: 1.6rem; } }
+@media (max-width: 560px) {
+  .hero h1 { font-size: 1.6rem; }
+  .home { gap: 24px; }
+  /* a phone: two columns of names, the explanations are on the pages themselves */
+  .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile { padding: 10px 12px; }
+  .tileText { display: none; }
+}

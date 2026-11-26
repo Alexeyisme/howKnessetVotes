@@ -114,9 +114,25 @@ th { font-weight: 600; color: var(--ink-2); font-size: 0.8125rem; }
 .nav a:hover { text-decoration: none; color: var(--ink); }
 .nav a[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
 
+.nav-short, .nav-more { display: none; }
+
 @media (max-width: 720px) {
   .header-search { display: none; }
   .header-search-icon { display: inline-block; }
+  /* a phone: four sections that fit the row, the others under "more" */
+  .nav { overflow: visible; gap: 0; justify-content: space-between; font-size: 0.9rem; padding-inline: 10px; }
+  .nav > a.nav-extra, .nav-long { display: none; }
+  .nav-short { display: inline; }
+  .nav > a { padding-inline: 6px; }
+  .nav-more { display: block; position: relative; }
+  .nav-more summary { list-style: none; cursor: pointer; color: var(--ink-2); padding: 6px 6px 10px; white-space: nowrap; border-bottom: 2px solid transparent; }
+  .nav-more summary::-webkit-details-marker { display: none; }
+  .nav-more summary::after { content: " ▾"; font-size: 0.75em; }
+  .nav-more summary[aria-current="page"] { color: var(--ink); font-weight: 600; border-bottom-color: var(--ink); }
+  .nav-more > div { position: absolute; inset-inline-end: 0; top: 100%; display: grid; min-width: 190px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); z-index: 20; }
+  .nav-more > div a { padding: 9px 10px; border-radius: 6px; border-bottom: 0; color: var(--ink); font-size: 0.9375rem; }
+  .nav-more > div a[aria-current="page"] { font-weight: 600; }
 }
 
 /* glossary and methodology */

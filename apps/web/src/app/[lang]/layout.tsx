@@ -46,13 +46,14 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
   if (!isLocale((await params).lang)) notFound();
   const t = await getT();
   const d = t.d;
-  const navItems: [string, string][] = [["parties", d.nav.factions], ["match", d.nav.match], ["votes", d.nav.votes],
+  // the first four are the phone's menu, the rest go under "more" there; the quiz has a one-word name for that row
+  const navItems: [string, string, string?][] = [["parties", d.nav.factions], ["match", d.nav.match, d.nav.matchShort], ["votes", d.nav.votes],
     ["members", d.nav.members], ["topics", d.nav.topics], ["bills", d.nav.bills], ["compare", d.nav.compare]];
   return (
     <html lang={t.locale} dir={DIR[t.locale]} className={rubik.variable}>
       <body>
         <Suspense fallback={<header className="site-header"><div className="wrap brand">{d.site.name}</div></header>}>
-          <SiteHeader locale={t.locale} brand={d.site.name} language={d.nav.language} navigation={d.nav.label} items={navItems}
+          <SiteHeader locale={t.locale} brand={d.site.name} language={d.nav.language} navigation={d.nav.label} more={d.nav.more} items={navItems}
                       search={{ placeholder: d.nav.searchPh, label: d.nav.searchLabel, members: d.search.members,
                                 parties: d.search.factions, topics: d.search.topics, all: d.common.find }} />
         </Suspense>

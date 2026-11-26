@@ -6,8 +6,12 @@ import { LANG_NAME, LOCALES, localize, type Locale } from "@/i18n/config";
 import { SearchBox, type SearchBoxLabels } from "./SearchBox";
 
 /** Layouts survive client navigation; everything dependent on the URL belongs here. */
-export function SiteHeader({ locale, brand, language, navigation, items, search }:
-  { locale: Locale; brand: string; language: string; navigation: string; items: [string, string][]; search: SearchBoxLabels }) {
+// On a phone the row holds this many sections; the rest are under "more". Seven in a scrolling row showed three and
+// a half with no hint of the others (79% of visitors are on a phone).
+const PRIMARY = 4;
+
+export function SiteHeader({ locale, brand, language, navigation, more, items, search }:
+  { locale: Locale; brand: string; language: string; navigation: string; more: string; items: [string, string, string?][]; search: SearchBoxLabels }) {
   const pathname = usePathname();
   const query = useSearchParams().toString();
   const path = pathname.replace(/^\/(he|en|ru|ar)(?=\/|$)/, "") || "/";
@@ -42,7 +46,19 @@ export function SiteHeader({ locale, brand, language, navigation, items, search 
           </div>
         </div>
         <nav className="nav" aria-label={navigation}>
-          {items.map(([key, label]) => <Link key={key} href={localize(locale, `/${key}`)} aria-current={section === key ? "page" : undefined}>{label}</Link>)}
+          {items.map(([key, label, short], i) => (
+            <Link key={key} href={localize(locale, `/${key}`)} aria-current={section === key ? "page" : undefined} className={i >= PRIMARY ? "nav-extra" : undefined}>
+              {short ? <><span className="nav-long">{label}</span><span className="nav-short">{short}</span></> : label}
+            </Link>
+          ))}
+          <details className="nav-more" key={pathname}>
+            <summary aria-current={items.slice(PRIMARY).some(([key]) => key === section) ? "page" : undefined}>{more}</summary>
+            <div>
+              {items.slice(PRIMARY).map(([key, label]) => (
+                <Link key={key} href={localize(locale, `/${key}`)} aria-current={section === key ? "page" : undefined}>{label}</Link>
+              ))}
+            </div>
+          </details>
         </nav>
       </div>
     </header>

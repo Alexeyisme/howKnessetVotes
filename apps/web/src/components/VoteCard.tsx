@@ -21,8 +21,9 @@ const CARD_KINDS: VoteKind[] = ["speaker", "deputies", "arrangements", "arrangem
  *  5:0 vote is visibly a low-turnout vote), when the blocs differed the coalition/opposition line (with no government yet, how many factions were on each side), when whole factions cast no vote how many did, and on final votes the
  *  start of the law's official summary and the two sides of the plenum debate (L7) with how many spoke and how many reservations were filed. Used wherever
  *  votes are listed for a first-time visitor (home, /votes). */
-export async function VoteCard({ vote, showMotion = false, note, brief = false }:
-  { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode; /** the card above already explained this kind of vote */ brief?: boolean }) {
+export async function VoteCard({ vote, showMotion = false, note, brief = false, compact = false }:
+  { vote: VoteSummary; showMotion?: boolean; note?: React.ReactNode; /** the card above already explained this kind of vote */ brief?: boolean;
+    /** on a phone: the outcome, the title and the tally only (the home page, where a full card was a screen each) */ compact?: boolean }) {
   const t = await getT();
   const rc = vote.roll_call;
   const cast = rc.for + rc.against + rc.abstain;
@@ -53,7 +54,7 @@ export async function VoteCard({ vote, showMotion = false, note, brief = false }
   ];
 
   return (
-    <li className={styles.item}>
+    <li className={styles.item} data-compact={compact ? "" : undefined}>
       <Link href={`/votes/${vote.id}`} className={styles.link}>
         <span className="small muted">{meta}</span>
         {round ? (
@@ -66,9 +67,9 @@ export async function VoteCard({ vote, showMotion = false, note, brief = false }
         <Title he={vote.title_he} t={vote} compact className={styles.title} />
         {candidate && t.locale !== "he" && <span className="small">{t.d.vote.round.candidate} {t.person(candidate)}</span>}
         {part && <span className={`small ${styles.part}`} dir="auto">{part}</span>}
-        {described?.about && <span className={styles.about}><About about={described.about} bill={described.id} max={240} compact /></span>}
+        {described?.about && <span className={`${styles.about} ${styles.more}`}><About about={described.about} bill={described.id} max={240} compact /></span>}
         {kindText && (
-          <span className={styles.about}>
+          <span className={`${styles.about} ${styles.more}`}>
             <span className="small muted">{t.d.vote.kindLabel}</span>
             <span>{lead(kindText.text, t.locale, 240)}</span>
           </span>
@@ -100,13 +101,14 @@ export async function VoteCard({ vote, showMotion = false, note, brief = false }
         {/* "44 for, 0 against" by one side alone is not agreement */}
         {partial && <span className={`small num ${styles.blocs}`}>{t.d.blocs.voted(partial.voted, partial.total)}</span>}
         {note && <span className={`small ${styles.note}`}>{note}</span>}
-        {sides && <Sides sides={sides} />}
-        {sideCounts && <span className="small muted num">{sideCounts}</span>}
+        {sides && <span className={styles.more} style={{ display: "contents" }}><Sides sides={sides} /></span>}
+        {sideCounts && <span className={`small muted num ${styles.more}`}>{sideCounts}</span>}
       </Link>
     </li>
   );
 }
 
-export function VoteCards({ children }: { children: React.ReactNode }) {
-  return <ul className={styles.list}>{children}</ul>;
+/** `short`: on a phone only the first three cards show (the home page; the link under the list leads to the rest). */
+export function VoteCards({ children, short = false }: { children: React.ReactNode; short?: boolean }) {
+  return <ul className={styles.list} data-short={short ? "" : undefined}>{children}</ul>;
 }

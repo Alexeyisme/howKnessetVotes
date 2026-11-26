@@ -63,12 +63,21 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
         <NewTermNotice />
       </section>
 
+      {/* the ways in, before any list: on a phone they used to be ten screens down */}
+      <nav aria-label={d.browse}>
+        <ul className={styles.tiles}>
+          {d.tiles.map((x) => (
+            <li key={x.href}><Link href={x.href} className={styles.tile}><strong>{x.title}</strong><span className={`small muted ${styles.tileText}`}>{x.text}</span></Link></li>
+          ))}
+        </ul>
+      </nav>
+
       {split.length > 0 && (
         <section>
           <h2 className="section-title">{d.splitTitle(split[0].term)}</h2>
           <p className="small muted" style={{ marginBottom: 8 }}>{d.splitLead}</p>
-          <VoteCards>
-            {split.map((v, i) => <VoteCard key={v.id} vote={v} brief={repeatsKind(split, i)} />)}
+          <VoteCards short>
+            {split.map((v, i) => <VoteCard key={v.id} vote={v} brief={repeatsKind(split, i)} compact />)}
           </VoteCards>
           <p className="small" style={{ marginTop: 8 }}><Link href="/votes?view=opposed">{t.d.votes.filters.opposed} →</Link></p>
         </section>
@@ -76,8 +85,8 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
 
       <section>
         <h2 className="section-title">{contested.data.length > 0 ? d.contestedTitle : d.finalTitle}</h2>
-        <VoteCards>
-          {feed.data.map((v) => <VoteCard key={v.id} vote={v} />)}
+        <VoteCards short>
+          {feed.data.map((v) => <VoteCard key={v.id} vote={v} compact />)}
         </VoteCards>
         <p className="small" style={{ marginTop: 8 }}>
           <Link href="/votes?view=contested">{t.d.votes.filters.contested} →</Link> · <Link href="/votes?view=final">{d.finalAll}</Link>
@@ -94,14 +103,6 @@ export default async function Home({ searchParams }: PageProps<"/[lang]">) {
         <p className="small" style={{ marginTop: 8 }}><Link href="/topics">{d.topicsAll}</Link></p>
       </section>
 
-      <section>
-        <h2 className="section-title">{d.browse}</h2>
-        <ul className={styles.tiles}>
-          {d.tiles.map((x) => (
-            <li key={x.href}><Link href={x.href} className={styles.tile}><strong>{x.title}</strong><span className="small muted">{x.text}</span></Link></li>
-          ))}
-        </ul>
-      </section>
     </div>
   );
 }

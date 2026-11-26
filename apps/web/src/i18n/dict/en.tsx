@@ -16,6 +16,7 @@ export const en: Dict = {
     label: "Sections", votes: "Votes", topics: "Topics", bills: "Bills", members: "Members", factions: "Parties",
     searchLabel: "Search", searchPh: "Search: topic, bill, member", language: "Language",
     match: "Who votes like me",
+    more: "More", matchShort: "Quiz",
     compare: "Compare",
   },
   footer: {
@@ -140,6 +141,7 @@ export const en: Dict = {
   votes: {
     title: "Plenum votes",
     filtersLabel: "Which votes to show",
+    onDay: (date) => `Votes on ${date}`,
     filters: { main: "Bills (all readings)", contested: "Contested", opposed: "Factions split", final: "Final (third reading)", first: "First reading", preliminary: "Preliminary", all: "All votes" },
     lead: {
       main: "Votes on bills as a whole at every reading, and no-confidence motions. Reservations, sections and procedural votes are under “All votes”.",
@@ -159,6 +161,8 @@ export const en: Dict = {
     question: "What was put to the vote",
     kindSource: "Source:",
     mentioned: "The title names a bill that was voted on:",
+    fullTitle: "Show the full title", lessTitle: "Collapse",
+    next: { label: "What next", bill: "All votes on this bill", day: (date) => `All votes on ${date}`, share: "Share", copied: "Link copied" },
     kindLabel: "What this vote decides",
     round: {
       one: (n) => `One of ${n} votes in the Speaker's election`,
